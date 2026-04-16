@@ -1043,15 +1043,29 @@ async function cloudLoadAll() {
     let data;
     try { data = JSON.parse(text); } catch(_) { throw new Error('Ответ не JSON'); }
     if (data.error) throw new Error(data.error);
-    // Применяем данные
+    // Применяем данные — МЕРЖИМ, не перезаписываем
+    // Заказы и конструкторы: облако всегда авторитетно
     if (data.orders && Array.isArray(data.orders)) orders = data.orders;
     if (data.designers && Array.isArray(data.designers)) designers = data.designers;
-    if (data.users && Array.isArray(data.users)) { USERS = data.users; saveUsersToStorage(); }
+    // Сотрудники: объединяем — локальные + облачные, при конфликте id побеждает облако
+    if (data.users && Array.isArray(data.users)) {
+      const merged = [...data.users];
+      USERS.forEach(localU => {
+        if (!merged.find(u => u.id === localU.id)) merged.push(localU);
+      });
+      USERS = merged;
+      saveUsersToStorage();
+    }
+    // Настройки мощности: облако
     if (data.cap) { CAP = { ...CAP, ...data.cap }; saveCapToStorage(); }
     if (data.work_weekends) { workingWeekends = new Set(data.work_weekends); saveWorkWeekendsToStorage(); }
     if (data.non_working) { nonWorkingDays = new Set(data.non_working); saveNonWorkingDaysToStorage(); }
     if (data.worker_rates) { workerRates = { ...workerRates, ...data.worker_rates }; saveWorkerRates(); }
-    if (data.permissions) { rolePermissions = data.permissions; savePermissions(); }
+    // Права: мержим — локальные настройки приоритетнее, дополняем из облака
+    if (data.permissions && typeof data.permissions === 'object') {
+      rolePermissions = { ...data.permissions, ...rolePermissions };
+      savePermissions();
+    }
     if (data.last_order_num) localStorage.setItem('crm_last_order_num', String(data.last_order_num));
     // Сохраняем в localStorage как локальный кэш
     localStorage.setItem('crm_orders', JSON.stringify(orders));
@@ -6339,8 +6353,9 @@ function syncDesignerDropdown(o) {
   const sel = document.getElementById('e-designer');
   if (sel) sel.value = o.designer_id || '';
 }
+const DESIGN_ROLES = ['Конструктор', 'Конструктор старший', 'Пусковой'];
 function openAssignWorkerDesign(orderId) {
-  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
+  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management' || DESIGN_ROLES.includes(u.role)).map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
   if (!allW.length) { alert('Нет сотрудников.'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o) return;
@@ -6363,7 +6378,7 @@ function openAssignWorkerDesign(orderId) {
   });
 }
 function takeLaunchTask(orderId) {
-  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
+  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management' || DESIGN_ROLES.includes(u.role)).map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
   if (!allW.length) { alert('Нет сотрудников. Добавьте в разделе «Сотрудники».'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o) return;
@@ -6400,7 +6415,7 @@ function completeLaunchTask(orderId) {
   renderProduction();
 }
 function openAssignWorkerLaunch(orderId) {
-  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
+  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management' || DESIGN_ROLES.includes(u.role)).map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
   if (!allW.length) { alert('Нет сотрудников.'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o) return;
