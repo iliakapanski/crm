@@ -992,16 +992,41 @@ function debouncedCloudSave() {
   _cloudSaveTimer = setTimeout(() => { cloudSaveAll(); }, 3000);
 }
 
-// --- Облачное сохранение всех данных ---
+// --- Слияние массивов заказов: сохраняем заказы из обоих источников по id ---
+function mergeOrderArrays(primary, secondary) {
+  const result = [...primary];
+  (secondary || []).forEach(o => {
+    if (!result.find(x => x.id === o.id)) result.push(o);
+  });
+  return result;
+}
+
+// --- Облачное сохранение всех данных (read-merge-write для заказов) ---
 async function cloudSaveAll() {
   if (!CLOUD_URL || _syncInProgress) return;
   _syncInProgress = true;
   updateSyncIndicator('saving');
   try {
+    // Сначала читаем текущие заказы из облака, чтобы не затереть чужие
+    let cloudOrders = [];
+    try {
+      const r = await fetch(CLOUD_URL + '?action=read&key=orders');
+      const t = await r.text();
+      const d = JSON.parse(t);
+      if (Array.isArray(d)) cloudOrders = d;
+    } catch(_) {}
+    // Мерж: наши заказы + заказы из облака которых у нас нет
+    const mergedOrders = mergeOrderArrays(orders, cloudOrders);
+    // Обновляем локальный массив чтобы не потерять заказы коллег
+    if (mergedOrders.length > orders.length) {
+      orders = mergedOrders;
+      localStorage.setItem('crm_orders', JSON.stringify(orders));
+      rebuildProdCal();
+    }
     const payload = {
       action: 'writeAll',
       data: {
-        orders: orders,
+        orders: mergedOrders,
         designers: designers,
         users: USERS,
         cap: CAP,
@@ -1017,7 +1042,6 @@ async function cloudSaveAll() {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-    // Apps Script redirects, fetch follows it, result is text
     const text = await resp.text();
     let result;
     try { result = JSON.parse(text); } catch(_) { result = {}; }
@@ -1044,8 +1068,10 @@ async function cloudLoadAll() {
     try { data = JSON.parse(text); } catch(_) { throw new Error('Ответ не JSON'); }
     if (data.error) throw new Error(data.error);
     // Применяем данные — МЕРЖИМ, не перезаписываем
-    // Заказы и конструкторы: облако всегда авторитетно
-    if (data.orders && Array.isArray(data.orders)) orders = data.orders;
+    // Заказы: мерж облака + локальных (облако приоритет по id, но локальные не теряем)
+    if (data.orders && Array.isArray(data.orders)) {
+      orders = mergeOrderArrays(data.orders, orders);
+    }
     if (data.designers && Array.isArray(data.designers)) designers = data.designers;
     // Сотрудники: объединяем — локальные + облачные, при конфликте id побеждает облако
     if (data.users && Array.isArray(data.users)) {
@@ -1156,14 +1182,14 @@ function saveCloudUrl() {
   updateSyncIndicator(url ? 'off' : 'off');
 }
 
-// --- Авто-синхронизация: подтягивать из облака каждые 30 секунд ---
+// --- Авто-синхронизация: подтягивать из облака каждые 15 секунд ---
 setInterval(() => {
-  if (CLOUD_URL && !_syncInProgress && document.visibilityState === 'visible') {
+  if (CLOUD_URL && !_syncInProgress && document.visibilityState === 'visible' && currentUser) {
     cloudLoadAll().then(ok => {
-      if (ok) refreshAll();
+      if (ok && currentUser) refreshAll();
     });
   }
-}, 30000);
+}, 15000);
 
 // ============================================================
 // КОНСТРУКТОРЫ (динамически строятся из USERS)
@@ -5681,10 +5707,7 @@ rebuildDesigners();
 // ============================================================
 (async function init() {
   loadSettings();
-  if (CLOUD_URL) {
-    const cloudOk = await cloudLoadAll();
-    if (cloudOk) refreshAll();
-  }
+  // Сразу показываем/скрываем стартовый экран — НЕ ждём облако
   if (currentUser) {
     document.getElementById('startup').classList.add('hidden');
     updateUserUI();
@@ -5694,7 +5717,14 @@ rebuildDesigners();
     showStartup();
   }
   document.getElementById('f-date').min = TODAY;
-  updateSyncIndicator(CLOUD_URL ? 'ok' : 'off');
+  // Cloud sync в фоне — не блокирует UI и не перебивает экран входа
+  if (CLOUD_URL) {
+    const cloudOk = await cloudLoadAll();
+    if (cloudOk && currentUser) refreshAll(); // обновляем только если уже вошли
+    updateSyncIndicator(CLOUD_URL ? (cloudOk ? 'ok' : 'error') : 'off');
+  } else {
+    updateSyncIndicator('off');
+  }
 })();
 
 // ============================================================
