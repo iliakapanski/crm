@@ -6079,8 +6079,41 @@ function renderStaff() {
   } else {
     grid.innerHTML = filtered.map(u => {
       let totalDone = 0, totalPay = 0;
-      // Статистика по производственным стадиям
+      // Логика идентична renderPayroll(), чтобы сводка совпадала
       orders.forEach(o => {
+        // Проектирование (новая схема: completed_ids)
+        const dsd = o.design_stage_data;
+        if (!o.no_project && o.stages_done?.design && dsd?.completed_ids?.length) {
+          if (dsd.completed_ids.includes(u.id)) {
+            totalDone++;
+            totalPay += ((o.sheets||0) * (workerRates.design||4000)) / dsd.completed_ids.length;
+          }
+        }
+        // Legacy: проектирование по designer_id
+        else if (!o.no_project && o.stages_done?.design && o.designer_id) {
+          const desUser = USERS.find(x => x.designer_id === o.designer_id);
+          if (desUser && desUser.id === u.id) {
+            totalDone++;
+            totalPay += (o.sheets||0) * (workerRates.design||4000);
+          }
+        }
+        // Запуск
+        const lsd = o.launch_stage_data;
+        if (lsd?.done && lsd.completed_ids?.includes(u.id)) {
+          totalDone++;
+          totalPay += ((o.sheets||0) * (workerRates.launch||500)) / (lsd.completed_ids.length||1);
+        }
+        // Склейка
+        if (o.has_gluing && o.stages_done?.gluing && o.stages_done._gluing_completed_ids?.includes(u.id)) {
+          totalDone++;
+          totalPay += ((o.gluing_sqm||0) * (workerRates.gluing||0)) / (o.stages_done._gluing_completed_ids.length||1);
+        }
+        // Криволинейка
+        if (o.has_curvilinear && o.stages_done?.curvilinear && o.stages_done._curvilinear_completed_ids?.includes(u.id)) {
+          totalDone++;
+          totalPay += ((o.curvilinear_meters||0) * (workerRates.curvilinear||0)) / (o.stages_done._curvilinear_completed_ids.length||1);
+        }
+        // Производственные стадии по материалам
         if (!o.materials) return;
         o.materials.forEach(m => {
           ['cutting','edging','drilling','packing'].forEach(k => {
@@ -6093,17 +6126,6 @@ function renderStaff() {
             }
           });
         });
-        // Проектирование
-        if (o.design_stage_data?.done && (o.design_worker_ids||[]).includes(u.id)) {
-          totalDone++;
-          totalPay += (o.sheets||0) * (workerRates.design||4000) / (o.design_worker_ids.length||1);
-        }
-        // Запуск
-        const lsd = o.launch_stage_data;
-        if (lsd?.done && lsd.completed_ids?.includes(u.id)) {
-          totalDone++;
-          totalPay += (o.sheets||0) * (workerRates.launch||500) / (lsd.completed_ids.length||1);
-        }
       });
       const deptName = DEPARTMENTS[u.department]?.name || u.department || '';
       const isAdmin = u.id === 'admin';
@@ -6150,9 +6172,23 @@ function openAddEmpEdit(userId) {
   const deptSel = document.getElementById('ae-dept');
   deptSel.innerHTML = '<option value="">-- Выберите отдел --</option>' +
     Object.entries(DEPARTMENTS).map(([k,v]) => `<option value="${k}">${v.name}</option>`).join('');
-  deptSel.value = u.department || '';
+  // Если отдел не сохранён — пробуем определить по роли
+  let dept = u.department || '';
+  if (!dept && u.role) {
+    for (const [k, v] of Object.entries(DEPARTMENTS)) {
+      if ((v.roles||[]).includes(u.role)) { dept = k; break; }
+    }
+  }
+  deptSel.value = dept;
   onAeDeptChange();
-  document.getElementById('ae-role').value = u.role || '';
+  // Если роль пользователя отсутствует в списке — добавим её, чтобы не терять
+  const roleSel = document.getElementById('ae-role');
+  if (u.role && !Array.from(roleSel.options).some(opt => opt.value === u.role)) {
+    const opt = document.createElement('option');
+    opt.value = u.role; opt.textContent = u.role;
+    roleSel.appendChild(opt);
+  }
+  roleSel.value = u.role || '';
   document.getElementById('ae-colors').innerHTML = EMP_COLORS.map(c =>
     `<div onclick="selectEmpColor('${c}')" id="aec-${c.replace('#','')}"
       style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;
