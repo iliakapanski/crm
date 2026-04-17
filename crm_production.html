@@ -968,11 +968,11 @@ function loadSettings() {
     rebuildProdCal();
   } catch(e) {}
 }
-function saveCapToStorage() { localStorage.setItem('crm_cap', JSON.stringify(CAP)); }
-function saveWorkerRates() { localStorage.setItem('crm_worker_rates', JSON.stringify(workerRates)); }
-function saveUsersToStorage() { localStorage.setItem('crm_users', JSON.stringify(USERS)); }
-function saveWorkWeekendsToStorage() { localStorage.setItem('crm_work_weekends', JSON.stringify([...workingWeekends])); }
-function saveNonWorkingDaysToStorage() { localStorage.setItem('crm_non_working', JSON.stringify([...nonWorkingDays])); }
+function saveCapToStorage() { localStorage.setItem('crm_cap', JSON.stringify(CAP)); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
+function saveWorkerRates() { localStorage.setItem('crm_worker_rates', JSON.stringify(workerRates)); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
+function saveUsersToStorage() { localStorage.setItem('crm_users', JSON.stringify(USERS)); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
+function saveWorkWeekendsToStorage() { localStorage.setItem('crm_work_weekends', JSON.stringify([...workingWeekends])); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
+function saveNonWorkingDaysToStorage() { localStorage.setItem('crm_non_working', JSON.stringify([...nonWorkingDays])); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
 function saveCurrentUser(u) { currentUser = u; localStorage.setItem('crm_user', JSON.stringify(u)); }
 
 // ============================================================
@@ -1016,7 +1016,9 @@ function loadOrders() {
 
 // --- Дебаунс для облачной записи (не чаще 1 раз в 3 секунды) ---
 let _cloudSaveTimer = null;
+let _suspendCloudSave = false; // true во время cloudLoadAll — чтобы не записывать только что загруженное обратно
 function debouncedCloudSave() {
+  if (_suspendCloudSave) return;
   if (_cloudSaveTimer) clearTimeout(_cloudSaveTimer);
   _cloudSaveTimer = setTimeout(() => { cloudSaveAll(); }, 3000);
 }
@@ -1127,6 +1129,7 @@ async function cloudSaveAll() {
 async function cloudLoadAll() {
   if (!CLOUD_URL) return false;
   _syncInProgress = true;
+  _suspendCloudSave = true;
   updateSyncIndicator('loading');
   try {
     const resp = await fetch(CLOUD_URL + '?action=readAll');
@@ -1182,6 +1185,7 @@ async function cloudLoadAll() {
     return false;
   } finally {
     _syncInProgress = false;
+    _suspendCloudSave = false;
   }
 }
 
@@ -1361,7 +1365,7 @@ let rolePermissions = {};
 function loadPermissions() {
   try { const p = localStorage.getItem('crm_permissions'); if (p) rolePermissions = JSON.parse(p); } catch(e) {}
 }
-function savePermissions() { localStorage.setItem('crm_permissions', JSON.stringify(rolePermissions)); }
+function savePermissions() { localStorage.setItem('crm_permissions', JSON.stringify(rolePermissions)); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
 function getPermissionsForRole(role) {
   return rolePermissions[role] || DEFAULT_PERMISSIONS[role] || ['dashboard'];
 }
@@ -1530,6 +1534,7 @@ function shiftOrdersFromHoliday(date) {
         o.packing_date = lastD ? addWorkDays(lastD, 1) : addWorkDays(afterEdg, 1);
       }
     }
+    if (shifted) markDirty(o.id);
   });
 }
 
@@ -1603,7 +1608,7 @@ function shiftOrdersBackToNewWorkDay(newWorkDate) {
     if (o.gluing_date && o.gluing_date >= nextDay) { const nv = safeSubtract(o.gluing_date); if (nv !== o.gluing_date) { o.gluing_date = nv; shifted = true; } }
     if (o.curvilinear_date && o.curvilinear_date >= nextDay) { const nv = safeSubtract(o.curvilinear_date); if (nv !== o.curvilinear_date) { o.curvilinear_date = nv; shifted = true; } }
 
-    if (shifted) anyShifted = true;
+    if (shifted) { anyShifted = true; markDirty(o.id); }
   });
   return anyShifted;
 }
@@ -1633,6 +1638,7 @@ function toggleHoliday(dateStr) {
     // День снова рабочий — сдвигаем заказы назад
     shiftOrdersBackToNewWorkDay(dateStr);
   }
+  saveOrders(); // сохранить сдвинутые заказы + запустить cloud sync
   rebuildProdCal();
   renderCalendar();
   refreshAll();
@@ -1685,6 +1691,7 @@ function toggleWorkWeekend(dateStr) {
     saveWorkWeekendsToStorage();
     // Переносим заказы с этого дня на следующий рабочий
     shiftOrdersFromHoliday(dateStr);
+    saveOrders();
     rebuildProdCal();
     refreshAll();
   } else {
@@ -1692,6 +1699,7 @@ function toggleWorkWeekend(dateStr) {
     workingWeekends.add(dateStr);
     saveWorkWeekendsToStorage();
     shiftOrdersBackToNewWorkDay(dateStr);
+    saveOrders();
     rebuildProdCal();
     refreshAll();
   }
