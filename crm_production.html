@@ -46,8 +46,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .checkin-btn:hover{background:#b45309}
 
 /* ── MAIN ── */
-.main{margin-left:var(--sb-w);flex:1;min-height:100vh}
-.page{display:none;padding:22px 26px 40px}
+.main{margin-left:var(--sb-w);flex:1;min-height:100vh;min-width:0;overflow-x:hidden}
+.page{display:none;padding:22px 26px 40px;max-width:100%;overflow-x:auto}
 .page.active{display:block}
 .ph{margin-bottom:20px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px}
 .ptitle{font-size:20px;font-weight:800}
@@ -253,6 +253,18 @@ td.today-c .cal-wd{color:var(--primary);font-weight:800}
 .hidden{display:none!important}
 .flex{display:flex}.ac{align-items:center}.jb{justify-content:space-between}
 
+/* ── АДАПТИВНОСТЬ ДЛЯ СРЕДНИХ МОНИТОРОВ ── */
+/* Узкие ноуты/мониторы ~1280px и меньше — уменьшаем сайдбар и паддинги */
+@media(max-width:1400px){
+  :root{--sb-w:190px}
+  .page{padding:18px 18px 32px}
+}
+@media(max-width:1200px){
+  :root{--sb-w:170px}
+  .page{padding:14px 14px 28px}
+  .metrics{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+}
+
 /* ── MOBILE ── */
 @media(max-width:900px){
   .sidebar{transform:translateX(-100%)}
@@ -276,6 +288,10 @@ td.today-c .cal-wd{color:var(--primary);font-weight:800}
   .three-col{grid-template-columns:1fr}
   .settings-grid{grid-template-columns:1fr}
 }
+
+/* Общая защита от горизонтального переполнения */
+html,body{max-width:100%;overflow-x:hidden}
+table{max-width:100%}
 </style>
 </head>
 <body>
