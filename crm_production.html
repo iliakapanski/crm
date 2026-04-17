@@ -967,9 +967,22 @@ let CLOUD_URL = localStorage.getItem('crm_cloud_url') || DEFAULT_CLOUD_URL;
 let _syncInProgress = false;
 let _lastSyncTime = 0;
 
+// --- Пометить конкретный заказ как изменённый (обновить версию) ---
+const _dirtyOrders = new Set();
+function markDirty(orderId) {
+  if (orderId) _dirtyOrders.add(String(orderId));
+}
+
 // --- localStorage для заказов ---
 function saveOrders() {
   try {
+    // Версию обновляем ТОЛЬКО у изменённых заказов — не у всех
+    const now = Date.now();
+    _dirtyOrders.forEach(id => {
+      const o = orders.find(x => String(x.id) === id);
+      if (o) o._v = now;
+    });
+    _dirtyOrders.clear();
     localStorage.setItem('crm_orders', JSON.stringify(orders));
     localStorage.setItem('crm_designers', JSON.stringify(designers));
     // Если есть облачный URL — синхронизируем в фоне
@@ -992,13 +1005,36 @@ function debouncedCloudSave() {
   _cloudSaveTimer = setTimeout(() => { cloudSaveAll(); }, 3000);
 }
 
-// --- Слияние массивов заказов: сохраняем заказы из обоих источников по id ---
+// --- Томбстоны: список удалённых ID заказов ---
+let deletedOrderIds = new Set(JSON.parse(localStorage.getItem('crm_deleted_ids') || '[]'));
+function addDeletedId(id) {
+  deletedOrderIds.add(String(id));
+  localStorage.setItem('crm_deleted_ids', JSON.stringify([...deletedOrderIds]));
+}
+function mergeDeletedIds(cloudIds) {
+  if (!Array.isArray(cloudIds)) return;
+  cloudIds.forEach(id => deletedOrderIds.add(String(id)));
+  localStorage.setItem('crm_deleted_ids', JSON.stringify([...deletedOrderIds]));
+}
+
+// --- Слияние массивов заказов с учётом удалений и версий ---
 function mergeOrderArrays(primary, secondary) {
-  const result = [...primary];
+  const deleted = deletedOrderIds;
+  const map = new Map();
+  // Сначала вторичный (менее приоритетный)
   (secondary || []).forEach(o => {
-    if (!result.find(x => x.id === o.id)) result.push(o);
+    if (!deleted.has(String(o.id))) map.set(String(o.id), o);
   });
-  return result;
+  // Потом первичный — перезаписывает, если версия новее или равна
+  (primary || []).forEach(o => {
+    if (deleted.has(String(o.id))) return; // удалён — не добавляем
+    const existing = map.get(String(o.id));
+    // Побеждает тот у кого _v больше, при равенстве — primary
+    if (!existing || (o._v || 0) >= (existing._v || 0)) {
+      map.set(String(o.id), o);
+    }
+  });
+  return [...map.values()];
 }
 
 // --- Облачное сохранение всех данных (read-merge-write для заказов) ---
@@ -1007,15 +1043,16 @@ async function cloudSaveAll() {
   _syncInProgress = true;
   updateSyncIndicator('saving');
   try {
-    // Сначала читаем текущие заказы из облака, чтобы не затереть чужие
+    // Сначала читаем текущее состояние из облака (заказы + удалённые ID)
     let cloudOrders = [];
     try {
-      const r = await fetch(CLOUD_URL + '?action=read&key=orders');
+      const r = await fetch(CLOUD_URL + '?action=readAll');
       const t = await r.text();
       const d = JSON.parse(t);
-      if (Array.isArray(d)) cloudOrders = d;
+      if (d && Array.isArray(d.orders)) cloudOrders = d.orders;
+      if (d && Array.isArray(d.deleted_ids)) mergeDeletedIds(d.deleted_ids);
     } catch(_) {}
-    // Мерж: наши заказы + заказы из облака которых у нас нет
+    // Мерж: наши заказы + заказы из облака с учётом томбстонов и версий
     const mergedOrders = mergeOrderArrays(orders, cloudOrders);
     // Обновляем локальный массив чтобы не потерять заказы коллег
     if (mergedOrders.length > orders.length) {
@@ -1027,6 +1064,7 @@ async function cloudSaveAll() {
       action: 'writeAll',
       data: {
         orders: mergedOrders,
+        deleted_ids: [...deletedOrderIds],
         designers: designers,
         users: USERS,
         cap: CAP,
@@ -1067,10 +1105,13 @@ async function cloudLoadAll() {
     let data;
     try { data = JSON.parse(text); } catch(_) { throw new Error('Ответ не JSON'); }
     if (data.error) throw new Error(data.error);
-    // Применяем данные — МЕРЖИМ, не перезаписываем
-    // Заказы: мерж облака + локальных (облако приоритет по id, но локальные не теряем)
+    // Сначала подгружаем список удалённых ID из облака
+    if (data.deleted_ids && Array.isArray(data.deleted_ids)) {
+      mergeDeletedIds(data.deleted_ids);
+    }
+    // Заказы: мерж облака + локальных с учётом версий и томбстонов
     if (data.orders && Array.isArray(data.orders)) {
-      orders = mergeOrderArrays(data.orders, orders);
+      orders = mergeOrderArrays(orders, data.orders);
     }
     if (data.designers && Array.isArray(data.designers)) designers = data.designers;
     // Сотрудники: объединяем — локальные + облачные, при конфликте id побеждает облако
@@ -1330,6 +1371,27 @@ function canViewAllPayroll() {
 let orders = [];
 let workerRates = { design: 4000, launch: 500, cutting: 300, edging: 30, drilling: 800, packing: 500, gluing: 0, curvilinear: 0 };
 // Per-stage: m.stages[k].worker_ids = ['wId1','wId2'], m.stages[k].completed_ids = ['wId1'], m.stages[k].completed_at = 'YYYY-MM-DD'
+
+// Глобальные хелперы для дат склейки/криволинейки.
+// Если no_edging — привязываем к cutting_date (вместо несуществующей edging_date).
+function getGluingDate(o) {
+  if (o.gluing_date) return o.gluing_date;
+  if (o.has_milling) {
+    const millMat = (o.materials||[]).find(m => m.type === 'mill' && m.mill_date);
+    if (millMat) return millMat.mill_date;
+    return o.cutting_date;
+  }
+  return o.no_edging ? o.cutting_date : o.edging_date;
+}
+function getCurviDate(o) {
+  if (o.curvilinear_date) return o.curvilinear_date;
+  if (o.has_milling) {
+    const millMat = (o.materials||[]).find(m => m.type === 'mill' && m.mill_date);
+    if (millMat) return millMat.mill_date;
+    return o.cutting_date;
+  }
+  return o.no_edging ? o.cutting_date : o.edging_date;
+}
 
 // ============================================================
 // ПРОИЗВОДСТВЕННЫЙ КАЛЕНДАРЬ
@@ -2082,11 +2144,11 @@ function renderMetrics() {
   const launchedToday = orders.filter(o => o.launch_stage_data?.completed_at === TODAY).length;
   // Фрезеровка: orders with mill materials scheduled today
   const millToday = orders.filter(o => o.status!=='done' && o.materials && o.materials.some(m => m.type==='mill' && m.mill_date===TODAY)).length;
-  // Склейка: orders with has_gluing and edging_date today
-  const gluingToday = orders.filter(o => o.status!=='done' && o.has_gluing && o.edging_date===TODAY);
+  // Склейка: orders with has_gluing on the effective gluing date today
+  const gluingToday = orders.filter(o => o.status!=='done' && o.has_gluing && getGluingDate(o)===TODAY);
   const gluingSqm = gluingToday.reduce((s,o) => s + (o.gluing_sqm||0), 0);
-  // Криволинейка: orders with has_curvilinear and edging_date today
-  const curviToday = orders.filter(o => o.status!=='done' && o.has_curvilinear && o.edging_date===TODAY);
+  // Криволинейка: orders with has_curvilinear on the effective curvilinear date today
+  const curviToday = orders.filter(o => o.status!=='done' && o.has_curvilinear && getCurviDate(o)===TODAY);
   const curviMeters = curviToday.reduce((s,o) => s + (o.curvilinear_meters||0), 0);
   const data = [
     { lbl:'Проект',         ico:'✏️', v:inDesign,    max:Math.max(1,designTotal), sub:`Всего в работе: ${designTotal}`, pb:'pb-purple' },
@@ -2110,7 +2172,7 @@ function renderMetrics() {
 }
 
 function renderTodayOrders() {
-  const todayO = orders.filter(o => o.cutting_date===TODAY || getDrillSchedule(o).some(s=>s.date===TODAY) || o.packing_date===TODAY || o.edging_date===TODAY || (o.materials && o.materials.some(m=>m.type==='mill' && m.mill_date===TODAY)) || (o.has_gluing && o.edging_date===TODAY) || (o.has_curvilinear && o.edging_date===TODAY));
+  const todayO = orders.filter(o => o.cutting_date===TODAY || getDrillSchedule(o).some(s=>s.date===TODAY) || o.packing_date===TODAY || o.edging_date===TODAY || (o.materials && o.materials.some(m=>m.type==='mill' && m.mill_date===TODAY)) || (o.has_gluing && getGluingDate(o)===TODAY) || (o.has_curvilinear && getCurviDate(o)===TODAY));
   document.getElementById('today-cnt-tag').textContent = todayO.length + ' зак.';
   document.getElementById('badge-today').textContent = todayO.length;
   const tbody = document.getElementById('today-tbody');
@@ -2121,8 +2183,8 @@ function renderTodayOrders() {
     if (o.edging_date===TODAY && !o.no_edging) badges.push('<span style="background:#ede9fe;color:#5b21b6;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">🔲 Кромка</span>');
     if (o.materials && o.materials.some(m=>m.type==='mill' && m.mill_date===TODAY)) badges.push('<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">⚙️ Фрезеровка</span>');
     if (getDrillSchedule(o).some(s=>s.date===TODAY)) badges.push('<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">🔩 Присадка</span>');
-    if (o.has_gluing && o.edging_date===TODAY) badges.push('<span style="background:#f0fdfa;color:#0f766e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">🧴 Склейка</span>');
-    if (o.has_curvilinear && o.edging_date===TODAY) badges.push('<span style="background:#fdf2f8;color:#9d174d;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">〰️ Криволинейка</span>');
+    if (o.has_gluing && getGluingDate(o)===TODAY) badges.push('<span style="background:#f0fdfa;color:#0f766e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">🧴 Склейка</span>');
+    if (o.has_curvilinear && getCurviDate(o)===TODAY) badges.push('<span style="background:#fdf2f8;color:#9d174d;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">〰️ Криволинейка</span>');
     if (o.packing_date===TODAY)  badges.push('<span style="background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">📦 Упаковка</span>');
     const opBadge = badges.join(' ');
     return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer">
@@ -2975,25 +3037,6 @@ function renderCalTableView(days) {
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#92400e;font-weight:700">⚙️ ${items.length} поз.</div><div class="cal-chips">${chips}</div></div></td>`;
   }
 
-  function getGluingDate(o) {
-    if (o.gluing_date) return o.gluing_date;
-    if (o.has_milling) {
-      const millMat = (o.materials||[]).find(m => m.type === 'mill' && m.mill_date);
-      if (millMat) return millMat.mill_date;
-      return o.cutting_date;
-    }
-    return o.edging_date;
-  }
-  function getCurviDate(o) {
-    if (o.curvilinear_date) return o.curvilinear_date;
-    if (o.has_milling) {
-      const millMat = (o.materials||[]).find(m => m.type === 'mill' && m.mill_date);
-      if (millMat) return millMat.mill_date;
-      return o.cutting_date;
-    }
-    return o.edging_date;
-  }
-
   function gluingTd(date) {
     const items = orders.filter(o => {
       if (!o.has_gluing) return false;
@@ -3539,8 +3582,8 @@ function openOrderModal(id) {
     { key:'cutting',  ic:'✂️', bg:'#ede9fe', lbl:'Распил',   date:o.cutting_date,  note:o.sheets+' листов',     skip:false },
     { key:'edging',   ic:'🔲', bg:'#fce7f3', lbl:'Кромка',   date:o.edging_date,   note: o.cutting_date2 ? 'После допила' : 'Тот же день', skip:o.no_edging },
     { key:'drilling',    ic:'🔩', bg:'#fef3c7', lbl:'Присадка',     date:o.drilling_date, note:'+1 день',              skip:o.no_drilling },
-    { key:'gluing',      ic:'🧴', bg:'#f0fdfa', lbl:'Склейка',      date:o.edging_date,   note:(o.gluing_sqm||0)+'м²', skip:!o.has_gluing },
-    { key:'curvilinear', ic:'〰️', bg:'#fdf2f8', lbl:'Криволинейка', date:o.edging_date,   note:(o.curvilinear_meters||0)+'м', skip:!o.has_curvilinear },
+    { key:'gluing',      ic:'🧴', bg:'#f0fdfa', lbl:'Склейка',      date:getGluingDate(o),   note:(o.gluing_sqm||0)+'м²', skip:!o.has_gluing },
+    { key:'curvilinear', ic:'〰️', bg:'#fdf2f8', lbl:'Криволинейка', date:getCurviDate(o),   note:(o.curvilinear_meters||0)+'м', skip:!o.has_curvilinear },
     { key:'packing',     ic:'📦', bg:'#d1fae5', lbl:'Упаковка',     date:o.packing_date,  note:'+1 день',              skip:false }
   ];
 
@@ -3629,6 +3672,7 @@ function addHistory(orderId, action, details) {
     action: action,
     details: details || ''
   });
+  markDirty(orderId); // версия обновится только у этого заказа
 }
 
 function openOrderHistory(orderId) {
@@ -4191,6 +4235,7 @@ function doDelete(id) {
   const desId = o.designer_id;
   designers.forEach(d => { if(d.current_order_id===id) d.current_order_id=null; d.queue=d.queue.filter(q=>q!==id); });
   orders.splice(idx,1);
+  addDeletedId(id); // tombstone — не дать вернуться при синхронизации
   // Полный пересчёт prodCal после удаления (исключает призраки от неполных drill_schedule)
   rebuildProdCal();
   if (desId) recalcDesignerBusy(desId);
@@ -4239,6 +4284,7 @@ function assignDesigner(orderId, desId) {
     const from = d.busy_until >= TODAY ? d.busy_until : TODAY;
     o.design_end = addWorkDays(from, 3);
   }
+  markDirty(orderId);
 
   closeAssign();
   refreshAll();
@@ -4392,6 +4438,8 @@ function submitCheckin() {
 
   // Полный пересчёт prodCal после всех изменений сверки
   rebuildProdCal();
+  // Пометить все заказы из сверки как изменённые
+  todayO.forEach(o => markDirty(o.id));
   closeCheckin();
   alert('✅ Сверка сохранена!');
   refreshAll();
@@ -4634,8 +4682,8 @@ function getStages(o) {
     { key:'cutting',  icon:'✂️', label:'Распил выполнен',     date: o.cutting_date,  skip: !!o.has_milling },
     { key:'edging',   icon:'🔲', label:'Кромка выполнена',    date: o.edging_date,   skip: o.no_edging || !!o.has_milling },
     { key:'drilling',    icon:'🔩', label:'Присадка выполнена',     date: o.drilling_date, skip: o.no_drilling },
-    { key:'gluing',      icon:'🧴', label:'Склейка выполнена',     date: o.gluing_date || o.edging_date,   skip: !o.has_gluing },
-    { key:'curvilinear', icon:'〰️', label:'Криволинейка выполнена', date: o.curvilinear_date || o.edging_date,   skip: !o.has_curvilinear || !!o.has_milling },
+    { key:'gluing',      icon:'🧴', label:'Склейка выполнена',     date: getGluingDate(o),   skip: !o.has_gluing },
+    { key:'curvilinear', icon:'〰️', label:'Криволинейка выполнена', date: getCurviDate(o),   skip: !o.has_curvilinear || !!o.has_milling },
     { key:'packing',     icon:'📦', label:'Упакован / Отгружен',   date: o.packing_date,  skip: false }
   ];
 }
@@ -4895,12 +4943,12 @@ function renderStagesBody(o) {
           let extra = '';
           if (o.has_gluing) {
             const done = !!o.stages_done?.gluing;
-            const gluDate = o.gluing_date || o.edging_date || '';
+            const gluDate = getGluingDate(o) || '';
             extra += `<tr style="background:${done?'#dcfce7':'#f0fdfa'}">
               <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
                 <div>🧴 Склейка</div>
                 <div style="font-size:10px;color:var(--muted);font-weight:400">${o.gluing_sqm||0} м²</div>
-                <div style="font-size:10px;color:var(--muted);font-weight:400">${gluDate ? fmt(gluDate,true) : 'день кромки'}</div>
+                <div style="font-size:10px;color:var(--muted);font-weight:400">${gluDate ? fmt(gluDate,true) : (o.no_edging?'день распила':'день кромки')}</div>
               </td>
               <td colspan="${stageKeys.length + 1}" style="border:1px solid var(--border);padding:7px 10px">
                 <div style="display:flex;align-items:center;gap:10px">
@@ -4920,12 +4968,12 @@ function renderStagesBody(o) {
           }
           if (o.has_curvilinear) {
             const done = !!o.stages_done?.curvilinear;
-            const curDate = o.curvilinear_date || o.edging_date || '';
+            const curDate = getCurviDate(o) || '';
             extra += `<tr style="background:${done?'#dcfce7':'#fdf2f8'}">
               <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
                 <div>〰️ Криволинейка</div>
                 <div style="font-size:10px;color:var(--muted);font-weight:400">${o.curvilinear_meters||0} м</div>
-                <div style="font-size:10px;color:var(--muted);font-weight:400">${curDate ? fmt(curDate,true) : 'день кромки'}</div>
+                <div style="font-size:10px;color:var(--muted);font-weight:400">${curDate ? fmt(curDate,true) : (o.no_edging?'день распила':'день кромки')}</div>
               </td>
               <td colspan="${stageKeys.length + 1}" style="border:1px solid var(--border);padding:7px 10px">
                 <div style="display:flex;align-items:center;gap:10px">
@@ -5050,7 +5098,7 @@ function toggleMaterialStage(orderId, matId, stageKey, checked) {
   }
   // Если статус изменился на/из 'done' — пересчитать prodCal (слоты освобождаются/занимаются)
   if ((o.status === 'done') !== wasDone) rebuildProdCal();
-
+  markDirty(orderId);
   renderStagesBody(o);
   refreshAll();
   // Если модал заказа открыт — обновить его, чтобы стадии сразу отобразились
@@ -5511,17 +5559,25 @@ function renderStats() {
     // Склейка за период
     const gluingPlan = orders.filter(o => {
       if (!o.has_gluing) return false;
-      const gDate = o.gluing_date || ((o.has_milling && o.materials) ? (o.materials.find(m => m.type === 'mill' && m.mill_date)?.mill_date || o.cutting_date) : o.edging_date);
-      return gDate >= from && gDate <= to;
+      const gDate = getGluingDate(o);
+      return gDate && gDate >= from && gDate <= to;
     }).length;
-    const gluingDone = orders.filter(o => o.has_gluing && o.stages_done?.gluing && ((o.stages_done?._gluing_fact_date || o.gluing_date || o.edging_date) >= from) && ((o.stages_done?._gluing_fact_date || o.gluing_date || o.edging_date) <= to)).length;
+    const gluingDone = orders.filter(o => {
+      if (!(o.has_gluing && o.stages_done?.gluing)) return false;
+      const gd = o.stages_done?._gluing_fact_date || getGluingDate(o);
+      return gd && gd >= from && gd <= to;
+    }).length;
     // Криволинейка за период
     const curviPlan = orders.filter(o => {
       if (!o.has_curvilinear) return false;
-      const cDate = o.curvilinear_date || ((o.has_milling && o.materials) ? (o.materials.find(m => m.type === 'mill' && m.mill_date)?.mill_date || o.cutting_date) : o.edging_date);
-      return cDate >= from && cDate <= to;
+      const cDate = getCurviDate(o);
+      return cDate && cDate >= from && cDate <= to;
     }).length;
-    const curviDone = orders.filter(o => o.has_curvilinear && o.stages_done?.curvilinear && ((o.stages_done?._curvilinear_fact_date || o.curvilinear_date || o.edging_date) >= from) && ((o.stages_done?._curvilinear_fact_date || o.curvilinear_date || o.edging_date) <= to)).length;
+    const curviDone = orders.filter(o => {
+      if (!(o.has_curvilinear && o.stages_done?.curvilinear)) return false;
+      const cd = o.stages_done?._curvilinear_fact_date || getCurviDate(o);
+      return cd && cd >= from && cd <= to;
+    }).length;
     // Фрезеровка за период
     const millPlan = orders.filter(o => o.has_milling && o.materials && o.materials.some(m => m.type === 'mill' && m.mill_date >= from && m.mill_date <= to)).length;
     const millDone = orders.filter(o => o.has_milling && o.materials && o.materials.some(m => m.type === 'mill' && m.mill_date >= from && m.mill_date <= to && m.stages?.mill?.done)).length;
@@ -5623,19 +5679,11 @@ function renderStats() {
     const launchOnDay = orders.filter(o => !o.no_project && o.design_end && addWorkDays(o.design_end, 1) === d).length;
     const launchDoneOnDay = orders.filter(o => !o.no_project && o.launch_stage_data?.done && (o.launch_stage_data.completed_at === d)).length;
     // Склейка
-    const gluingOnDay = orders.filter(o => {
-      if (!o.has_gluing) return false;
-      const gd = o.gluing_date || ((o.has_milling) ? ((o.materials||[]).find(m => m.type === 'mill' && m.mill_date)?.mill_date || o.cutting_date) : o.edging_date);
-      return gd === d;
-    }).length;
-    const gluingDoneOnDay = orders.filter(o => o.has_gluing && o.stages_done?.gluing && (o.stages_done?._gluing_fact_date || o.gluing_date || o.edging_date) === d).length;
+    const gluingOnDay = orders.filter(o => o.has_gluing && getGluingDate(o) === d).length;
+    const gluingDoneOnDay = orders.filter(o => o.has_gluing && o.stages_done?.gluing && (o.stages_done?._gluing_fact_date || getGluingDate(o)) === d).length;
     // Криволинейка
-    const curviOnDay = orders.filter(o => {
-      if (!o.has_curvilinear) return false;
-      const cd = o.curvilinear_date || ((o.has_milling) ? ((o.materials||[]).find(m => m.type === 'mill' && m.mill_date)?.mill_date || o.cutting_date) : o.edging_date);
-      return cd === d;
-    }).length;
-    const curviDoneOnDay = orders.filter(o => o.has_curvilinear && o.stages_done?.curvilinear && (o.stages_done?._curvilinear_fact_date || o.curvilinear_date || o.edging_date) === d).length;
+    const curviOnDay = orders.filter(o => o.has_curvilinear && getCurviDate(o) === d).length;
+    const curviDoneOnDay = orders.filter(o => o.has_curvilinear && o.stages_done?.curvilinear && (o.stages_done?._curvilinear_fact_date || getCurviDate(o)) === d).length;
     // Фрезеровка
     const millOnDay = orders.filter(o => o.has_milling && o.materials && o.materials.some(m => m.type === 'mill' && m.mill_date === d)).length;
     const millDoneOnDay = orders.filter(o => o.has_milling && o.materials && o.materials.some(m => m.type === 'mill' && m.mill_date === d && m.stages?.mill?.done)).length;
@@ -5969,7 +6017,7 @@ function renderProduction() {
       const assignedIds = o.gluing_worker_ids || [];
       const completedIds = o.stages_done?._gluing_completed_ids || [];
       if (workerFilter && !assignedIds.includes(workerFilter) && !completedIds.includes(workerFilter)) return;
-      tasks.push({ o, m: null, stg: { key:'gluing', icon:'🧴', label:'Склейка', color:'#0d9488', bg:'#f0fdfa', border:'#99f6e4' }, done, assignedIds, completedIds, planDate: o.edging_date });
+      tasks.push({ o, m: null, stg: { key:'gluing', icon:'🧴', label:'Склейка', color:'#0d9488', bg:'#f0fdfa', border:'#99f6e4' }, done, assignedIds, completedIds, planDate: getGluingDate(o) });
     });
   }
   // Curvilinear tasks (order-level)
@@ -5982,7 +6030,7 @@ function renderProduction() {
       const assignedIds = o.curvilinear_worker_ids || [];
       const completedIds = o.stages_done?._curvilinear_completed_ids || [];
       if (workerFilter && !assignedIds.includes(workerFilter) && !completedIds.includes(workerFilter)) return;
-      tasks.push({ o, m: null, stg: { key:'curvilinear', icon:'〰️', label:'Криволинейка', color:'#be185d', bg:'#fdf2f8', border:'#fbcfe8' }, done, assignedIds, completedIds, planDate: o.edging_date });
+      tasks.push({ o, m: null, stg: { key:'curvilinear', icon:'〰️', label:'Криволинейка', color:'#be185d', bg:'#fdf2f8', border:'#fbcfe8' }, done, assignedIds, completedIds, planDate: getCurviDate(o) });
     });
   }
   orders.forEach(o => {
@@ -6178,6 +6226,7 @@ function selfTakeTask(orderId, matId, stageKey) {
   if (!ids.includes(wid)) {
     m.stages[stageKey].worker_ids = [...ids, wid];
     m.stages[stageKey].taken_at = TODAY;
+    markDirty(orderId);
   }
   renderProduction(); refreshAll();
 }
@@ -6191,6 +6240,7 @@ function selfTakeDesign(orderId) {
   if (!o.design_worker_ids.includes(wid)) {
     o.design_worker_ids.push(wid);
     o.design_stage_data.taken_at = TODAY;
+    markDirty(orderId);
   }
   renderProduction(); refreshAll();
 }
@@ -6204,6 +6254,7 @@ function selfTakeLaunch(orderId) {
   if (!o.launch_worker_ids.includes(wid)) {
     o.launch_worker_ids.push(wid);
     o.launch_stage_data.taken_at = TODAY;
+    markDirty(orderId);
   }
   renderProduction(); refreshAll();
 }
@@ -6262,11 +6313,13 @@ function openAssignWorker(orderId, matId, stageKey) {
   showWorkerPicker('Назначить на ' + (STAGE_LBL2[stageKey]||stageKey), `Заказ ${orderId}`, prodUsers, currentIds, function(wid) {
     const ids = m.stages[stageKey].worker_ids || [];
     m.stages[stageKey].worker_ids = ids.includes(wid) ? ids.filter(x=>x!==wid) : [...ids, wid];
+    markDirty(orderId);
     renderProduction();
     refreshAll();
     if (stagesOrderId === orderId) { const oo = orders.find(x=>x.id===orderId); if(oo) renderStagesBody(oo); }
   }, function() {
     m.stages[stageKey].worker_ids = [];
+    markDirty(orderId);
     renderProduction();
     refreshAll();
     if (stagesOrderId === orderId) { const oo = orders.find(x=>x.id===orderId); if(oo) renderStagesBody(oo); }
