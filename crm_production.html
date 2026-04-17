@@ -1017,6 +1017,18 @@ function mergeDeletedIds(cloudIds) {
   localStorage.setItem('crm_deleted_ids', JSON.stringify([...deletedOrderIds]));
 }
 
+// --- Томбстоны: список удалённых ID сотрудников ---
+let deletedUserIds = new Set(JSON.parse(localStorage.getItem('crm_deleted_user_ids') || '[]'));
+function addDeletedUserId(id) {
+  deletedUserIds.add(String(id));
+  localStorage.setItem('crm_deleted_user_ids', JSON.stringify([...deletedUserIds]));
+}
+function mergeDeletedUserIds(cloudIds) {
+  if (!Array.isArray(cloudIds)) return;
+  cloudIds.forEach(id => deletedUserIds.add(String(id)));
+  localStorage.setItem('crm_deleted_user_ids', JSON.stringify([...deletedUserIds]));
+}
+
 // --- Слияние массивов заказов с учётом удалений и версий ---
 function mergeOrderArrays(primary, secondary) {
   const deleted = deletedOrderIds;
@@ -1066,7 +1078,8 @@ async function cloudSaveAll() {
         orders: mergedOrders,
         deleted_ids: [...deletedOrderIds],
         designers: designers,
-        users: USERS,
+        users: USERS.filter(u => !deletedUserIds.has(String(u.id))),
+        deleted_user_ids: [...deletedUserIds],
         cap: CAP,
         work_weekends: [...workingWeekends],
         non_working: [...nonWorkingDays],
@@ -1114,10 +1127,15 @@ async function cloudLoadAll() {
       orders = mergeOrderArrays(orders, data.orders);
     }
     if (data.designers && Array.isArray(data.designers)) designers = data.designers;
-    // Сотрудники: объединяем — локальные + облачные, при конфликте id побеждает облако
+    // Томбстоны сотрудников — подгружаем из облака
+    if (data.deleted_user_ids && Array.isArray(data.deleted_user_ids)) {
+      mergeDeletedUserIds(data.deleted_user_ids);
+    }
+    // Сотрудники: объединяем — локальные + облачные, удалённые (tombstones) отфильтровываем
     if (data.users && Array.isArray(data.users)) {
-      const merged = [...data.users];
+      const merged = [...data.users].filter(u => !deletedUserIds.has(String(u.id)));
       USERS.forEach(localU => {
+        if (deletedUserIds.has(String(localU.id))) return;
         if (!merged.find(u => u.id === localU.id)) merged.push(localU);
       });
       USERS = merged;
@@ -4663,10 +4681,12 @@ function deleteEmployee(userId) {
     activeOrders.forEach(o => { o.designer_id = null; });
     designers = designers.filter(d => d.id !== u.designer_id);
   }
+  addDeletedUserId(userId);
   USERS.splice(USERS.findIndex(x=>x.id===userId), 1);
   saveUsersToStorage();
   renderSettings();
   refreshAll();
+  if (CLOUD_URL) debouncedCloudSave();
 }
 
 // ============================================================
