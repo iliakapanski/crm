@@ -1662,7 +1662,7 @@ function shiftOrdersFromHoliday(date) {
     // drilling_date, drilling_date2, drill_schedule — пересчитываются через calcDrillSplit ниже
     if (!o.no_drilling && (o.drilling_date === date || o.drilling_date2 === date)) { shifted = true; }
     if ((o.drill_schedule||[]).some(s => s.date === date)) { shifted = true; }
-    if (o.packing_date === date)  { o.packing_date  = addWorkDays(date, 1); shifted = true; }
+    if (!o.no_packing && o.packing_date === date)  { o.packing_date  = addWorkDays(date, 1); shifted = true; }
     if (o.design_end   === date)  { o.design_end    = addWorkDays(date, 1); shifted = true; }
 
     if (o.materials) {
@@ -1693,7 +1693,7 @@ function shiftOrdersFromHoliday(date) {
         o.drill_sheets1  = ds.s1; o.drill_sheets2  = ds.s2;
         o.drill_schedule = ds.schedule || [];
         const lastD = ds.d2 || ds.d1;
-        o.packing_date = lastD ? addWorkDays(lastD, 1) : addWorkDays(afterEdg, 1);
+        o.packing_date = o.no_packing ? null : (lastD ? addWorkDays(lastD, 1) : addWorkDays(afterEdg, 1));
       }
     }
     if (shifted) markDirty(o.id);
@@ -2121,9 +2121,10 @@ function cascadeDownstream(o, origin) {
     .map(m => m.stages.drilling.reschedule_date);
   const allDrillEnds = [...perMatDrillDates, ds.d2 || ds.d1 || ''].filter(Boolean);
   const lastDrillOverall = allDrillEnds.length ? allDrillEnds.reduce((mx, d) => d > mx ? d : mx, '') : '';
-  o.packing_date = lastDrillOverall
-    ? addWorkDays(lastDrillOverall, 1)
-    : addWorkDays(baseDrillAfter, 1);
+  o.packing_date = o.no_packing ? null
+    : (lastDrillOverall
+        ? addWorkDays(lastDrillOverall, 1)
+        : addWorkDays(baseDrillAfter, 1));
 }
 
 function calcSchedule(sheets, preferredDate, noEdging, noDrilling, noProject, launchOnly, edgingMeters) {
@@ -2389,7 +2390,7 @@ function renderTodayOrders() {
     if (getDrillSchedule(o).some(s=>s.date===TODAY)) badges.push('<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">🔩 Присадка</span>');
     if (o.has_gluing && getGluingDate(o)===TODAY) badges.push('<span style="background:#f0fdfa;color:#0f766e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">🧴 Склейка</span>');
     if (o.has_curvilinear && getCurviDate(o)===TODAY) badges.push('<span style="background:#fdf2f8;color:#9d174d;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">〰️ Криволинейка</span>');
-    if (o.packing_date===TODAY)  badges.push('<span style="background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">📦 Упаковка</span>');
+    if (o.packing_date===TODAY && !o.no_packing)  badges.push('<span style="background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">📦 Упаковка</span>');
     const opBadge = badges.join(' ');
     return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer">
       <td><span class="pc pr${Math.min(i+1,5)}">${i+1}</span></td>
@@ -2922,7 +2923,7 @@ function createOrder() {
     drill_sheets1: p.drillSheets1 || 0,
     drill_sheets2: p.drillSheets2 || 0,
     drill_schedule: p.drillSchedule || [],
-    packing_date: p.packingDate,
+    packing_date: (document.getElementById('f-no-packing')?.checked ? null : p.packingDate),
     split: p.doSplit||false,
     night_shift: p.nightShift||false,
     nesting: formNesting || null,
@@ -2934,7 +2935,7 @@ function createOrder() {
     launch_worker_ids: []
   };
   // Для фрезеровочных заказов: упаковка = следующий день после фрезеровки
-  if (newO.has_milling) {
+  if (newO.has_milling && !newO.no_packing) {
     const millDates = (newO.materials||[]).filter(m => m.type === 'mill' && m.mill_date).map(m => m.mill_date).sort();
     if (millDates.length) {
       // Есть mill-материалы с датами — упаковка после последней фрезеровки
@@ -3793,7 +3794,7 @@ function openOrderModal(id) {
     { key:'drilling',    ic:'🔩', bg:'#fef3c7', lbl:'Присадка',     date:o.drilling_date, note:'+1 день',              skip:o.no_drilling },
     { key:'gluing',      ic:'🧴', bg:'#f0fdfa', lbl:'Склейка',      date:getGluingDate(o),   note:(o.gluing_sqm||0)+'м²', skip:!o.has_gluing },
     { key:'curvilinear', ic:'〰️', bg:'#fdf2f8', lbl:'Криволинейка', date:getCurviDate(o),   note:(o.curvilinear_meters||0)+'м', skip:!o.has_curvilinear },
-    { key:'packing',     ic:'📦', bg:'#d1fae5', lbl:'Упаковка',     date:o.packing_date,  note:'+1 день',              skip:false }
+    { key:'packing',     ic:'📦', bg:'#d1fae5', lbl:'Упаковка',     date:o.packing_date,  note:'+1 день',              skip:o.no_packing }
   ];
 
   const sd = o.stages_done || {};
@@ -4101,7 +4102,7 @@ function renderEditWorkersSection(o) {
     { key:'drilling',    ic:'🔩', lbl:'Присадка',     wids: [], skip: o.no_drilling, done: false },
     { key:'gluing',      ic:'🧴', lbl:'Склейка',      wids: o.gluing_worker_ids||[], skip: !o.has_gluing, done: !!o.stages_done?.gluing },
     { key:'curvilinear', ic:'〰️', lbl:'Криволинейка', wids: o.curvilinear_worker_ids||[], skip: !o.has_curvilinear, done: !!o.stages_done?.curvilinear },
-    { key:'packing',     ic:'📦', lbl:'Упаковка',     wids: [], skip: false, done: false }
+    { key:'packing',     ic:'📦', lbl:'Упаковка',     wids: [], skip: o.no_packing, done: false }
   ];
   // Aggregate material-level worker_ids
   if (o.materials && o.materials.length) {
@@ -4402,7 +4403,7 @@ function saveEdit() {
   o.drill_sheets1   = ds.s1;
   o.drill_sheets2   = ds.s2;
   o.drill_schedule  = ds.schedule || [];
-  o.packing_date    = newPkg || recalcPkg; // пользовательская дата приоритетнее авто-расчёта
+  o.packing_date    = o.no_packing ? null : (newPkg || recalcPkg); // пользовательская дата приоритетнее авто-расчёта
   o.designer_id     = newDesId;
   o.nesting         = editNesting || null;
 
@@ -4630,7 +4631,7 @@ function submitCheckin() {
           o.drill_sheets1  = ds.s1; o.drill_sheets2  = ds.s2;
           o.drill_schedule = ds.schedule || [];
           const lastD = ds.d2 || ds.d1;
-          o.packing_date = lastD ? addWorkDays(lastD, 1) : addWorkDays(drillAfterCI, 1);
+          o.packing_date = o.no_packing ? null : (lastD ? addWorkDays(lastD, 1) : addWorkDays(drillAfterCI, 1));
         }
       }
     }
@@ -4895,7 +4896,7 @@ function getStages(o) {
     { key:'drilling',    icon:'🔩', label:'Присадка выполнена',     date: o.drilling_date, skip: o.no_drilling },
     { key:'gluing',      icon:'🧴', label:'Склейка выполнена',     date: getGluingDate(o),   skip: !o.has_gluing },
     { key:'curvilinear', icon:'〰️', label:'Криволинейка выполнена', date: getCurviDate(o),   skip: !o.has_curvilinear || !!o.has_milling },
-    { key:'packing',     icon:'📦', label:'Упакован / Отгружен',   date: o.packing_date,  skip: false }
+    { key:'packing',     icon:'📦', label:'Упакован / Отгружен',   date: o.packing_date,  skip: o.no_packing }
   ];
 }
 
@@ -5284,7 +5285,7 @@ function toggleMaterialStage(orderId, matId, stageKey, checked) {
 
   // Update order status
   const sheetMats = o.materials.filter(m => isSheetMat(m));
-  const needStages = ['cutting',...(!o.no_edging?['edging']:[]),...(!o.no_drilling?['drilling']:[]),'packing'];
+  const needStages = ['cutting',...(!o.no_edging?['edging']:[]),...(!o.no_drilling?['drilling']:[]),...(!o.no_packing?['packing']:[])];
   const wasDone = o.status === 'done';
 
   // Синхронизация stages_done на уровне заказа для каждой производственной стадии
@@ -5420,10 +5421,10 @@ function saveMaterialNote() {
     o.drill_sheets2  = ds.s2;
     o.drill_schedule = ds.schedule || [];
     const lastDrillDay = ds.d2 || ds.d1 || newReschedule;
-    o.packing_date = addWorkDays(lastDrillDay, 1);
+    o.packing_date = o.no_packing ? null : addWorkDays(lastDrillDay, 1);
   } else if (stageKey === 'packing' && newReschedule) {
     // Перенос упаковки → обновляем дату упаковки заказа
-    o.packing_date = newReschedule;
+    o.packing_date = o.no_packing ? null : newReschedule;
   }
 
   // Полный пересчёт prodCal (buildProdCalFrom использует calOrderQty,
@@ -5578,7 +5579,7 @@ function toggleStage(orderId, stageKey, checked) {
         o.drill_sheets1  = ds.s1; o.drill_sheets2  = ds.s2;
         o.drill_schedule = ds.schedule || [];
         const lastD = ds.d2 || ds.d1;
-        o.packing_date = lastD ? addWorkDays(lastD, 1) : addWorkDays(drillAfter, 1);
+        o.packing_date = o.no_packing ? null : (lastD ? addWorkDays(lastD, 1) : addWorkDays(drillAfter, 1));
       }
     }
   }
@@ -6252,6 +6253,7 @@ function renderProduction() {
         if (!isSheetMat(m)) return;
         if (stg.key === 'edging' && (!matHasEdging(m) || o.no_edging)) return;
         if (stg.key === 'drilling' && (!matHasDrilling(m) || o.no_drilling)) return;
+        if (stg.key === 'packing' && o.no_packing) return;
         const s = (m.stages||{})[stg.key];
         const done = !!(s?.done);
         if (done && !showDone) return;
