@@ -388,7 +388,7 @@ table{max-width:100%}
     <div class="card" style="padding:20px">
       <div class="ct" style="margin-bottom:16px">📝 Данные заказа</div>
       <div class="fg">
-        <div><label class="fl">Номер заказа</label><input id="f-num" class="fc" type="text" placeholder="1"></div>
+        <div><label class="fl">Номер заказа <span style="font-weight:400;color:var(--muted);font-size:10px">(можно изменить)</span></label><input id="f-num" class="fc" type="text" placeholder="1" title="Можно ввести любой свободный номер — например, задним числом"></div>
         <div><label class="fl">Клиент</label><input id="f-client" class="fc" type="text" placeholder="Фамилия И.О."></div>
         <div class="fs2"><label class="fl">Описание</label><input id="f-desc" class="fc" type="text" placeholder="Кухня, шкаф-купе..."></div>
         <div class="fs2">
@@ -612,6 +612,12 @@ table{max-width:100%}
       <button class="btn btn-sm" style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:7px 14px" onclick="manualCloudSave()">⬆️ Отправить в облако</button>
       <button class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;padding:7px 14px" onclick="manualCloudLoad()">⬇️ Загрузить из облака</button>
     </div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;padding-top:10px;border-top:1px dashed var(--border)">
+      <button class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;padding:7px 14px" onclick="exportBackup()" title="Скачать файл с полной копией всех данных">💾 Экспорт (бэкап)</button>
+      <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:7px 14px" onclick="document.getElementById('import-file').click()" title="Загрузить данные из файла бэкапа">📂 Импорт</button>
+      <input id="import-file" type="file" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">Экспорт сохраняет все заказы, сотрудников, настройки в JSON-файл. Импорт восстанавливает из файла (с подтверждением).</div>
     <details style="margin-top:14px">
       <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--primary)">📋 Инструкция по настройке</summary>
       <div style="font-size:12px;line-height:1.7;margin-top:8px;padding:10px;background:#fff;border-radius:8px;border:1px solid var(--border)">
@@ -920,6 +926,13 @@ const TODAY = (function() {
 let CAP = { cutting: 50, edging: 800, drilling: 25, packing: 999 };
 let workingWeekends = new Set(); // Set of 'YYYY-MM-DD' strings
 let nonWorkingDays  = new Set(); // Weekdays marked as holidays/non-working
+// Timestamps последних изменений настроек — для разрешения конфликтов multi-PC
+let settingsVersions = { non_working: 0, work_weekends: 0, cap: 0, worker_rates: 0, permissions: 0 };
+function bumpSettingVersion(key) {
+  const now = Date.now();
+  settingsVersions[key] = now;
+  localStorage.setItem('crm_' + key + '_v', String(now));
+}
 let USERS = [
   { id: 'admin', name: 'Руководитель', department: 'management', role: 'Руководитель', color: '#dc2626', initials: 'РК', login: '1', password: '1' }
 ];
@@ -961,6 +974,14 @@ function loadSettings() {
     if (nwd) nonWorkingDays = new Set(JSON.parse(nwd));
     const wr = localStorage.getItem('crm_worker_rates');
     if (wr) workerRates = { ...workerRates, ...JSON.parse(wr) };
+    // Версии настроек (timestamp последнего изменения) — для разрешения конфликтов между компами
+    settingsVersions = {
+      non_working: parseInt(localStorage.getItem('crm_non_working_v')||'0'),
+      work_weekends: parseInt(localStorage.getItem('crm_work_weekends_v')||'0'),
+      cap: parseInt(localStorage.getItem('crm_cap_v')||'0'),
+      worker_rates: parseInt(localStorage.getItem('crm_worker_rates_v')||'0'),
+      permissions: parseInt(localStorage.getItem('crm_permissions_v')||'0')
+    };
     loadPermissions();
     // Перестраиваем массив конструкторов из USERS
     rebuildDesigners();
@@ -968,11 +989,11 @@ function loadSettings() {
     rebuildProdCal();
   } catch(e) {}
 }
-function saveCapToStorage() { localStorage.setItem('crm_cap', JSON.stringify(CAP)); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
-function saveWorkerRates() { localStorage.setItem('crm_worker_rates', JSON.stringify(workerRates)); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
+function saveCapToStorage() { localStorage.setItem('crm_cap', JSON.stringify(CAP)); bumpSettingVersion('cap'); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
+function saveWorkerRates() { localStorage.setItem('crm_worker_rates', JSON.stringify(workerRates)); bumpSettingVersion('worker_rates'); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
 function saveUsersToStorage() { localStorage.setItem('crm_users', JSON.stringify(USERS)); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
-function saveWorkWeekendsToStorage() { localStorage.setItem('crm_work_weekends', JSON.stringify([...workingWeekends])); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
-function saveNonWorkingDaysToStorage() { localStorage.setItem('crm_non_working', JSON.stringify([...nonWorkingDays])); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
+function saveWorkWeekendsToStorage() { localStorage.setItem('crm_work_weekends', JSON.stringify([...workingWeekends])); bumpSettingVersion('work_weekends'); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
+function saveNonWorkingDaysToStorage() { localStorage.setItem('crm_non_working', JSON.stringify([...nonWorkingDays])); bumpSettingVersion('non_working'); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
 function saveCurrentUser(u) { currentUser = u; localStorage.setItem('crm_user', JSON.stringify(u)); }
 
 // ============================================================
@@ -1103,6 +1124,7 @@ async function cloudSaveAll() {
         non_working: [...nonWorkingDays],
         worker_rates: workerRates,
         permissions: rolePermissions,
+        settings_versions: settingsVersions,
         last_order_num: localStorage.getItem('crm_last_order_num') || '0'
       }
     };
@@ -1160,15 +1182,63 @@ async function cloudLoadAll() {
       USERS = merged;
       saveUsersToStorage();
     }
-    // Настройки мощности: облако
-    if (data.cap) { CAP = { ...CAP, ...data.cap }; saveCapToStorage(); }
-    if (data.work_weekends) { workingWeekends = new Set(data.work_weekends); saveWorkWeekendsToStorage(); }
-    if (data.non_working) { nonWorkingDays = new Set(data.non_working); saveNonWorkingDaysToStorage(); }
-    if (data.worker_rates) { workerRates = { ...workerRates, ...data.worker_rates }; saveWorkerRates(); }
-    // Права: мержим — локальные настройки приоритетнее, дополняем из облака
-    if (data.permissions && typeof data.permissions === 'object') {
+    // Настройки: принимаем из облака только если его версия новее локальной (last-write-wins)
+    const cloudVers = (data.settings_versions && typeof data.settings_versions === 'object') ? data.settings_versions : {};
+    function cloudIsNewer(key) {
+      const cv = parseInt(cloudVers[key] || 0);
+      const lv = parseInt(settingsVersions[key] || 0);
+      return cv > lv;
+    }
+    if (data.cap && cloudIsNewer('cap')) {
+      CAP = { ...CAP, ...data.cap };
+      localStorage.setItem('crm_cap', JSON.stringify(CAP));
+      settingsVersions.cap = parseInt(cloudVers.cap);
+      localStorage.setItem('crm_cap_v', String(settingsVersions.cap));
+    }
+    if (data.work_weekends && cloudIsNewer('work_weekends')) {
+      workingWeekends = new Set(data.work_weekends);
+      localStorage.setItem('crm_work_weekends', JSON.stringify([...workingWeekends]));
+      settingsVersions.work_weekends = parseInt(cloudVers.work_weekends);
+      localStorage.setItem('crm_work_weekends_v', String(settingsVersions.work_weekends));
+    }
+    if (data.non_working && cloudIsNewer('non_working')) {
+      nonWorkingDays = new Set(data.non_working);
+      localStorage.setItem('crm_non_working', JSON.stringify([...nonWorkingDays]));
+      settingsVersions.non_working = parseInt(cloudVers.non_working);
+      localStorage.setItem('crm_non_working_v', String(settingsVersions.non_working));
+    }
+    if (data.worker_rates && cloudIsNewer('worker_rates')) {
+      workerRates = { ...workerRates, ...data.worker_rates };
+      localStorage.setItem('crm_worker_rates', JSON.stringify(workerRates));
+      settingsVersions.worker_rates = parseInt(cloudVers.worker_rates);
+      localStorage.setItem('crm_worker_rates_v', String(settingsVersions.worker_rates));
+    }
+    if (data.permissions && typeof data.permissions === 'object' && cloudIsNewer('permissions')) {
+      rolePermissions = data.permissions;
+      localStorage.setItem('crm_permissions', JSON.stringify(rolePermissions));
+      settingsVersions.permissions = parseInt(cloudVers.permissions);
+      localStorage.setItem('crm_permissions_v', String(settingsVersions.permissions));
+    }
+    // Legacy fallback: если облако без settings_versions — однократно подхватываем (миграция)
+    if (!cloudVers.non_working && data.non_working && !settingsVersions.non_working) {
+      nonWorkingDays = new Set(data.non_working);
+      localStorage.setItem('crm_non_working', JSON.stringify([...nonWorkingDays]));
+    }
+    if (!cloudVers.work_weekends && data.work_weekends && !settingsVersions.work_weekends) {
+      workingWeekends = new Set(data.work_weekends);
+      localStorage.setItem('crm_work_weekends', JSON.stringify([...workingWeekends]));
+    }
+    if (!cloudVers.cap && data.cap && !settingsVersions.cap) {
+      CAP = { ...CAP, ...data.cap };
+      localStorage.setItem('crm_cap', JSON.stringify(CAP));
+    }
+    if (!cloudVers.worker_rates && data.worker_rates && !settingsVersions.worker_rates) {
+      workerRates = { ...workerRates, ...data.worker_rates };
+      localStorage.setItem('crm_worker_rates', JSON.stringify(workerRates));
+    }
+    if (!cloudVers.permissions && data.permissions && !settingsVersions.permissions) {
       rolePermissions = { ...data.permissions, ...rolePermissions };
-      savePermissions();
+      localStorage.setItem('crm_permissions', JSON.stringify(rolePermissions));
     }
     if (data.last_order_num) localStorage.setItem('crm_last_order_num', String(data.last_order_num));
     // Сохраняем в localStorage как локальный кэш
@@ -1233,6 +1303,84 @@ async function manualCloudSave() {
   } else {
     alert('❌ Ошибка отправки. Проверьте подключение.');
   }
+}
+
+// --- Экспорт/импорт JSON-бэкапа ---
+function exportBackup() {
+  const payload = {
+    _type: 'QazJihaz_CRM_backup',
+    _version: 1,
+    _exported_at: new Date().toISOString(),
+    orders,
+    deleted_order_ids: [...deletedOrderIds],
+    deleted_user_ids: [...deletedUserIds],
+    designers,
+    users: USERS,
+    cap: CAP,
+    work_weekends: [...workingWeekends],
+    non_working: [...nonWorkingDays],
+    worker_rates: workerRates,
+    permissions: rolePermissions,
+    settings_versions: settingsVersions,
+    last_order_num: localStorage.getItem('crm_last_order_num') || '0'
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,19).replace(/[:T]/g, '-');
+  a.href = url;
+  a.download = `qazjihaz-backup-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importBackup(inputEl) {
+  const file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data._type !== 'QazJihaz_CRM_backup') {
+        if (!confirm('Файл не похож на бэкап QazJihaz. Всё равно попробовать импортировать?')) { inputEl.value=''; return; }
+      }
+      const msg = 'ВНИМАНИЕ! Импорт заменит ВСЕ локальные данные на данные из файла.\n\n' +
+                  'Заказов: ' + (data.orders?.length || 0) + '\n' +
+                  'Сотрудников: ' + (data.users?.length || 0) + '\n' +
+                  'Дата бэкапа: ' + (data._exported_at || '—') + '\n\n' +
+                  'Продолжить?';
+      if (!confirm(msg)) { inputEl.value=''; return; }
+      // Применяем
+      if (Array.isArray(data.orders)) { orders = data.orders; localStorage.setItem('crm_orders', JSON.stringify(orders)); }
+      if (Array.isArray(data.deleted_order_ids)) { deletedOrderIds = new Set(data.deleted_order_ids.map(String)); localStorage.setItem('crm_deleted_ids', JSON.stringify([...deletedOrderIds])); }
+      if (Array.isArray(data.deleted_user_ids)) { deletedUserIds = new Set(data.deleted_user_ids.map(String)); localStorage.setItem('crm_deleted_user_ids', JSON.stringify([...deletedUserIds])); }
+      if (Array.isArray(data.designers)) { designers = data.designers; localStorage.setItem('crm_designers', JSON.stringify(designers)); }
+      if (Array.isArray(data.users)) { USERS = data.users; localStorage.setItem('crm_users', JSON.stringify(USERS)); }
+      if (data.cap) { CAP = { ...CAP, ...data.cap }; localStorage.setItem('crm_cap', JSON.stringify(CAP)); }
+      if (Array.isArray(data.work_weekends)) { workingWeekends = new Set(data.work_weekends); localStorage.setItem('crm_work_weekends', JSON.stringify([...workingWeekends])); }
+      if (Array.isArray(data.non_working)) { nonWorkingDays = new Set(data.non_working); localStorage.setItem('crm_non_working', JSON.stringify([...nonWorkingDays])); }
+      if (data.worker_rates) { workerRates = { ...workerRates, ...data.worker_rates }; localStorage.setItem('crm_worker_rates', JSON.stringify(workerRates)); }
+      if (data.permissions) { rolePermissions = data.permissions; localStorage.setItem('crm_permissions', JSON.stringify(rolePermissions)); }
+      if (data.last_order_num) localStorage.setItem('crm_last_order_num', String(data.last_order_num));
+      // Обновляем версии — бампаем на текущее время, чтобы импорт перезаписал облако при следующей отправке
+      bumpSettingVersion('cap');
+      bumpSettingVersion('work_weekends');
+      bumpSettingVersion('non_working');
+      bumpSettingVersion('worker_rates');
+      bumpSettingVersion('permissions');
+      rebuildDesigners();
+      rebuildProdCal();
+      refreshAll();
+      alert('✅ Импорт завершён.\nЗаказов: ' + orders.length + '\nСотрудников: ' + USERS.length + '\n\nНажмите «Отправить в облако» чтобы разослать на остальные компьютеры.');
+    } catch(err) {
+      alert('❌ Ошибка импорта: ' + err.message);
+    } finally {
+      inputEl.value = '';
+    }
+  };
+  reader.readAsText(file);
 }
 
 // --- Индикатор статуса синхронизации ---
@@ -1312,6 +1460,20 @@ function desColor(id) {
   if (!u) u = USERS.find(u => u.id === id);
   return u ? u.color : '#64748b';
 }
+// Показать конструктора для ордера — с fallback на design_worker_ids
+// (на случай, когда исполнитель стадии "Проект" назначен, но designer_id не проставлен)
+function orderDesignerInfo(o) {
+  let u = USERS.find(u => u.designer_id === o.designer_id);
+  if (!u) u = USERS.find(u => u.id === o.designer_id);
+  if (!u && Array.isArray(o.design_worker_ids) && o.design_worker_ids.length) {
+    u = USERS.find(x => x.id === o.design_worker_ids[0]);
+  }
+  return {
+    name:     u ? u.name     : '—',
+    initials: u ? u.initials : '—',
+    color:    u ? u.color    : '#64748b'
+  };
+}
 
 // Пересчитать busy_until конструктора из заказов
 function recalcDesignerBusy(desId) {
@@ -1365,7 +1527,7 @@ let rolePermissions = {};
 function loadPermissions() {
   try { const p = localStorage.getItem('crm_permissions'); if (p) rolePermissions = JSON.parse(p); } catch(e) {}
 }
-function savePermissions() { localStorage.setItem('crm_permissions', JSON.stringify(rolePermissions)); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
+function savePermissions() { localStorage.setItem('crm_permissions', JSON.stringify(rolePermissions)); bumpSettingVersion('permissions'); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
 function getPermissionsForRole(role) {
   return rolePermissions[role] || DEFAULT_PERMISSIONS[role] || ['dashboard'];
 }
@@ -2693,6 +2855,9 @@ function createOrder() {
   const hasSheets = sheets > 0;
   // Allow mill-only orders (sheets=0) if there's at least one mill material
   if (!num||!client||!desc||(!hasSheets && !hasMills)) { alert('Заполните все обязательные поля'); return; }
+  // Проверка на дубликат номера (учитываем и активные заказы, и tombstones)
+  if (orders.some(x => String(x.id) === String(num))) { alert('Номер заказа ' + num + ' уже существует. Введите другой.'); return; }
+  if (deletedOrderIds.has(String(num))) { alert('Номер заказа ' + num + ' был ранее удалён. Нельзя использовать повторно — введите другой.'); return; }
   // For mill-only: auto-create minimal pendingSched if not set
   if (!pendingSched) {
     if (hasMills && !hasSheets) {
@@ -2785,9 +2950,12 @@ function createOrder() {
   }
   orders.push(newO);
   addHistory(num, 'Создание заказа', `${desc} — ${client}, ${sheets} л.`);
-  // Сохраняем последний номер заказа
+  // Сохраняем последний номер заказа — берём максимум (если пользователь ввёл задним числом, не понижаем)
   const numParsed = parseInt(num);
-  if (!isNaN(numParsed)) localStorage.setItem('crm_last_order_num', String(numParsed));
+  if (!isNaN(numParsed)) {
+    const stored = parseInt(localStorage.getItem('crm_last_order_num')||'0');
+    localStorage.setItem('crm_last_order_num', String(Math.max(stored, numParsed)));
+  }
 
   // Полный пересчёт prodCal (без инкрементальных add/sub — без призраков)
   rebuildProdCal();
@@ -3590,8 +3758,7 @@ function renderAllOrders(filter) {
         ${o.no_drilling?'<span class="tag" style="font-size:9px;margin-left:3px">без присадки</span>':''}
       </td>
       <td><div style="display:flex;align-items:center;gap:5px">
-        <div class="des-av" style="width:22px;height:22px;font-size:8px;background:${desColor(o.designer_id)}">${desInitials(o.designer_id)}</div>
-        <span style="font-size:12px">${desName(o.designer_id).split(' ')[0]}</span>
+        ${(()=>{const di=orderDesignerInfo(o);return `<div class="des-av" style="width:22px;height:22px;font-size:8px;background:${di.color}">${di.initials}</div><span style="font-size:12px">${di.name.split(' ')[0]}</span>`;})()}
       </div></td>
       <td style="font-size:12px;font-weight:600">${fmt(o.cutting_date)}</td>
       <td style="font-size:12px;font-weight:600">${fmt(o.packing_date)}</td>
@@ -6036,12 +6203,12 @@ function renderProduction() {
       tasks.push({ o, m: null, stg: { key:'design', icon:'✏️', label:'Проект', color:'#3730a3', bg:'#ede9fe', border:'#c7d2fe' }, done, assignedIds, completedIds, planDate: o.design_end });
     });
   }
-  // Launch tasks (per order — shown when design is done but launch is not)
+  // Launch tasks (per order — shown when design is done; или сразу если проект не нужен)
   if (!stageFilter || stageFilter === 'launch') {
     orders.forEach(o => {
-      if (o.no_project) return;
       if (o.status === 'done' && !showDone) return;
-      if (!o.stages_done?.design) return; // design must be done first
+      // Если есть стадия "проект" — ждём её завершения. Если no_project — запуск можно сразу.
+      if (!o.no_project && !o.stages_done?.design) return;
       const lsd = o.launch_stage_data || {};
       const done = !!(lsd.done || o.stages_done?.launch);
       if (done && !showDone) return;
