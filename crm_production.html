@@ -388,7 +388,7 @@ table{max-width:100%}
     <div class="card" style="padding:20px">
       <div class="ct" style="margin-bottom:16px">📝 Данные заказа</div>
       <div class="fg">
-        <div><label class="fl">Номер заказа <span style="font-weight:400;color:var(--muted);font-size:10px">(можно изменить)</span></label><input id="f-num" class="fc" type="text" placeholder="1" title="Можно ввести любой свободный номер — например, задним числом"></div>
+        <div><label class="fl">ID <span style="font-weight:400;color:var(--muted);font-size:10px">(можно изменить)</span></label><input id="f-num" class="fc" type="text" placeholder="1" title="Можно ввести любой свободный ID — например, задним числом"></div>
         <div><label class="fl">Клиент</label><input id="f-client" class="fc" type="text" placeholder="Фамилия И.О."></div>
         <div class="fs2"><label class="fl">Описание</label><input id="f-desc" class="fc" type="text" placeholder="Кухня, шкаф-купе..."></div>
         <div class="fs2">
@@ -757,7 +757,7 @@ table{max-width:100%}
     <div class="mb">
       <input type="hidden" id="e-id">
       <div class="fg" style="gap:11px">
-        <div><label class="fl">Номер заказа</label><input id="e-num" class="fc" type="text" readonly style="background:#f8fafc;color:var(--muted)"></div>
+        <div><label class="fl">ID</label><input id="e-num" class="fc" type="text" readonly style="background:#f8fafc;color:var(--muted)"></div>
         <div><label class="fl">Клиент</label><input id="e-client" class="fc" type="text"></div>
         <div class="fs2"><label class="fl">Описание</label><input id="e-desc" class="fc" type="text"></div>
         <div class="fs2">
@@ -789,6 +789,7 @@ table{max-width:100%}
       <div class="divider"></div>
       <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">📅 Производственные даты</div>
       <div class="fg" style="gap:11px">
+        <div><label class="fl">🚀 Запуск</label><input id="e-launch" class="fc" type="date" oninput="warnIfWeekend(this.value,'Запуск')"></div>
         <div><label class="fl">✂️ Распил</label><input id="e-cutting" class="fc" type="date" oninput="onEditCutChange()"></div>
         <div><label class="fl">🔲 Кромка</label><input id="e-edging" class="fc" type="date" oninput="onEditEdgingChange()"></div>
         <div><label class="fl">🔩 Присадка</label><input id="e-drilling" class="fc" type="date" oninput="onEditDrillChange()"></div>
@@ -991,6 +992,7 @@ function loadSettings() {
     rebuildDesigners();
     loadOrders();
     rebuildProdCal();
+    rebuildProdCalFact();
   } catch(e) {}
 }
 function saveCapToStorage() { localStorage.setItem('crm_cap', JSON.stringify(CAP)); bumpSettingVersion('cap'); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
@@ -1114,6 +1116,7 @@ async function cloudSaveAll() {
       orders = mergedOrders;
       localStorage.setItem('crm_orders', JSON.stringify(orders));
       rebuildProdCal();
+      rebuildProdCalFact();
     }
     const payload = {
       action: 'writeAll',
@@ -1250,6 +1253,7 @@ async function cloudLoadAll() {
     localStorage.setItem('crm_designers', JSON.stringify(designers));
     rebuildDesigners();
     rebuildProdCal();
+    rebuildProdCalFact();
     _lastSyncTime = Date.now();
     updateSyncIndicator('ok');
     return true;
@@ -1376,6 +1380,7 @@ function importBackup(inputEl) {
       bumpSettingVersion('permissions');
       rebuildDesigners();
       rebuildProdCal();
+      rebuildProdCalFact();
       refreshAll();
       alert('✅ Импорт завершён.\nЗаказов: ' + orders.length + '\nСотрудников: ' + USERS.length + '\n\nНажмите «Отправить в облако» чтобы разослать на остальные компьютеры.');
     } catch(err) {
@@ -1586,6 +1591,14 @@ function getGluingDate(o) {
     return o.cutting_date;
   }
   return o.no_edging ? o.cutting_date : o.edging_date;
+}
+// Дата запуска заказа: либо явно заданная пользователем (o.launch_date),
+// либо автоматический расчёт (для заказов без конструктора — день распила;
+// иначе — следующий рабочий день после проекта).
+function getLaunchDate(o) {
+  if (o.launch_date) return o.launch_date;
+  if (o.no_project) return o.cutting_date || null;
+  return o.design_end ? addWorkDays(o.design_end, 1) : null;
 }
 function getCurviDate(o) {
   if (o.curvilinear_date) return o.curvilinear_date;
@@ -2019,6 +2032,47 @@ function buildProdCalFrom(orderList) {
 }
 function rebuildProdCal() { buildProdCalFrom(orders); }
 function rebuildProdCalExcluding(id) { buildProdCalFrom(orders.filter(o => o.id !== id)); }
+
+// Восстановить фактический календарь из отметок «Готово» по заказам/материалам
+function buildProdCalFactFrom(orderList) {
+  for (const k in prodCalFact) delete prodCalFact[k];
+  function add(date, op, n) {
+    if (!date || !n || n <= 0) return;
+    if (!prodCalFact[date]) prodCalFact[date] = {cutting:0,edging:0,drilling:0,packing:0};
+    prodCalFact[date][op] = (prodCalFact[date][op]||0) + n;
+  }
+  const OPS = ['cutting','edging','drilling','packing'];
+  orderList.forEach(o => {
+    if (o.materials && o.materials.length) {
+      o.materials.forEach(m => {
+        OPS.forEach(op => {
+          const s = m.stages?.[op];
+          if (!s?.done) return;
+          const d = s.fact_date || s.completed_at || s.reschedule_date || null;
+          if (!d) return;
+          let qty = 0;
+          if (op === 'edging') {
+            qty = m.type === 'edging' ? (parseFloat(m.qty)||0) : (matHasEdging(m) ? matAutoEdging(m) : 0);
+          } else if (isSheetMat(m)) {
+            qty = m.qty || 0;
+          }
+          add(d, op, qty);
+        });
+      });
+    } else {
+      // Legacy (без materials): используем per-order отметки
+      const sd = o.stages_done || {};
+      OPS.forEach(op => {
+        if (!sd[op]) return;
+        const d = sd['_'+op+'_fact_date'] || (op==='cutting'?o.cutting_date:op==='edging'?o.edging_date:op==='drilling'?o.drilling_date:o.packing_date);
+        if (!d) return;
+        const qty = op==='edging' ? (o.edging_meters || 0) : (o.sheets || 0);
+        add(d, op, qty);
+      });
+    }
+  });
+}
+function rebuildProdCalFact() { buildProdCalFactFrom(orders); }
 
 // ── Каскадный пересчёт дат кромки/присадки/упаковки ──────────
 // origin: 'cutting' — вызов после переноса распила (обновляет кромку + присадку + упаковку)
@@ -3257,23 +3311,22 @@ function renderCalTableView(days) {
 
   function launchTd(date) {
     const inProgress = orders.filter(o => {
+      if (o.no_launch) return false;
       if (o.launch_stage_data?.done) return false;
+      // Явная дата запуска имеет приоритет над design_done
+      if (o.launch_date) return o.launch_date === date;
       if (o.no_project) {
-        // Без конструктора — запуск нужен до распила
         if (o.stages_done?.launch) return false;
         return o.cutting_date === date;
       }
       const designDone = !!(o.stages_done?.design || o.design_stage_data?.done);
       if (!designDone) return false;
-      const launchDate = o.design_end ? addWorkDays(o.design_end, 1) : null;
-      return launchDate === date;
+      return getLaunchDate(o) === date;
     });
     const launchDone = orders.filter(o => {
       if (!o.launch_stage_data?.done) return false;
-      // Показываем выполненный запуск на плановой дате, а не на дате выполнения
-      if (o.no_project) return o.cutting_date === date;
-      const launchDate = o.design_end ? addWorkDays(o.design_end, 1) : null;
-      return launchDate === date;
+      // Показываем выполненный запуск на плановой дате
+      return getLaunchDate(o) === date;
     });
     const total = inProgress.length + launchDone.length;
     if (!total) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
@@ -3697,13 +3750,18 @@ function renderCalDetailView(days) {
           const matLabel = matDef.label || m.type;
           const descText = m.desc ? `${escHtml(m.desc)}` : matLabel;
           const edgM = matHasEdging(m) && m.edging_m > 0 ? ` · 🔲 ${m.edging_m}м` : '';
+          // В секции КРОМКА листовой материал показывает метры своей inline-кромки, а не листы
+          const isEdgSec = op.key === 'edging';
+          const qtyVal = isEdgSec ? (matHasEdging(m) ? matAutoEdging(m) : 0) : (m.qty || 0);
+          const qtyUnit = isEdgSec ? 'м' : 'л';
+          if (isEdgSec && qtyVal <= 0) return '';
           return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed #f1f5f9">
             <span style="font-size:13px">${done?'✅':'⬜'}</span>
             <div style="flex:1;min-width:0">
               <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(m.desc)}">${descText}</div>
-              <div style="font-size:10px;color:var(--muted)">${matLabel}${edgM}</div>
+              <div style="font-size:10px;color:var(--muted)">${matLabel}${isEdgSec ? '' : edgM}</div>
             </div>
-            <span style="font-size:11px;font-weight:800;color:${op.hdr};white-space:nowrap">${m.qty} л${suffix?`<span style="color:var(--warn);font-weight:600"> ${suffix}</span>`:''}</span>
+            <span style="font-size:11px;font-weight:800;color:${op.hdr};white-space:nowrap">${qtyVal} ${qtyUnit}${suffix?`<span style="color:var(--warn);font-weight:600"> ${suffix}</span>`:''}</span>
           </div>`;
         }).join('');
         // Отдельные кромка-материалы — показываем только в секции КРОМКА
@@ -3734,7 +3792,7 @@ function renderCalDetailView(days) {
         return `<div style="background:${op.bg};border:1.5px solid ${op.border};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 4px 14px rgba(0,0,0,.10)'" onmouseleave="this.style.boxShadow=''" onclick="openOrderModal('${o.id}')">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
             <div style="min-width:0">
-              <div style="font-size:15px;font-weight:900;font-family:monospace;color:${op.hdr};letter-spacing:.02em;margin-bottom:2px">${escHtml(o.id)}</div>
+              <div style="font-size:15px;font-weight:900;font-family:monospace;color:${op.hdr};letter-spacing:.02em;margin-bottom:2px">ID ${escHtml(o.id)}</div>
               <div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.2">${escHtml(o.client)}</div>
               <div style="font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(o.desc)}</div>
             </div>
@@ -3859,10 +3917,10 @@ function openOrderModal(id) {
   document.getElementById('om-sub').textContent   = o.client + ' · ' + o.sheets + ' л.';
   document.getElementById('om-edit-btn').onclick  = () => { closeOrderModal(); openEdit(id); };
 
-  const launchDate = o.design_end ? addWorkDays(o.design_end, 1) : null;
+  const launchDate = getLaunchDate(o);
   const stages = [
     { key:'design',   ic:'✏️', bg:'#dbeafe', lbl:'Проект',   date:o.design_end,    note:desName(o.designer_id), skip:o.no_project },
-    { key:'launch',   ic:'🚀', bg:'#fef3c7', lbl:'Запуск',   date:o.no_project ? o.cutting_date : launchDate, note:o.no_project ? 'До распила' : 'После проекта', skip:!!o.no_launch },
+    { key:'launch',   ic:'🚀', bg:'#fef3c7', lbl:'Запуск',   date:launchDate, note:o.launch_date?'Задано вручную':(o.no_project ? 'До распила' : 'После проекта'), skip:!!o.no_launch },
     { key:'cutting',  ic:'✂️', bg:'#ede9fe', lbl:'Распил',   date:o.cutting_date,  note:o.sheets+' листов',     skip:!!o.no_cutting },
     { key:'edging',   ic:'🔲', bg:'#fce7f3', lbl:'Кромка',   date:o.edging_date,   note: o.cutting_date2 ? 'После допила' : 'Тот же день', skip:o.no_edging },
     { key:'drilling',    ic:'🔩', bg:'#fef3c7', lbl:'Присадка',     date:o.drilling_date, note:'+1 день',              skip:o.no_drilling },
@@ -4076,7 +4134,7 @@ function openEdit(id) {
   const o = orders.find(x=>x.id===id);
   if (!o) return;
   editingId = id;
-  document.getElementById('em-title').textContent = 'Редактировать ' + id;
+  document.getElementById('em-title').textContent = 'Редактировать ID ' + id;
   document.getElementById('e-id').value = id;
   document.getElementById('e-num').value = id;
   document.getElementById('e-client').value = o.client;
@@ -4088,6 +4146,7 @@ function openEdit(id) {
   renderEditMatList();
   recalcEditSheets();
   document.getElementById('e-design-end').value = o.design_end||'';
+  const elLaunch = document.getElementById('e-launch'); if (elLaunch) elLaunch.value = o.launch_date||'';
   document.getElementById('e-cutting').value    = o.cutting_date||'';
   document.getElementById('e-edging').value     = o.edging_date||'';
   document.getElementById('e-drilling').value   = o.drilling_date||'';
@@ -4415,6 +4474,8 @@ function saveEdit() {
   o.sheets      = ns;
   o.status      = document.getElementById('e-status').value;
   o.design_end  = document.getElementById('e-design-end').value||null;
+  const elLaunchIn = document.getElementById('e-launch');
+  o.launch_date = elLaunchIn ? (elLaunchIn.value || null) : (o.launch_date || null);
   o.no_edging   = document.getElementById('e-no-edging').checked;
   o.no_drilling = document.getElementById('e-no-drilling').checked;
   o.no_project  = document.getElementById('e-no-project').checked;
@@ -5041,16 +5102,24 @@ function renderStagesBody(o) {
   })();
   // Launch stage row (after design, before production) — показывается ВСЕГДА
   const launchHtml = (() => {
+    if (o.no_launch) return '';
     const done = !!(sd.launch || o.launch_stage_data?.done);
     const designDone = !!sd.design;
     // Для заказов с конструктором — показываем только после проекта; без конструктора — сразу
     if (!o.no_project && !designDone && !done) return '';
-    return `<label style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?'#dcfce7':'#e0f2fe'};border-radius:9px;cursor:pointer;border:1.5px solid ${done?'#86efac':'#7dd3fc'};margin-bottom:10px">
-      <input type="checkbox" ${done?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" onchange="toggleStage('${o.id}','launch',this.checked)">
-      <div style="flex:1"><div style="font-weight:700;font-size:13px">🚀 Запуск выполнен</div>
-        <div style="font-size:11px;color:var(--muted)">${o.launch_stage_data?.completed_at?fmt(o.launch_stage_data.completed_at,true):'— ожидает запуска'}</div></div>
+    const curLaunchDate = getLaunchDate(o) || '';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?'#dcfce7':'#e0f2fe'};border-radius:9px;border:1.5px solid ${done?'#86efac':'#7dd3fc'};margin-bottom:10px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:180px">
+        <input type="checkbox" ${done?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" onchange="toggleStage('${o.id}','launch',this.checked)">
+        <div style="flex:1"><div style="font-weight:700;font-size:13px">🚀 Запуск выполнен</div>
+          <div style="font-size:11px;color:var(--muted)">${o.launch_stage_data?.completed_at?fmt(o.launch_stage_data.completed_at,true):(curLaunchDate?('План: '+fmt(curLaunchDate,true)):'— ожидает запуска')}</div></div>
+      </label>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;color:var(--muted)">Перенести:</label>
+        <input type="date" value="${curLaunchDate}" style="padding:4px 6px;font-size:12px;border:1px solid var(--border);border-radius:6px" onchange="rescheduleLaunchDate('${o.id}',this.value)">
+      </div>
       ${done?'<span style="font-size:11px;font-weight:700;color:#15803d">✓ Готово</span>':''}
-    </label>`;
+    </div>`;
   })();
 
   // If no materials — show legacy per-order stage checkboxes
@@ -5540,6 +5609,25 @@ function saveMaterialNote() {
   refreshAll();
 }
 
+function rescheduleLaunchDate(orderId, newDate) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  if (!newDate) { o.launch_date = null; }
+  else {
+    if (isWeekend(newDate)) {
+      if (!confirm('Выбран выходной день. Всё равно перенести запуск на '+fmt(newDate,true)+'?')) {
+        renderStagesBody(o);
+        return;
+      }
+    }
+    o.launch_date = newDate;
+  }
+  addHistory(orderId, 'Запуск перенесён на '+(newDate?fmt(newDate,true):'авто'), 'launch');
+  rebuildProdCal();
+  renderStagesBody(o);
+  refreshAll();
+}
+
 function toggleStage(orderId, stageKey, checked) {
   const o = orders.find(x => x.id === orderId);
   if (!o) return;
@@ -5776,6 +5864,13 @@ function dateRange(from, to) {
   return days;
 }
 
+const statsWorkerExpanded = new Set();
+function toggleStatsWorker(wid) {
+  const k = String(wid);
+  if (statsWorkerExpanded.has(k)) statsWorkerExpanded.delete(k); else statsWorkerExpanded.add(k);
+  renderStats();
+}
+
 function renderStats() {
   const [from, to] = getStatsDates();
   const days = dateRange(from, to);
@@ -5809,29 +5904,68 @@ function renderStats() {
     if (o.no_project) return false;
     return o.design_end >= from && o.design_end <= to;
   });
-  // Статистика оплаты сотрудников за период
+  // Статистика оплаты сотрудников за период (учитываем ВСЕ стадии: проект/запуск/материалы/склейка/криволинейка)
   const workerPayStats = {};
   USERS.forEach(u => { workerPayStats[u.id] = { name: u.name, color: u.color, initials: u.initials, pay: 0, tasks: 0, orders: [] }; });
+  function addPayStat(wid, add) {
+    if (!workerPayStats[wid]) return;
+    workerPayStats[wid].pay += add.share;
+    workerPayStats[wid].tasks++;
+    workerPayStats[wid].orders.push(add.row);
+  }
   orders.forEach(o => {
-    if (!o.materials) return;
-    o.materials.forEach(m => {
+    // Проект
+    const dsd = o.design_stage_data;
+    if (!o.no_project && o.stages_done?.design && dsd?.completed_ids?.length) {
+      const cd = dsd.completed_at || '';
+      if (cd && cd >= from && cd <= to) {
+        const total = (o.sheets||0) * (workerRates.design || 4000);
+        const share = total / dsd.completed_ids.length;
+        dsd.completed_ids.forEach(wid => addPayStat(wid, { share, row: { id:o.id, client:o.client||'', stage:'Проект', matDesc:o.desc||'', qty:o.sheets||0, unit:'л' } }));
+      }
+    }
+    // Запуск
+    const lsd = o.launch_stage_data;
+    if (lsd?.done && lsd.completed_ids?.length) {
+      const cd = lsd.completed_at || '';
+      if (cd && cd >= from && cd <= to) {
+        const total = (o.sheets||0) * (workerRates.launch || 500);
+        const share = total / lsd.completed_ids.length;
+        lsd.completed_ids.forEach(wid => addPayStat(wid, { share, row: { id:o.id, client:o.client||'', stage:'Запуск', matDesc:o.desc||'', qty:o.sheets||0, unit:'л' } }));
+      }
+    }
+    // Склейка
+    if (o.has_gluing && o.stages_done?.gluing && o.stages_done._gluing_completed_ids?.length) {
+      const cd = o.stages_done._gluing_fact_date || '';
+      if (cd && cd >= from && cd <= to) {
+        const total = (o.gluing_sqm||0) * (workerRates.gluing || 0);
+        const share = total / o.stages_done._gluing_completed_ids.length;
+        o.stages_done._gluing_completed_ids.forEach(wid => addPayStat(wid, { share, row: { id:o.id, client:o.client||'', stage:'Склейка', matDesc:o.desc||'', qty:o.gluing_sqm||0, unit:'м²' } }));
+      }
+    }
+    // Криволинейка
+    if (o.has_curvilinear && o.stages_done?.curvilinear && o.stages_done._curvilinear_completed_ids?.length) {
+      const cd = o.stages_done._curvilinear_fact_date || '';
+      if (cd && cd >= from && cd <= to) {
+        const total = (o.curvilinear_meters||0) * (workerRates.curvilinear || 0);
+        const share = total / o.stages_done._curvilinear_completed_ids.length;
+        o.stages_done._curvilinear_completed_ids.forEach(wid => addPayStat(wid, { share, row: { id:o.id, client:o.client||'', stage:'Криволинейка', matDesc:o.desc||'', qty:o.curvilinear_meters||0, unit:'м' } }));
+      }
+    }
+    // Материалы: распил/кромка/присадка/упаковка
+    if (o.materials) o.materials.forEach(m => {
       PROD_STAGES.forEach(stg => {
         const s = m.stages?.[stg.key];
         if (!s?.done || !s.completed_ids?.length) return;
         const cd = s.completed_at || s.fact_date || '';
         if (!cd || cd < from || cd > to) return;
-        const qty = stg.key === 'edging' ? matAutoEdging(m) : (m.qty||0);
+        const qty = stg.key === 'edging'
+          ? (m.type === 'edging' ? (parseFloat(m.qty)||0) : matAutoEdging(m))
+          : (m.qty||0);
         const total = qty * (workerRates[stg.key]||0);
         const share = total / s.completed_ids.length;
-        s.completed_ids.forEach(wid => {
-          if (workerPayStats[wid]) {
-            workerPayStats[wid].pay += share;
-            workerPayStats[wid].tasks++;
-            if (!workerPayStats[wid].orders.some(x => x.id === o.id && x.stage === stg.key && x.matDesc === (m.desc||''))) {
-              workerPayStats[wid].orders.push({ id: o.id, client: o.client||'', stage: stg.key, matDesc: m.desc||'', qty: m.qty||0 });
-            }
-          }
-        });
+        const unit = stg.key === 'edging' ? 'м' : 'л';
+        s.completed_ids.forEach(wid => addPayStat(wid, { share, row: { id:o.id, client:o.client||'', stage:stg.label||stg.key, matDesc:m.desc||'', qty, unit } }));
       });
     });
   });
@@ -5862,9 +5996,9 @@ function renderStats() {
     });
     const launchedSheets = launchedOrders.reduce((s,o) => s + (o.sheets||0), 0);
     const launchPlanOrders = orders.filter(o => {
-      if (o.no_project) return false;
-      if (!o.design_end) return false;
-      const launchDate = addWorkDays(o.design_end, 1);
+      if (o.no_launch) return false;
+      const launchDate = getLaunchDate(o);
+      if (!launchDate) return false;
       return launchDate >= from && launchDate <= to;
     });
     return `<div class="mc">
@@ -5921,26 +6055,37 @@ function renderStats() {
   // Worker stats block
   const statsWorkerBlock = document.getElementById('stats-worker-block');
   if (statsWorkerBlock && workerEntries.length) {
+    const workerEntriesWithId = workerEntries.map(d => {
+      const u = USERS.find(u => u.name === d.name);
+      return { ...d, _wid: u ? String(u.id) : d.name };
+    });
     statsWorkerBlock.innerHTML = `<div style="font-weight:700;font-size:13px;margin-bottom:10px">👷 Начисления за период</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        ${workerEntries.map(d=>{
+        ${workerEntriesWithId.map(d=>{
+          const isOpen = statsWorkerExpanded.has(d._wid);
           const orderDetails = d.orders.map(x=>`<div style="display:flex;gap:8px;align-items:center;padding:3px 0;border-bottom:1px solid #f1f5f9">
             <span style="font-weight:800;color:var(--primary);cursor:pointer;font-size:11px" onclick="event.stopPropagation();openOrderModal('${x.id}')">${escHtml(x.id)}</span>
             <span style="font-size:10px;color:var(--text)">${escHtml(x.client)}</span>
-            <span style="font-size:10px;color:var(--muted)">${escHtml(x.matDesc)} ${x.qty}\u043b</span>
-            <span style="font-size:9px;color:var(--muted);margin-left:auto">${x.stage}</span>
+            <span style="font-size:10px;color:var(--muted)">${escHtml(x.matDesc)} ${x.qty||0}${x.unit||'л'}</span>
+            <span style="font-size:9px;color:var(--muted);margin-left:auto">${escHtml(x.stage)}</span>
           </div>`).join('');
-          return `<div style="background:#f8fafc;border:1px solid var(--border);border-radius:9px;padding:10px 14px;min-width:160px;cursor:pointer" onclick="this.querySelector('.worker-detail').style.display=this.querySelector('.worker-detail').style.display==='none'?'block':'none'">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <div style="width:26px;height:26px;border-radius:50%;background:${d.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff">${d.initials}</div>
-            <div style="font-weight:700;font-size:12px">${escHtml(d.name)}</div>
+          return `<div style="background:#f8fafc;border:1px solid var(--border);border-radius:9px;padding:10px 14px;min-width:200px">
+          <div style="cursor:pointer" onclick="toggleStatsWorker('${d._wid}')">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <div style="width:26px;height:26px;border-radius:50%;background:${d.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff">${d.initials}</div>
+              <div style="font-weight:700;font-size:12px">${escHtml(d.name)}</div>
+              <span style="font-size:10px;color:var(--muted);margin-left:auto">${isOpen?'▲':'▼'}</span>
+            </div>
+            <div style="font-size:16px;font-weight:900;color:#16a34a">${Math.round(d.pay).toLocaleString()} \u20b8</div>
+            <div style="font-size:10px;color:var(--muted)">${d.tasks} \u0437\u0430\u0434\u0430\u043d\u0438\u0439</div>
           </div>
-          <div style="font-size:16px;font-weight:900;color:#16a34a">${Math.round(d.pay).toLocaleString()} \u20b8</div>
-          <div style="font-size:10px;color:var(--muted)">${d.tasks} \u0437\u0430\u0434\u0430\u043d\u0438\u0439</div>
-          <div class="worker-detail" style="display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:6px">${orderDetails||'<span style="font-size:10px;color:var(--muted)">\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445</span>'}</div>
+          <div class="worker-detail" style="display:${isOpen?'block':'none'};margin-top:8px;border-top:1px solid var(--border);padding-top:6px" onclick="event.stopPropagation()">${orderDetails||'<span style="font-size:10px;color:var(--muted)">\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445</span>'}</div>
         </div>`;}).join('')}
       </div>`;
     statsWorkerBlock.style.display = 'block';
+  } else if (statsWorkerBlock) {
+    statsWorkerBlock.style.display = 'none';
+    statsWorkerBlock.innerHTML = '';
   }
 
   const tbody = document.getElementById('stats-tbody');
@@ -5994,7 +6139,7 @@ function renderStats() {
     const designDoneOnDay = orders.filter(o => !o.no_project && o.stages_done?.design && (o.stages_done?._design_fact_date || o.design_end) === d).length;
     // Запуск: orders with launch on this day
     const launchDate = d;
-    const launchOnDay = orders.filter(o => !o.no_project && o.design_end && addWorkDays(o.design_end, 1) === d).length;
+    const launchOnDay = orders.filter(o => !o.no_launch && getLaunchDate(o) === d).length;
     const launchDoneOnDay = orders.filter(o => !o.no_project && o.launch_stage_data?.done && (o.launch_stage_data.completed_at === d)).length;
     // Склейка
     const gluingOnDay = orders.filter(o => o.has_gluing && getGluingDate(o) === d).length;
@@ -6179,87 +6324,119 @@ function renderStaff() {
   // Сетка сотрудников
   const grid = document.getElementById('staff-grid');
   if (!grid) return;
-  let filtered = staffDeptFilter ? USERS.filter(u => u.department === staffDeptFilter) : [...USERS];
+
+  // Вычисляем totalDone/totalPay для любого пользователя
+  function calcUserStats(u) {
+    let totalDone = 0, totalPay = 0;
+    orders.forEach(o => {
+      const dsd = o.design_stage_data;
+      if (!o.no_project && o.stages_done?.design && dsd?.completed_ids?.length) {
+        if (dsd.completed_ids.includes(u.id)) {
+          totalDone++;
+          totalPay += ((o.sheets||0) * (workerRates.design||4000)) / dsd.completed_ids.length;
+        }
+      } else if (!o.no_project && o.stages_done?.design && o.designer_id) {
+        const desUser = USERS.find(x => x.designer_id === o.designer_id);
+        if (desUser && desUser.id === u.id) {
+          totalDone++;
+          totalPay += (o.sheets||0) * (workerRates.design||4000);
+        }
+      }
+      const lsd = o.launch_stage_data;
+      if (lsd?.done && lsd.completed_ids?.includes(u.id)) {
+        totalDone++;
+        totalPay += ((o.sheets||0) * (workerRates.launch||500)) / (lsd.completed_ids.length||1);
+      }
+      if (o.has_gluing && o.stages_done?.gluing && o.stages_done._gluing_completed_ids?.includes(u.id)) {
+        totalDone++;
+        totalPay += ((o.gluing_sqm||0) * (workerRates.gluing||0)) / (o.stages_done._gluing_completed_ids.length||1);
+      }
+      if (o.has_curvilinear && o.stages_done?.curvilinear && o.stages_done._curvilinear_completed_ids?.includes(u.id)) {
+        totalDone++;
+        totalPay += ((o.curvilinear_meters||0) * (workerRates.curvilinear||0)) / (o.stages_done._curvilinear_completed_ids.length||1);
+      }
+      if (!o.materials) return;
+      o.materials.forEach(m => {
+        ['cutting','edging','drilling','packing'].forEach(k => {
+          const stg = m.stages?.[k];
+          if (stg?.done && stg.completed_ids?.includes(u.id)) {
+            totalDone++;
+            const qty = k === 'edging' ? (m.type === 'edging' ? (parseFloat(m.qty)||0) : matAutoEdging(m)) : (m.qty || 0);
+            const cnt = stg.completed_ids.length || 1;
+            totalPay += (qty * (workerRates[k]||0)) / cnt;
+          }
+        });
+      });
+    });
+    return { totalDone, totalPay };
+  }
+
+  // Рендер одной карточки сотрудника
+  function renderUserCard(u) {
+    const { totalDone, totalPay } = calcUserStats(u);
+    const deptName = DEPARTMENTS[u.department]?.name || u.department || '';
+    const isAdmin = u.id === 'admin';
+    return `<div class="card" style="padding:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:38px;height:38px;border-radius:50%;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0">${u.initials}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:13px">${escHtml(u.name)}${isAdmin?' <span style="background:#fee2e2;color:#dc2626;font-size:9px;padding:1px 6px;border-radius:10px;font-weight:700">ADMIN</span>':''}</div>
+          <div style="font-size:10px;color:var(--muted)">${escHtml(u.role||'—')}</div>
+          ${u.login ? '<div style="font-size:10px;color:var(--primary);margin-top:2px">🔐 '+escHtml(u.login)+'</div>' : ''}
+        </div>
+        ${isManagement() ? `
+          <button class="btn btn-sm btn-secondary" style="padding:3px 7px;font-size:11px" onclick="openAddEmpEdit('${u.id}')">✏️</button>
+          ${!isAdmin ? `<button class="btn btn-sm btn-danger" style="padding:3px 7px;font-size:11px" onclick="deleteEmployee('${u.id}')">🗑</button>` : ''}
+        ` : ''}
+      </div>
+      <div style="display:flex;gap:6px;font-size:12px">
+        <div style="flex:1;background:#f8fafc;border-radius:7px;padding:7px 8px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:var(--primary)">${totalDone}</div>
+          <div style="color:var(--muted);font-size:9px">выполнено</div>
+        </div>
+        <div style="flex:1;background:#f0fdf4;border-radius:7px;padding:7px 8px;text-align:center">
+          <div style="font-size:16px;font-weight:800;color:#16a34a">${Math.round(totalPay).toLocaleString()}</div>
+          <div style="color:var(--muted);font-size:9px">₸ начислено</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if (!staffDeptFilter) {
+    // Режим «Все» — колонки по отделам
+    const deptOrder = ['management','sales','design','supply','production'];
+    const columns = deptOrder.map(dk => {
+      const dept = DEPARTMENTS[dk];
+      if (!dept) return '';
+      const usersInDept = USERS.filter(u => u.department === dk);
+      const unassigned = dk === 'management' ? USERS.filter(u => !u.department) : [];
+      const list = [...usersInDept, ...unassigned];
+      if (!list.length) return '';
+      return `<div style="flex:1;min-width:240px;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px">
+        <div style="font-weight:800;font-size:13px;color:var(--primary);margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--border)">${escHtml(dept.name)} <span style="color:var(--muted);font-weight:500;font-size:11px">(${list.length})</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${list.map(renderUserCard).join('')}
+        </div>
+      </div>`;
+    }).filter(Boolean).join('');
+    grid.innerHTML = columns
+      ? `<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">${columns}</div>`
+      : '<div style="color:var(--muted);font-size:13px;padding:20px">Нет сотрудников.</div>';
+    updateProdWorkerFilter();
+    return;
+  }
+
+  const filtered = USERS.filter(u => u.department === staffDeptFilter);
   if (!filtered.length) {
     grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px">Нет сотрудников в этом отделе.</div>';
   } else {
-    grid.innerHTML = filtered.map(u => {
-      let totalDone = 0, totalPay = 0;
-      // Логика идентична renderPayroll(), чтобы сводка совпадала
-      orders.forEach(o => {
-        // Проектирование (новая схема: completed_ids)
-        const dsd = o.design_stage_data;
-        if (!o.no_project && o.stages_done?.design && dsd?.completed_ids?.length) {
-          if (dsd.completed_ids.includes(u.id)) {
-            totalDone++;
-            totalPay += ((o.sheets||0) * (workerRates.design||4000)) / dsd.completed_ids.length;
-          }
-        }
-        // Legacy: проектирование по designer_id
-        else if (!o.no_project && o.stages_done?.design && o.designer_id) {
-          const desUser = USERS.find(x => x.designer_id === o.designer_id);
-          if (desUser && desUser.id === u.id) {
-            totalDone++;
-            totalPay += (o.sheets||0) * (workerRates.design||4000);
-          }
-        }
-        // Запуск
-        const lsd = o.launch_stage_data;
-        if (lsd?.done && lsd.completed_ids?.includes(u.id)) {
-          totalDone++;
-          totalPay += ((o.sheets||0) * (workerRates.launch||500)) / (lsd.completed_ids.length||1);
-        }
-        // Склейка
-        if (o.has_gluing && o.stages_done?.gluing && o.stages_done._gluing_completed_ids?.includes(u.id)) {
-          totalDone++;
-          totalPay += ((o.gluing_sqm||0) * (workerRates.gluing||0)) / (o.stages_done._gluing_completed_ids.length||1);
-        }
-        // Криволинейка
-        if (o.has_curvilinear && o.stages_done?.curvilinear && o.stages_done._curvilinear_completed_ids?.includes(u.id)) {
-          totalDone++;
-          totalPay += ((o.curvilinear_meters||0) * (workerRates.curvilinear||0)) / (o.stages_done._curvilinear_completed_ids.length||1);
-        }
-        // Производственные стадии по материалам
-        if (!o.materials) return;
-        o.materials.forEach(m => {
-          ['cutting','edging','drilling','packing'].forEach(k => {
-            const stg = m.stages?.[k];
-            if (stg?.done && stg.completed_ids?.includes(u.id)) {
-              totalDone++;
-              const qty = k === 'edging' ? (m.type === 'edging' ? (parseFloat(m.qty)||0) : matAutoEdging(m)) : (m.qty || 0);
-              const cnt = stg.completed_ids.length || 1;
-              totalPay += (qty * (workerRates[k]||0)) / cnt;
-            }
-          });
-        });
-      });
-      const deptName = DEPARTMENTS[u.department]?.name || u.department || '';
-      const isAdmin = u.id === 'admin';
-      return `<div class="card" style="padding:16px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-          <div style="width:40px;height:40px;border-radius:50%;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0">${u.initials}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:800;font-size:14px">${escHtml(u.name)}${isAdmin?' <span style="background:#fee2e2;color:#dc2626;font-size:9px;padding:1px 6px;border-radius:10px;font-weight:700">ADMIN</span>':''}</div>
-            <div style="font-size:11px;color:var(--muted)">${escHtml(u.role||'—')} · ${escHtml(deptName)}</div>
-            ${u.login ? '<div style="font-size:10px;color:var(--primary);margin-top:2px">🔐 Логин: '+escHtml(u.login)+'</div>' : ''}
-          </div>
-          ${isManagement() ? `
-            <button class="btn btn-sm btn-secondary" style="padding:3px 8px" onclick="openAddEmpEdit('${u.id}')">✏️</button>
-            ${!isAdmin ? `<button class="btn btn-sm btn-danger" style="padding:3px 8px" onclick="deleteEmployee('${u.id}')">🗑</button>` : ''}
-          ` : ''}
-        </div>
-        <div style="display:flex;gap:8px;font-size:12px">
-          <div style="flex:1;background:#f8fafc;border-radius:7px;padding:8px 10px;text-align:center">
-            <div style="font-size:18px;font-weight:800;color:var(--primary)">${totalDone}</div>
-            <div style="color:var(--muted);font-size:10px">выполнено</div>
-          </div>
-          <div style="flex:1;background:#f0fdf4;border-radius:7px;padding:8px 10px;text-align:center">
-            <div style="font-size:18px;font-weight:800;color:#16a34a">${Math.round(totalPay).toLocaleString()}</div>
-            <div style="color:var(--muted);font-size:10px">₸ начислено</div>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
+    const deptName = DEPARTMENTS[staffDeptFilter]?.name || staffDeptFilter;
+    grid.innerHTML = `<div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="font-weight:800;font-size:14px;color:var(--primary);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border)">${escHtml(deptName)} <span style="color:var(--muted);font-weight:500;font-size:12px">(${filtered.length})</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+        ${filtered.map(renderUserCard).join('')}
+      </div>
+    </div>`;
   }
 
   updateProdWorkerFilter();
@@ -6937,6 +7114,13 @@ function getPayDates() {
   if (payPeriod==='month') { const d=toDate(TODAY),f=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`; d.setMonth(d.getMonth()+1,0); return [f,toStr(d)]; }
   return [document.getElementById('pay-from')?.value||TODAY, document.getElementById('pay-to')?.value||TODAY];
 }
+const payrollExpanded = new Set();
+function togglePayrollWorker(wid) {
+  const k = String(wid);
+  if (payrollExpanded.has(k)) payrollExpanded.delete(k); else payrollExpanded.add(k);
+  renderPayroll();
+}
+
 function renderPayroll() {
   const [from, to] = getPayDates();
   const body = document.getElementById('payroll-body');
@@ -7061,8 +7245,9 @@ function renderPayroll() {
     ${allPayWorkers.map(d => {
       const w = d.worker;
       const expId = 'pay-exp-'+w.id;
+      const isOpen = payrollExpanded.has(String(w.id));
       return `<div class="card" style="padding:0;margin-bottom:12px;overflow:hidden">
-        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer" onclick="const e=document.getElementById('${expId}');e.style.display=e.style.display==='none'?'block':'none'">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer" onclick="togglePayrollWorker('${w.id}')">
           <div style="width:36px;height:36px;border-radius:50%;background:${w.color};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0">${w.initials}</div>
           <div style="flex:1">
             <div style="font-weight:800;font-size:14px">${escHtml(w.name)}</div>
@@ -7071,9 +7256,9 @@ function renderPayroll() {
           <div style="text-align:right">
             <div style="font-size:20px;font-weight:900;color:${d.totalPay>0?'#16a34a':'var(--muted)'}">${Math.round(d.totalPay).toLocaleString()} ₸</div>
           </div>
-          <span style="font-size:14px;color:var(--muted)">▼</span>
+          <span style="font-size:14px;color:var(--muted)">${isOpen?'▲':'▼'}</span>
         </div>
-        <div id="${expId}" style="display:none;border-top:1px solid var(--border)">
+        <div id="${expId}" style="display:${isOpen?'block':'none'};border-top:1px solid var(--border)" onclick="event.stopPropagation()">
           ${d.tasks.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead><tr style="background:#f8fafc">
               <th style="padding:7px 14px;text-align:left">Заказ</th>
