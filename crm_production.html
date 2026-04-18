@@ -191,8 +191,8 @@ td.today-c .cal-wd{color:var(--primary);font-weight:800}
 /* ── MODALS ── */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:14px}
 .overlay.show{display:flex}
-.modal{background:#fff;border-radius:14px;width:580px;max-width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.22)}
-.modal.wide{width:660px}
+.modal{background:#fff;border-radius:14px;width:580px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.22)}
+.modal.wide{width:860px;max-width:96vw}
 .mh{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1}
 .mt{font-size:16px;font-weight:800}
 .ms{font-size:12px;color:var(--muted);margin-top:2px}
@@ -795,7 +795,7 @@ table{max-width:100%}
         <div><label class="fl">📦 Упаковка/Отгрузка</label><input id="e-packing" class="fc" type="date" oninput="warnIfWeekend(this.value,'Упаковка')"></div>
         <div><label class="fl" style="opacity:0">.</label><button class="btn btn-secondary btn-sm" onclick="autoEditDates()" style="width:100%">🔄 Авто-даты</button></div>
       </div>
-      <div style="margin-top:10px;display:flex;gap:16px">
+      <div style="margin-top:10px;display:flex;gap:12px 16px;flex-wrap:wrap">
         <label class="checkbox-row"><input type="checkbox" id="e-no-project"> Без конструктора</label>
         <label class="checkbox-row"><input type="checkbox" id="e-launch-only"> Запуск заказа</label>
         <label class="checkbox-row"><input type="checkbox" id="e-no-launch"> Без запуска</label>
@@ -3687,7 +3687,7 @@ function renderCalDetailView(days) {
         const sheetMats = (o.materials||[]).filter(m => isSheetMat(m));
         const edgingMats = (o.materials||[]).filter(m => m.type === 'edging');
 
-        const matRows = sheetMats.map(m => {
+        const sheetRows = sheetMats.map(m => {
           const matDef = MAT_TYPES.find(t => t.value === m.type) || {};
           const done = m.stages?.[op.key]?.done;
           const reschedTo = m.stages?.[op.key]?.reschedule_date;
@@ -3706,6 +3706,24 @@ function renderCalDetailView(days) {
             <span style="font-size:11px;font-weight:800;color:${op.hdr};white-space:nowrap">${m.qty} л${suffix?`<span style="color:var(--warn);font-weight:600"> ${suffix}</span>`:''}</span>
           </div>`;
         }).join('');
+        // Отдельные кромка-материалы — показываем только в секции КРОМКА
+        const edgingRows = (op.key === 'edging' ? edgingMats : []).map(m => {
+          const done = m.stages?.edging?.done;
+          const reschedTo = m.stages?.edging?.reschedule_date;
+          let suffix = '';
+          if (reschedTo && reschedTo !== date) suffix = ` → ${fmt(reschedTo,true)}`;
+          else if (reschedTo === date) suffix = ' ↩';
+          const descText = m.desc ? escHtml(m.desc) : 'Кромка';
+          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed #f1f5f9">
+            <span style="font-size:13px">${done?'✅':'⬜'}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(m.desc)}">${descText}</div>
+              <div style="font-size:10px;color:var(--muted)">Кромка (отдельно)</div>
+            </div>
+            <span style="font-size:11px;font-weight:800;color:${op.hdr};white-space:nowrap">${parseFloat(m.qty)||0} м${suffix?`<span style="color:var(--warn);font-weight:600"> ${suffix}</span>`:''}</span>
+          </div>`;
+        }).join('');
+        const matRows = sheetRows + edgingRows;
 
         const edgRow = (op.key === 'edging' || op.key === 'cutting') && o.edging_meters > 0
           ? `<div style="font-size:10px;color:#5b21b6;font-weight:600;margin-top:3px">🔲 Кромка: ${o.edging_meters} м.</div>` : '';
