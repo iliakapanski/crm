@@ -6325,6 +6325,17 @@ function renderStaff() {
   const grid = document.getElementById('staff-grid');
   if (!grid) return;
 
+  // Определяем отдел сотрудника: явный u.department, иначе по роли
+  function resolveDept(u) {
+    if (u.department && DEPARTMENTS[u.department]) return u.department;
+    if (u.role) {
+      for (const [k, v] of Object.entries(DEPARTMENTS)) {
+        if ((v.roles||[]).includes(u.role)) return k;
+      }
+    }
+    return '';
+  }
+
   // Вычисляем totalDone/totalPay для любого пользователя
   function calcUserStats(u) {
     let totalDone = 0, totalPay = 0;
@@ -6408,8 +6419,8 @@ function renderStaff() {
     const columns = deptOrder.map(dk => {
       const dept = DEPARTMENTS[dk];
       if (!dept) return '';
-      const usersInDept = USERS.filter(u => u.department === dk);
-      const unassigned = dk === 'management' ? USERS.filter(u => !u.department) : [];
+      const usersInDept = USERS.filter(u => resolveDept(u) === dk);
+      const unassigned = dk === 'management' ? USERS.filter(u => !resolveDept(u)) : [];
       const list = [...usersInDept, ...unassigned];
       if (!list.length) return '';
       return `<div style="flex:1;min-width:240px;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px">
@@ -6426,7 +6437,7 @@ function renderStaff() {
     return;
   }
 
-  const filtered = USERS.filter(u => u.department === staffDeptFilter);
+  const filtered = USERS.filter(u => resolveDept(u) === staffDeptFilter);
   if (!filtered.length) {
     grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px">Нет сотрудников в этом отделе.</div>';
   } else {
