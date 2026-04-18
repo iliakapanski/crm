@@ -404,6 +404,8 @@ table{max-width:100%}
         <div class="fs2" style="display:flex;gap:20px;flex-wrap:wrap">
           <label class="checkbox-row"><input type="checkbox" id="f-no-project" onchange="recalcFormSheets()"> Без конструктора</label>
           <label class="checkbox-row"><input type="checkbox" id="f-launch-only" checked onchange="recalcFormSheets()"> Запуск заказа</label>
+          <label class="checkbox-row"><input type="checkbox" id="f-no-launch" onchange="recalcFormSheets()"> Без запуска</label>
+          <label class="checkbox-row"><input type="checkbox" id="f-no-cutting" onchange="recalcFormSheets()"> Без распила</label>
           <label class="checkbox-row"><input type="checkbox" id="f-no-edging" onchange="recalcFormSheets()"> Без кромки</label>
           <label class="checkbox-row"><input type="checkbox" id="f-no-drilling" onchange="recalcFormSheets()"> Без присадки</label>
           <label class="checkbox-row"><input type="checkbox" id="f-no-packing" onchange="recalcFormSheets()"> Без упаковки</label>
@@ -796,6 +798,8 @@ table{max-width:100%}
       <div style="margin-top:10px;display:flex;gap:16px">
         <label class="checkbox-row"><input type="checkbox" id="e-no-project"> Без конструктора</label>
         <label class="checkbox-row"><input type="checkbox" id="e-launch-only"> Запуск заказа</label>
+        <label class="checkbox-row"><input type="checkbox" id="e-no-launch"> Без запуска</label>
+        <label class="checkbox-row"><input type="checkbox" id="e-no-cutting"> Без распила</label>
         <label class="checkbox-row"><input type="checkbox" id="e-no-edging"> Без кромки</label>
         <label class="checkbox-row"><input type="checkbox" id="e-no-drilling"> Без присадки</label>
         <label class="checkbox-row"><input type="checkbox" id="e-no-packing"> Без упаковки</label>
@@ -2854,24 +2858,52 @@ function createOrder() {
   const sheets = parseInt(document.getElementById('f-sheets').value) || 0;
   const hasMills = formMaterials.some(m => m.type === 'mill');
   const hasSheets = sheets > 0;
-  // Allow mill-only orders (sheets=0) if there's at least one mill material
-  if (!num||!client||!desc||(!hasSheets && !hasMills)) { alert('Заполните все обязательные поля'); return; }
+  const noCutting = document.getElementById('f-no-cutting')?.checked || false;
+  const hasGluingForm = document.getElementById('f-has-gluing')?.checked || false;
+  const hasCurviForm = document.getElementById('f-has-curvilinear')?.checked || false;
+  // Разрешаем заказ с любой комбинацией стадий:
+  // - обычный (sheets + распил)
+  // - только фрезеровка
+  // - без распила, но со склейкой/криволинейкой/кромкой (материалы)
+  const hasAnyStage = (hasSheets && !noCutting) || hasMills || hasGluingForm || hasCurviForm || (noCutting && formMaterials.length > 0);
+  if (!num||!client||!desc||!hasAnyStage) { alert('Заполните все обязательные поля и выберите хотя бы одну стадию (распил / фрезеровка / склейка / криволинейка / материалы без распила)'); return; }
   // Проверка на дубликат номера (учитываем и активные заказы, и tombstones)
   if (orders.some(x => String(x.id) === String(num))) { alert('Номер заказа ' + num + ' уже существует. Введите другой.'); return; }
   if (deletedOrderIds.has(String(num))) { alert('Номер заказа ' + num + ' был ранее удалён. Нельзя использовать повторно — введите другой.'); return; }
-  // For mill-only: auto-create minimal pendingSched if not set
+  // Lightweight путь: нет pendingSched (не было планирования) — создаём минимальный сценарий
   if (!pendingSched) {
+    const noPrj = document.getElementById('f-no-project').checked;
     if (hasMills && !hasSheets) {
-      const noPrj = document.getElementById('f-no-project').checked;
       pendingSched = {
         sheets: 0, noEdging: true, noDrilling: true, noProject: noPrj,
         cuttingDate: null, edgingDate: null, drillingDate: null, drillingDate2: null,
         drillSheets1: 0, drillSheets2: 0, drillSchedule: [], packingDate: null,
         designEnd: null, designer: null, doSplit: false, nightShift: false, millOnly: true
       };
+    } else if (noCutting || (!hasSheets && (hasGluingForm || hasCurviForm))) {
+      // Без распила: назначаем распил-зависимые даты в null
+      pendingSched = {
+        sheets: sheets, noEdging: true, noDrilling: true, noProject: noPrj,
+        cuttingDate: null, edgingDate: null, drillingDate: null, drillingDate2: null,
+        drillSheets1: 0, drillSheets2: 0, drillSchedule: [], packingDate: null,
+        designEnd: null, designer: null, doSplit: false, nightShift: false, noCutting: true
+      };
     } else {
-      alert('Введите количество листов'); return;
+      alert('Введите количество листов или включите «Без распила»'); return;
     }
+  }
+  // Если включен no_cutting — обнуляем все производственные даты в pendingSched
+  if (noCutting) {
+    pendingSched.cuttingDate = null;
+    pendingSched.edgingDate = null;
+    pendingSched.drillingDate = null;
+    pendingSched.drillingDate2 = null;
+    pendingSched.drillSheets1 = 0;
+    pendingSched.drillSheets2 = 0;
+    pendingSched.drillSchedule = [];
+    pendingSched.packingDate = null;
+    pendingSched.edgeSchedule = [];
+    pendingSched.doSplit = false;
   }
   const p = pendingSched;
   const mats = formMaterials.map(m => ({ id: m.id, type: m.type, desc: m.desc, qty: parseFloat(m.qty)||0, edging_m: m.edging_m, mill_duration: m.mill_duration, mill_date: m.mill_date, stages:{} }));
@@ -2897,6 +2929,8 @@ function createOrder() {
     edging_meters: edgingMeters,
     no_edging: p.noEdging||false, no_drilling: p.noDrilling||false, no_project: p.noProject||false,
     no_packing: document.getElementById('f-no-packing')?.checked||false,
+    no_cutting: document.getElementById('f-no-cutting')?.checked||false,
+    no_launch: document.getElementById('f-no-launch')?.checked||false,
     has_gluing: document.getElementById('f-has-gluing')?.checked||false,
     gluing_sqm: parseFloat(document.getElementById('f-gluing-sqm')?.value)||0,
     gluing_worker_ids: [],
@@ -2948,6 +2982,24 @@ function createOrder() {
       // Обычные листы + фрезеровка: cutting_date = дата фрезеровки, упаковка на след. день
       newO.packing_date = addWorkDays(newO.cutting_date, 1);
     }
+  }
+  // Финальная коррекция для no_cutting: обнуляем все даты/поля, относящиеся к распилу
+  if (newO.no_cutting) {
+    newO.cutting_date = null; newO.cutting_date2 = null;
+    newO.cut_sheets1 = 0; newO.cut_sheets2 = 0;
+    newO.edging_date = null; newO.edge_schedule = [];
+    newO.drilling_date = null; newO.drilling_date2 = null;
+    newO.drill_sheets1 = 0; newO.drill_sheets2 = 0;
+    newO.drill_schedule = [];
+    newO.packing_date = null;
+    newO.split = false;
+    newO.no_edging = true; newO.no_drilling = true; newO.no_packing = true;
+  }
+  // Если no_launch — убираем запуск
+  if (newO.no_launch) {
+    newO.launch_only = false;
+    newO.launch_stage_data = { done: true, skipped: true };
+    newO.launch_worker_ids = [];
   }
   orders.push(newO);
   addHistory(num, 'Создание заказа', `${desc} — ${client}, ${sheets} л.`);
@@ -3012,6 +3064,8 @@ function resetForm() {
   document.getElementById('f-no-edging').checked   = false;
   document.getElementById('f-no-drilling').checked = false;
   const fnp = document.getElementById('f-no-packing'); if(fnp) fnp.checked = false;
+  const fnc = document.getElementById('f-no-cutting'); if(fnc) fnc.checked = false;
+  const fnl = document.getElementById('f-no-launch'); if(fnl) fnl.checked = false;
   const fhg = document.getElementById('f-has-gluing'); if(fhg) fhg.checked = false;
   const fgw = document.getElementById('f-gluing-wrap'); if(fgw) fgw.style.display = 'none';
   const fgs = document.getElementById('f-gluing-sqm'); if(fgs) fgs.value = '';
@@ -3788,13 +3842,13 @@ function openOrderModal(id) {
   const launchDate = o.design_end ? addWorkDays(o.design_end, 1) : null;
   const stages = [
     { key:'design',   ic:'✏️', bg:'#dbeafe', lbl:'Проект',   date:o.design_end,    note:desName(o.designer_id), skip:o.no_project },
-    { key:'launch',   ic:'🚀', bg:'#fef3c7', lbl:'Запуск',   date:o.no_project ? o.cutting_date : launchDate, note:o.no_project ? 'До распила' : 'После проекта', skip:false },
-    { key:'cutting',  ic:'✂️', bg:'#ede9fe', lbl:'Распил',   date:o.cutting_date,  note:o.sheets+' листов',     skip:false },
-    { key:'edging',   ic:'🔲', bg:'#fce7f3', lbl:'Кромка',   date:o.edging_date,   note: o.cutting_date2 ? 'После допила' : 'Тот же день', skip:o.no_edging },
-    { key:'drilling',    ic:'🔩', bg:'#fef3c7', lbl:'Присадка',     date:o.drilling_date, note:'+1 день',              skip:o.no_drilling },
+    { key:'launch',   ic:'🚀', bg:'#fef3c7', lbl:'Запуск',   date:o.no_project ? o.cutting_date : launchDate, note:o.no_project ? 'До распила' : 'После проекта', skip:!!o.no_launch },
+    { key:'cutting',  ic:'✂️', bg:'#ede9fe', lbl:'Распил',   date:o.cutting_date,  note:o.sheets+' листов',     skip:!!o.no_cutting },
+    { key:'edging',   ic:'🔲', bg:'#fce7f3', lbl:'Кромка',   date:o.edging_date,   note: o.cutting_date2 ? 'После допила' : 'Тот же день', skip:o.no_edging || !!o.no_cutting },
+    { key:'drilling',    ic:'🔩', bg:'#fef3c7', lbl:'Присадка',     date:o.drilling_date, note:'+1 день',              skip:o.no_drilling || !!o.no_cutting },
     { key:'gluing',      ic:'🧴', bg:'#f0fdfa', lbl:'Склейка',      date:getGluingDate(o),   note:(o.gluing_sqm||0)+'м²', skip:!o.has_gluing },
     { key:'curvilinear', ic:'〰️', bg:'#fdf2f8', lbl:'Криволинейка', date:getCurviDate(o),   note:(o.curvilinear_meters||0)+'м', skip:!o.has_curvilinear },
-    { key:'packing',     ic:'📦', bg:'#d1fae5', lbl:'Упаковка',     date:o.packing_date,  note:'+1 день',              skip:o.no_packing }
+    { key:'packing',     ic:'📦', bg:'#d1fae5', lbl:'Упаковка',     date:o.packing_date,  note:'+1 день',              skip:o.no_packing || !!o.no_cutting }
   ];
 
   const sd = o.stages_done || {};
@@ -4023,6 +4077,8 @@ function openEdit(id) {
   document.getElementById('e-no-project').checked = o.no_project||false;
   document.getElementById('e-launch-only').checked= o.launch_only||false;
   document.getElementById('e-no-packing').checked = o.no_packing||false;
+  const encb = document.getElementById('e-no-cutting'); if (encb) encb.checked = !!o.no_cutting;
+  const enlb = document.getElementById('e-no-launch'); if (enlb) enlb.checked = !!o.no_launch;
   document.getElementById('e-has-gluing').checked = o.has_gluing||false;
   document.getElementById('e-gluing-sqm').value = o.gluing_sqm||'';
   document.getElementById('e-gluing-wrap').style.display = o.has_gluing ? '' : 'none';
@@ -4096,13 +4152,13 @@ function renderEditWorkersSection(o) {
   }
   const stagesDef = [
     { key:'design',  ic:'✏️', lbl:'Проект',   wids: o.design_worker_ids||[], skip: o.no_project, done: o.stages_done?.design },
-    { key:'launch',  ic:'🚀', lbl:'Запуск',   wids: o.launch_worker_ids||[], skip: false, done: o.launch_stage_data?.done || o.stages_done?.launch },
-    { key:'cutting', ic:'✂️', lbl:'Распил',   wids: [], skip: false, done: false },
-    { key:'edging',  ic:'🔲', lbl:'Кромка',   wids: [], skip: o.no_edging, done: false },
-    { key:'drilling',    ic:'🔩', lbl:'Присадка',     wids: [], skip: o.no_drilling, done: false },
+    { key:'launch',  ic:'🚀', lbl:'Запуск',   wids: o.launch_worker_ids||[], skip: o.no_launch, done: o.launch_stage_data?.done || o.stages_done?.launch },
+    { key:'cutting', ic:'✂️', lbl:'Распил',   wids: [], skip: o.no_cutting, done: false },
+    { key:'edging',  ic:'🔲', lbl:'Кромка',   wids: [], skip: o.no_edging || o.no_cutting, done: false },
+    { key:'drilling',    ic:'🔩', lbl:'Присадка',     wids: [], skip: o.no_drilling || o.no_cutting, done: false },
     { key:'gluing',      ic:'🧴', lbl:'Склейка',      wids: o.gluing_worker_ids||[], skip: !o.has_gluing, done: !!o.stages_done?.gluing },
     { key:'curvilinear', ic:'〰️', lbl:'Криволинейка', wids: o.curvilinear_worker_ids||[], skip: !o.has_curvilinear, done: !!o.stages_done?.curvilinear },
-    { key:'packing',     ic:'📦', lbl:'Упаковка',     wids: [], skip: o.no_packing, done: false }
+    { key:'packing',     ic:'📦', lbl:'Упаковка',     wids: [], skip: o.no_packing || o.no_cutting, done: false }
   ];
   // Aggregate material-level worker_ids
   if (o.materials && o.materials.length) {
@@ -4344,6 +4400,25 @@ function saveEdit() {
   o.no_project  = document.getElementById('e-no-project').checked;
   o.launch_only = document.getElementById('e-launch-only').checked;
   o.no_packing  = document.getElementById('e-no-packing').checked;
+  o.no_cutting  = document.getElementById('e-no-cutting')?.checked || false;
+  o.no_launch   = document.getElementById('e-no-launch')?.checked || false;
+  // Если no_cutting — обнуляем производственные даты
+  if (o.no_cutting) {
+    o.cutting_date = null; o.cutting_date2 = null;
+    o.cut_sheets1 = 0; o.cut_sheets2 = 0;
+    o.edging_date = null; o.edge_schedule = [];
+    o.drilling_date = null; o.drilling_date2 = null;
+    o.drill_sheets1 = 0; o.drill_sheets2 = 0;
+    o.drill_schedule = [];
+    o.packing_date = null;
+    o.split = false;
+  }
+  // Если no_launch — отмечаем запуск как пропущенный
+  if (o.no_launch) {
+    if (!o.launch_stage_data) o.launch_stage_data = {};
+    o.launch_stage_data.done = true; o.launch_stage_data.skipped = true;
+    o.launch_worker_ids = [];
+  }
   o.has_gluing = document.getElementById('e-has-gluing').checked;
   o.gluing_sqm = parseFloat(document.getElementById('e-gluing-sqm').value)||0;
   o.has_curvilinear = document.getElementById('e-has-curvilinear').checked;
@@ -4415,6 +4490,18 @@ function saveEdit() {
         if (m.stages[k]) delete m.stages[k].reschedule_date;
       });
     });
+  }
+
+  // Если no_cutting — финальный сброс всех производственных дат после рассчётов
+  if (o.no_cutting) {
+    o.cutting_date = null; o.cutting_date2 = null;
+    o.cut_sheets1 = 0; o.cut_sheets2 = 0;
+    o.edging_date = null; o.edge_schedule = [];
+    o.drilling_date = null; o.drilling_date2 = null;
+    o.drill_sheets1 = 0; o.drill_sheets2 = 0;
+    o.drill_schedule = [];
+    o.packing_date = null;
+    o.split = false;
   }
 
   // Полный пересчёт prodCal — включая обновлённый заказ
@@ -4890,13 +4977,13 @@ let prodCalFact = {}; // { 'YYYY-MM-DD': { cutting:N, edging:N, drilling:N, pack
 function getStages(o) {
   return [
     { key:'design',   icon:'✏️', label:'Проект готов',        date: o.design_end,    skip: o.no_project },
-    { key:'launch',   icon:'🚀', label:'Запуск выполнен',     date: null,            skip: false },
-    { key:'cutting',  icon:'✂️', label:'Распил выполнен',     date: o.cutting_date,  skip: !!o.has_milling },
-    { key:'edging',   icon:'🔲', label:'Кромка выполнена',    date: o.edging_date,   skip: o.no_edging || !!o.has_milling },
-    { key:'drilling',    icon:'🔩', label:'Присадка выполнена',     date: o.drilling_date, skip: o.no_drilling },
+    { key:'launch',   icon:'🚀', label:'Запуск выполнен',     date: null,            skip: !!o.no_launch },
+    { key:'cutting',  icon:'✂️', label:'Распил выполнен',     date: o.cutting_date,  skip: !!o.has_milling || !!o.no_cutting },
+    { key:'edging',   icon:'🔲', label:'Кромка выполнена',    date: o.edging_date,   skip: o.no_edging || !!o.has_milling || !!o.no_cutting },
+    { key:'drilling',    icon:'🔩', label:'Присадка выполнена',     date: o.drilling_date, skip: o.no_drilling || !!o.no_cutting },
     { key:'gluing',      icon:'🧴', label:'Склейка выполнена',     date: getGluingDate(o),   skip: !o.has_gluing },
     { key:'curvilinear', icon:'〰️', label:'Криволинейка выполнена', date: getCurviDate(o),   skip: !o.has_curvilinear || !!o.has_milling },
-    { key:'packing',     icon:'📦', label:'Упакован / Отгружен',   date: o.packing_date,  skip: o.no_packing }
+    { key:'packing',     icon:'📦', label:'Упакован / Отгружен',   date: o.packing_date,  skip: o.no_packing || !!o.no_cutting }
   ];
 }
 
@@ -5285,7 +5372,8 @@ function toggleMaterialStage(orderId, matId, stageKey, checked) {
 
   // Update order status
   const sheetMats = o.materials.filter(m => isSheetMat(m));
-  const needStages = ['cutting',...(!o.no_edging?['edging']:[]),...(!o.no_drilling?['drilling']:[]),...(!o.no_packing?['packing']:[])];
+  const needStages = o.no_cutting ? []
+    : ['cutting',...(!o.no_edging?['edging']:[]),...(!o.no_drilling?['drilling']:[]),...(!o.no_packing?['packing']:[])];
   const wasDone = o.status === 'done';
 
   // Синхронизация stages_done на уровне заказа для каждой производственной стадии
@@ -6243,6 +6331,7 @@ function renderProduction() {
   // Launch tasks (per order — shown when design is done; или сразу если проект не нужен)
   if (!stageFilter || stageFilter === 'launch') {
     orders.forEach(o => {
+      if (o.no_launch) return;
       if (o.status === 'done' && !showDone) return;
       // Если есть стадия "проект" — ждём её завершения. Если no_project — запуск можно сразу.
       if (!o.no_project && !o.stages_done?.design) return;
@@ -6283,6 +6372,7 @@ function renderProduction() {
   }
   orders.forEach(o => {
     if (o.status === 'done' && !showDone) return;
+    if (o.no_cutting) return;
     if (!o.materials || !o.materials.length) return;
     o.materials.forEach(m => {
       PROD_STAGES.forEach(stg => {
