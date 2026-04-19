@@ -306,26 +306,40 @@ table{max-width:100%}
    ТЁМНАЯ ТЕМА  — рафинированная палитра v2
    ══════════════════════════════════════════════ */
 :root[data-theme="dark"]{
-  /* Основные */
-  --primary:#4f8ef7;--primary-l:rgba(79,142,247,.18);--primary-d:#7ab0fa;
-  --success:#34d399;--success-l:rgba(52,211,153,.15);
-  --warn:#fbbf24;--warn-l:rgba(251,191,36,.15);
-  --danger:#f87171;--danger-l:rgba(248,113,113,.15);
-  --purple:#a78bfa;--purple-l:rgba(167,139,250,.15);
-  --gray:#9ca3af;--gray-l:#1e2736;
-  /* Поверхности */
-  --border:#2d3a4a;--text:#e8edf4;--muted:#8a9ab8;
-  --bg:#111827;--card:#1a2232;
-  --sb:#0d1526;--sb-text:#8a9ab8;
-  --sh:0 1px 4px rgba(0,0,0,.5);--sh-md:0 6px 18px rgba(0,0,0,.55);
+  /* macOS system colors */
+  --primary:#0a84ff;--primary-l:rgba(10,132,255,.15);--primary-d:#409cff;
+  --success:#32d74b;--success-l:rgba(50,215,75,.15);
+  --warn:#ffd60a;--warn-l:rgba(255,214,10,.15);
+  --danger:#ff453a;--danger-l:rgba(255,69,58,.15);
+  --purple:#bf5af2;--purple-l:rgba(191,90,242,.15);
+  --gray:#8e8e93;--gray-l:#3a3a3c;
+  /* macOS surfaces */
+  --border:rgba(255,255,255,.1);--text:#ffffff;--muted:rgba(255,255,255,.5);
+  --bg:#1c1c1e;--card:#2c2c2e;
+  --sb:#1c1c1e;--sb-text:rgba(255,255,255,.55);
+  --sh:0 1px 3px rgba(0,0,0,.5);--sh-md:0 4px 16px rgba(0,0,0,.6);
 }
 
 /* ── Базовые поверхности ── */
 :root[data-theme="dark"] body{background:var(--bg);color:var(--text)}
-:root[data-theme="dark"] .fc{background:#0f1724;color:var(--text);border-color:var(--border)}
-:root[data-theme="dark"] .fc::placeholder{color:#4a5568}
-:root[data-theme="dark"] select.fc{background:#0f1724}
-:root[data-theme="dark"] select.fc option{background:#1a2232;color:var(--text)}
+/* macOS sidebar active — синий accent */
+:root[data-theme="dark"] .nav-it.active{background:#0a84ff!important;color:#fff!important}
+:root[data-theme="dark"] .nav-it.active .nav-ico{background:rgba(255,255,255,.2)!important;color:#fff!important}
+:root[data-theme="dark"] .nav-it:not(.active):hover{background:rgba(255,255,255,.07)}
+:root[data-theme="dark"] .nav-lbl{color:rgba(255,255,255,.3)}
+:root[data-theme="dark"] .sb-logo{border-bottom-color:rgba(255,255,255,.08)}
+:root[data-theme="dark"] .sb-user{border-bottom-color:rgba(255,255,255,.08)}
+:root[data-theme="dark"] .sb-bottom{border-top-color:rgba(255,255,255,.08)}
+:root[data-theme="dark"] .sidebar{background:#1c1c1e}
+/* macOS cards: слегка скруглённые с очень тонкой границей */
+:root[data-theme="dark"] .card{background:#2c2c2e;border-color:rgba(255,255,255,.08)}
+:root[data-theme="dark"] .mc{background:#2c2c2e;border-color:rgba(255,255,255,.08)}
+:root[data-theme="dark"] .settings-section{background:#2c2c2e;border-color:rgba(255,255,255,.08)}
+/* macOS input */
+:root[data-theme="dark"] .fc{background:#3a3a3c;color:var(--text);border-color:rgba(255,255,255,.12)}
+:root[data-theme="dark"] .fc::placeholder{color:rgba(255,255,255,.3)}
+:root[data-theme="dark"] select.fc{background:#3a3a3c}
+:root[data-theme="dark"] select.fc option{background:#2c2c2e;color:var(--text)}
 
 /* ── Таблицы ── */
 :root[data-theme="dark"] .ot th{background:#0f1724;color:var(--muted);border-bottom-color:var(--border)}
@@ -351,8 +365,8 @@ table{max-width:100%}
 :root[data-theme="dark"] .mf{border-top-color:var(--border)}
 
 /* ── Кнопки ── */
-:root[data-theme="dark"] .btn-secondary{background:#253044;color:var(--text);border:1px solid var(--border)}
-:root[data-theme="dark"] .btn-secondary:hover{background:#2d3a4e}
+:root[data-theme="dark"] .btn-secondary{background:#3a3a3c;color:var(--text);border:1px solid rgba(255,255,255,.12)}
+:root[data-theme="dark"] .btn-secondary:hover{background:#48484a}
 
 /* ── Планировщик ── */
 :root[data-theme="dark"] .sp{background:rgba(79,142,247,.1);border-color:rgba(79,142,247,.25)}
@@ -544,7 +558,7 @@ table{max-width:100%}
 <!-- STARTUP SCREEN -->
 <div class="startup" id="startup">
   <div class="startup-box">
-    <div class="startup-logo">🪵</div>
+    <div class="startup-logo"><svg viewBox="0 0 48 48" width="48" height="48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="8" fill="#111"/><polygon points="0,18 18,0 33,0 0,33" fill="white"/><polygon points="15,48 48,15 48,33 33,48" fill="white"/></svg></div>
     <div class="startup-title">QazJihaz</div>
     <div class="startup-sub">Авторизация</div>
     <!-- Login form -->
@@ -558,7 +572,7 @@ table{max-width:100%}
         <input id="pwd-input" type="password" placeholder="Введите пароль" style="width:100%;padding:10px 12px;border:1.5px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.08);color:#fff;font-size:14px;outline:none" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <div id="login-error" style="display:none;color:#f87171;font-size:12px;margin-bottom:8px;font-weight:600"></div>
-      <button onclick="doLogin()" style="width:100%;padding:11px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">🔐 Войти</button>
+      <button onclick="doLogin()" style="width:100%;padding:11px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">Войти</button>
     </div>
     <div style="border-top:1px solid rgba(255,255,255,.1);padding-top:12px;margin-top:4px">
       <div style="font-size:11px;color:#64748b;text-align:center;margin-bottom:8px">Или выберите сотрудника для быстрого входа</div>
@@ -576,7 +590,13 @@ table{max-width:100%}
 <!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="sb-logo">
-    <div class="sb-icon">🪵</div>
+    <div class="sb-icon" style="background:none;padding:0;overflow:hidden">
+      <svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg" style="display:block;border-radius:6px">
+        <rect width="32" height="32" fill="#111"/>
+        <polygon points="0,12 12,0 22,0 0,22" fill="white"/>
+        <polygon points="10,32 32,10 32,22 22,32" fill="white"/>
+      </svg>
+    </div>
     <div><div class="sb-title">QazJihaz</div><div class="sb-sub">Производство</div></div>
     <button class="sb-collapse-btn" onclick="toggleSidebarCollapse()" title="Свернуть/развернуть">◀</button>
   </div>
@@ -612,16 +632,16 @@ table{max-width:100%}
 <div id="page-dashboard" class="page active">
   <div class="ph">
     <div><div class="ptitle">Дашборд производства</div><div class="psub" id="today-lbl"></div></div>
-    <button class="btn btn-primary" onclick="showPage('new-order')">➕ Новый заказ</button>
+    <button class="btn btn-primary" onclick="showPage('new-order')">Новый заказ</button>
   </div>
   <div class="metrics" id="metrics-block"></div>
   <div class="card" style="margin-bottom:14px">
-    <div class="ch"><div class="ct">📈 Загрузка производства</div><div class="cs">Ближайшие рабочие дни</div></div>
+    <div class="ch"><div class="ct">Загрузка производства</div><div class="cs">Ближайшие рабочие дни</div></div>
     <div style="padding:14px 16px" id="week-block"></div>
   </div>
   <div>
     <div class="card">
-      <div class="ch"><div><div class="ct">📋 Сегодня в производстве</div><div class="cs">Приоритет обработки</div></div><span class="tag" id="today-cnt-tag"></span></div>
+      <div class="ch"><div><div class="ct">Сегодня в производстве</div><div class="cs">Приоритет обработки</div></div><span class="tag" id="today-cnt-tag"></span></div>
       <div style="overflow-x:auto"><table class="ot" id="today-tbl"><thead><tr><th>#</th><th>Заказ</th><th>Листов</th><th>Операция</th><th>Статус</th><th></th></tr></thead><tbody id="today-tbody"></tbody></table></div>
     </div>
   </div>
@@ -632,7 +652,7 @@ table{max-width:100%}
   <div class="ph"><div><div class="ptitle">Новый заказ</div><div class="psub">Создание и автопланирование</div></div></div>
   <div class="two-col">
     <div class="card" style="padding:20px">
-      <div class="ct" style="margin-bottom:16px">📝 Данные заказа</div>
+      <div class="ct" style="margin-bottom:16px">Данные заказа</div>
       <div class="fg">
         <div><label class="fl">ID <span style="font-weight:400;color:var(--muted);font-size:10px">(можно изменить)</span></label><input id="f-num" class="fc" type="text" placeholder="1" title="Можно ввести любой свободный ID — например, задним числом"></div>
         <div><label class="fl">Клиент</label><input id="f-client" class="fc" type="text" placeholder="Фамилия И.О."></div>
@@ -674,31 +694,31 @@ table{max-width:100%}
         <div><label class="fl">Комментарий</label><input id="f-comment" class="fc" type="text" placeholder="Необязательно"></div>
       </div>
       <div id="schedule-preview" class="sp hidden" style="margin-top:16px">
-        <div class="sp-title">🗓 Предварительное планирование</div>
+        <div class="sp-title">Предварительное планирование</div>
         <div class="sp-row" id="sp-timeline"></div>
         <div class="split-dlg" id="split-dlg">
           <div class="split-title">⚠️ Превышение нормы распила</div>
           <div class="split-text" id="split-txt"></div>
           <div class="split-btns" style="display:flex;gap:16px;align-items:center">
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:700;color:#92400e">
-              <input type="radio" name="split-mode" id="sp-radio-split" onchange="chooseSplit('split')" checked> ✂️ Дробить по дням
+              <input type="radio" name="split-mode" id="sp-radio-split" onchange="chooseSplit('split')" checked> Дробить по дням
             </label>
             <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:600;color:#475569">
-              <input type="radio" name="split-mode" id="sp-radio-night" onchange="chooseSplit('night')"> 🌙 Ночная смена
+              <input type="radio" name="split-mode" id="sp-radio-night" onchange="chooseSplit('night')"> Ночная смена
             </label>
           </div>
         </div>
         <div id="per-mat-sched" style="display:none;margin-top:10px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:9px;padding:13px 15px"></div>
       </div>
-      <div id="create-result" class="sres hidden"><div class="sres-t">✅ Заказ создан!</div><div id="cr-body"></div></div>
+      <div id="create-result" class="sres hidden"><div class="sres-t">Заказ создан!</div><div id="cr-body"></div></div>
       <div style="display:flex;gap:10px;margin-top:16px" id="form-btns">
-        <button class="btn btn-primary" onclick="createOrder()">✅ Создать заказ</button>
-        <button class="btn btn-secondary" onclick="resetForm()">🔄 Очистить</button>
+        <button class="btn btn-primary" onclick="createOrder()">Создать заказ</button>
+        <button class="btn btn-secondary" onclick="resetForm()">Очистить</button>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px">
-      <div class="card"><div class="ch"><div class="ct">✏️ Конструкторы</div></div><div style="padding:10px 14px" id="no-des-list"></div></div>
-      <div class="card"><div class="ch"><div class="ct">📅 Свободные дни</div></div><div style="padding:10px 14px" id="free-days"></div></div>
+      <div class="card"><div class="ch"><div class="ct">Конструкторы</div></div><div style="padding:10px 14px" id="no-des-list"></div></div>
+      <div class="card"><div class="ch"><div class="ct">Свободные дни</div></div><div style="padding:10px 14px" id="free-days"></div></div>
     </div>
   </div>
 </div>
@@ -716,7 +736,7 @@ table{max-width:100%}
         <button class="btn btn-sm" id="cv-week"   onclick="setCalView('week')"  style="padding:4px 11px;font-size:12px;border-radius:6px">Неделя</button>
         <button class="btn btn-sm" id="cv-month"  onclick="setCalView('month')" style="padding:4px 11px;font-size:12px;border-radius:6px">Месяц</button>
       </div>
-      <button class="btn btn-sm btn-secondary" id="cal-history-btn" onclick="toggleCalHistory()" style="white-space:nowrap">📅 Прошлые дни</button>
+      <button class="btn btn-sm btn-secondary" id="cal-history-btn" onclick="toggleCalHistory()" style="white-space:nowrap">Прошлые дни</button>
     </div>
   </div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px">
@@ -733,20 +753,20 @@ table{max-width:100%}
 
 <!-- ── СОТРУДНИКИ ── -->
 <div id="page-staff" class="page">
-  <div class="ph"><div><div class="ptitle">👥 Сотрудники</div><div class="psub">Управление сотрудниками, ставки и назначения</div></div>
-    <button class="btn btn-primary" onclick="openAddEmp()">➕ Добавить сотрудника</button>
+  <div class="ph"><div><div class="ptitle">Сотрудники</div><div class="psub">Управление сотрудниками, ставки и назначения</div></div>
+    <button class="btn btn-primary" onclick="openAddEmp()">Добавить сотрудника</button>
   </div>
   <div class="card" style="padding:16px 20px;margin-bottom:16px">
-    <div style="font-weight:700;font-size:13px;margin-bottom:12px">⚙️ Ставки оплаты (за единицу работы)</div>
+    <div style="font-weight:700;font-size:13px;margin-bottom:12px">Ставки оплаты (за единицу работы)</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
-      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">✏️ Проектирование (за лист)</div><input type="number" id="rate-design" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('design',this.value)"></label>
-      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">🚀 Запуск заказа (за лист)</div><input type="number" id="rate-launch" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('launch',this.value)"></label>
-      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">✂️ Распил (за лист)</div><input type="number" id="rate-cutting" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('cutting',this.value)"></label>
-      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">🔲 Кромка (за метр)</div><input type="number" id="rate-edging" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('edging',this.value)"></label>
-      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">🔩 Присадка (за лист)</div><input type="number" id="rate-drilling" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('drilling',this.value)"></label>
-      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">📦 Упаковка (за лист)</div><input type="number" id="rate-packing" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('packing',this.value)"></label>
-      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">🧴 Склейка (за м²)</div><input type="number" id="rate-gluing" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('gluing',this.value)"></label>
-      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">〰️ Криволинейка (за метр)</div><input type="number" id="rate-curvilinear" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('curvilinear',this.value)"></label>
+      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">Проектирование (за лист)</div><input type="number" id="rate-design" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('design',this.value)"></label>
+      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">Запуск заказа (за лист)</div><input type="number" id="rate-launch" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('launch',this.value)"></label>
+      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">Распил (за лист)</div><input type="number" id="rate-cutting" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('cutting',this.value)"></label>
+      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">Кромка (за метр)</div><input type="number" id="rate-edging" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('edging',this.value)"></label>
+      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">Присадка (за лист)</div><input type="number" id="rate-drilling" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('drilling',this.value)"></label>
+      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">Упаковка (за лист)</div><input type="number" id="rate-packing" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('packing',this.value)"></label>
+      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">Склейка (за м²)</div><input type="number" id="rate-gluing" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('gluing',this.value)"></label>
+      <label style="font-size:12px"><div style="font-weight:600;margin-bottom:4px">Криволинейка (за метр)</div><input type="number" id="rate-curvilinear" class="fc" style="padding:5px 8px;font-size:13px" oninput="saveRateField('curvilinear',this.value)"></label>
     </div>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="staff-dept-tabs"></div>
@@ -756,7 +776,7 @@ table{max-width:100%}
 
 <!-- ── ORDERS ── -->
 <div id="page-orders" class="page">
-  <div class="ph"><div><div class="ptitle">Все заказы</div></div><button class="btn btn-primary" onclick="showPage('new-order')">➕ Новый заказ</button></div>
+  <div class="ph"><div><div class="ptitle">Все заказы</div></div><button class="btn btn-primary" onclick="showPage('new-order')">Новый заказ</button></div>
   <div class="card">
     <div class="ch">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;width:100%">
@@ -789,7 +809,7 @@ table{max-width:100%}
 
 <!-- ── SETTINGS ── -->
 <div id="page-settings" class="page">
-  <div class="ph"><div><div class="ptitle">⚙️ Настройки</div><div class="psub">Мощность линии, имена сотрудников</div></div></div>
+  <div class="ph"><div><div class="ptitle">Настройки</div><div class="psub">Мощность линии, имена сотрудников</div></div></div>
 
   <div class="settings-section">
     <div class="settings-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/><path d="M2 12h20"/></svg>Внешний вид</div>
@@ -809,23 +829,23 @@ table{max-width:100%}
     <div class="settings-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3h-2a2 2 0 0 0-4 0H8l-2 4h12l-2-4z"/></svg>Мощность производственной линии</div>
     <div class="settings-grid">
       <div class="cap-input-wrap">
-        <label class="cap-lbl">✂️ Распил</label>
+        <label class="cap-lbl">Распил</label>
         <input id="cap-cutting" class="fc" type="number" min="1" max="999">
         <div class="cap-desc">Макс. листов в день на распиле</div>
       </div>
       <div class="cap-input-wrap">
-        <label class="cap-lbl">🔲 Кромка</label>
+        <label class="cap-lbl">Кромка</label>
         <input id="cap-edging" class="fc" type="number" min="1" max="9999">
         <div class="cap-desc">Макс. погонных метров в день на кромке</div>
       </div>
       <div class="cap-input-wrap">
-        <label class="cap-lbl">🔩 Присадка</label>
+        <label class="cap-lbl">Присадка</label>
         <input id="cap-drilling" class="fc" type="number" min="1" max="500">
         <div class="cap-desc">Макс. листов в день на присадке</div>
       </div>
     </div>
     <div style="margin-top:14px">
-      <button class="btn btn-primary" onclick="saveCapSettings()">💾 Сохранить мощность</button>
+      <button class="btn btn-primary" onclick="saveCapSettings()">Сохранить мощность</button>
     </div>
   </div>
 
@@ -837,7 +857,7 @@ table{max-width:100%}
       <button class="btn btn-secondary btn-sm" onclick="holidayNavMonth(1)">След. →</button>
     </div>
     <div id="holiday-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;max-width:340px"></div>
-    <div style="margin-top:10px;font-size:12px;color:var(--muted)">🟥 = Нерабочий · Нажмите на будний день чтобы отметить праздником</div>
+    <div style="margin-top:10px;font-size:12px;color:var(--muted)"><span style="display:inline-block;width:14px;height:14px;background:#ef4444;border-radius:3px;vertical-align:middle"></span> = Нерабочий · Нажмите на будний день чтобы отметить праздником</div>
   </div>
 
   <div class="settings-section">
@@ -846,7 +866,7 @@ table{max-width:100%}
     </div>
     <div id="users-settings"></div>
     <div style="margin-top:14px">
-      <button class="btn btn-primary" onclick="saveUserSettings()">💾 Сохранить изменения</button>
+      <button class="btn btn-primary" onclick="saveUserSettings()">Сохранить изменения</button>
     </div>
   </div>
 
@@ -869,8 +889,8 @@ table{max-width:100%}
         <label class="fl">URL веб-приложения (Apps Script)</label>
         <input id="cloud-url-input" class="fc" type="url" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:13px;padding:8px 10px">
       </div>
-      <button class="btn btn-primary btn-sm" onclick="saveCloudUrl()" style="padding:8px 14px">💾 Сохранить</button>
-      <button class="btn btn-secondary btn-sm" onclick="testCloudConnection()" style="padding:8px 14px">🔌 Проверить</button>
+      <button class="btn btn-primary btn-sm" onclick="saveCloudUrl()" style="padding:8px 14px">Сохранить</button>
+      <button class="btn btn-secondary btn-sm" onclick="testCloudConnection()" style="padding:8px 14px">Проверить</button>
     </div>
     <div id="sync-status" style="margin-top:8px"></div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
@@ -878,13 +898,13 @@ table{max-width:100%}
       <button class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;padding:7px 14px" onclick="manualCloudLoad()">⬇️ Загрузить из облака</button>
     </div>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;padding-top:10px;border-top:1px dashed var(--border)">
-      <button class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;padding:7px 14px" onclick="exportBackup()" title="Скачать файл с полной копией всех данных">💾 Экспорт (бэкап)</button>
-      <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:7px 14px" onclick="document.getElementById('import-file').click()" title="Загрузить данные из файла бэкапа">📂 Импорт</button>
+      <button class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;padding:7px 14px" onclick="exportBackup()" title="Скачать файл с полной копией всех данных"> Экспорт (бэкап)</button>
+      <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:7px 14px" onclick="document.getElementById('import-file').click()" title="Загрузить данные из файла бэкапа">Импорт</button>
       <input id="import-file" type="file" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px">Экспорт сохраняет все заказы, сотрудников, настройки в JSON-файл. Импорт восстанавливает из файла (с подтверждением).</div>
     <details style="margin-top:14px">
-      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--primary)">📋 Инструкция по настройке</summary>
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--primary)">Инструкция по настройке</summary>
       <div style="font-size:12px;line-height:1.7;margin-top:8px;padding:10px;background:#fff;border-radius:8px;border:1px solid var(--border)">
         <ol style="padding-left:18px">
           <li>Создайте новую Google Таблицу</li>
@@ -906,7 +926,7 @@ table{max-width:100%}
 <!-- ── STATS ── -->
 <div id="page-stats" class="page">
   <div class="ph">
-    <div><div class="ptitle">📈 Статистика производства</div><div class="psub">Листов напилено, закромлено, присажено, упаковано</div></div>
+    <div><div class="ptitle">Статистика производства</div><div class="psub">Листов напилено, закромлено, присажено, упаковано</div></div>
   </div>
   <div class="card" style="padding:16px 20px;margin-bottom:16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -926,20 +946,20 @@ table{max-width:100%}
   <div id="stats-metrics" class="metrics" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));margin-bottom:16px"></div>
   <div id="stats-worker-block" class="card" style="padding:16px 20px;margin-bottom:16px;display:none"></div>
   <div class="card">
-    <div class="ch"><div class="ct">📅 По дням</div></div>
+    <div class="ch"><div class="ct">По дням</div></div>
     <div style="overflow-x:auto">
       <table class="ot" id="stats-table">
         <thead><tr>
           <th>Дата</th>
-          <th style="color:#3730a3">✏️ Проект</th>
-          <th style="color:#92400e">🚀 Запуск</th>
-          <th style="color:#1d4ed8">✂️ Распил (факт / план)</th>
-          <th style="color:#5b21b6">🔲 Кромка (факт / план)</th>
-          <th style="color:#92400e">🔩 Присадка (факт / план)</th>
-          <th style="color:#0d9488">🧴 Склейка</th>
-          <th style="color:#be185d">〰️ Криволинейка</th>
-          <th style="color:#92400e">⚙️ Фрезеровка</th>
-          <th style="color:#065f46">📦 Упаковка (факт / план)</th>
+          <th style="color:#3730a3">Проект</th>
+          <th style="color:#92400e">Запуск</th>
+          <th style="color:#1d4ed8">Распил (факт / план)</th>
+          <th style="color:#5b21b6">Кромка (факт / план)</th>
+          <th style="color:#92400e">Присадка (факт / план)</th>
+          <th style="color:#0d9488">Склейка</th>
+          <th style="color:#be185d">Криволинейка</th>
+          <th style="color:#92400e">Фрезеровка</th>
+          <th style="color:#065f46">Упаковка (факт / план)</th>
         </tr></thead>
         <tbody id="stats-tbody"></tbody>
       </table>
@@ -950,21 +970,21 @@ table{max-width:100%}
 
 <!-- ── PRODUCTION ── -->
 <div id="page-production" class="page">
-  <div class="ph"><div><div class="ptitle">🏭 Задания на производство</div><div class="psub">Доступные и активные задания по стадиям</div></div></div>
+  <div class="ph"><div><div class="ptitle">Задания на производство</div><div class="psub">Доступные и активные задания по стадиям</div></div></div>
   <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
     <select id="prod-worker-filter" class="fc" style="width:200px;padding:7px 10px;font-size:13px" onchange="renderProduction()">
       <option value="">Все участники</option>
     </select>
     <select id="prod-stage-filter" class="fc" style="width:180px;padding:7px 10px;font-size:13px" onchange="renderProduction()">
       <option value="">Все стадии</option>
-      <option value="design">✏️ Проект</option>
-      <option value="launch">🚀 Запуск</option>
-      <option value="cutting">✂️ Распил</option>
-      <option value="edging">🔲 Кромка</option>
-      <option value="drilling">🔩 Присадка</option>
-      <option value="gluing">🧴 Склейка</option>
-      <option value="curvilinear">〰️ Криволинейка</option>
-      <option value="packing">📦 Упаковка</option>
+      <option value="design">Проект</option>
+      <option value="launch">Запуск</option>
+      <option value="cutting">Распил</option>
+      <option value="edging">Кромка</option>
+      <option value="drilling">Присадка</option>
+      <option value="gluing">Склейка</option>
+      <option value="curvilinear">Криволинейка</option>
+      <option value="packing">Упаковка</option>
     </select>
     <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
       <input type="checkbox" id="prod-show-done" onchange="renderProduction()"> Показать выполненные
@@ -975,14 +995,14 @@ table{max-width:100%}
 
 <!-- ── CONSTRUCTOR TASKS ── -->
 <div id="page-constructor-tasks" class="page">
-  <div class="ph"><div><div class="ptitle">✏️ Задачи конструкторов</div><div class="psub">Назначение и отслеживание задач конструкторов</div></div></div>
+  <div class="ph"><div><div class="ptitle">Задачи конструкторов</div><div class="psub">Назначение и отслеживание задач конструкторов</div></div></div>
   <div id="constructor-tasks-content"></div>
 </div>
 
 
 <!-- ── PAYROLL ── -->
 <div id="page-payroll" class="page">
-  <div class="ph"><div><div class="ptitle">💰 Начисления</div><div class="psub">Расчёт заработной платы по выполненным заданиям</div></div></div>
+  <div class="ph"><div><div class="ptitle">Начисления</div><div class="psub">Расчёт заработной платы по выполненным заданиям</div></div></div>
   <div class="card" style="padding:16px 20px;margin-bottom:16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:12px;font-weight:700;color:var(--muted)">Период:</span>
@@ -1009,7 +1029,7 @@ table{max-width:100%}
   <div class="modal wide">
     <div class="mh"><div><div class="mt" id="om-title"></div><div class="ms" id="om-sub"></div></div><button class="mx" aria-label="Закрыть" onclick="closeOrderModal()">×</button></div>
     <div class="mb" id="om-body"></div>
-    <div class="mf"><button class="btn btn-secondary" onclick="closeOrderModal()">Закрыть</button><button class="btn btn-primary" id="om-edit-btn">✏️ Редактировать</button></div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeOrderModal()">Закрыть</button><button class="btn btn-primary" id="om-edit-btn">Редактировать</button></div>
   </div>
 </div>
 
@@ -1042,14 +1062,14 @@ table{max-width:100%}
         <div><label class="fl">Проект сдать до</label><input id="e-design-end" class="fc" type="date" oninput="onEditDesignEndChange()"></div>
       </div>
       <div class="divider"></div>
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">📅 Производственные даты</div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Производственные даты</div>
       <div class="fg" style="gap:11px">
-        <div><label class="fl">🚀 Запуск</label><input id="e-launch" class="fc" type="date" oninput="warnIfWeekend(this.value,'Запуск')"></div>
-        <div><label class="fl">✂️ Распил</label><input id="e-cutting" class="fc" type="date" oninput="onEditCutChange()"></div>
-        <div><label class="fl">🔲 Кромка</label><input id="e-edging" class="fc" type="date" oninput="onEditEdgingChange()"></div>
-        <div><label class="fl">🔩 Присадка</label><input id="e-drilling" class="fc" type="date" oninput="onEditDrillChange()"></div>
-        <div><label class="fl">📦 Упаковка/Отгрузка</label><input id="e-packing" class="fc" type="date" oninput="warnIfWeekend(this.value,'Упаковка')"></div>
-        <div><label class="fl" style="opacity:0">.</label><button class="btn btn-secondary btn-sm" onclick="autoEditDates()" style="width:100%">🔄 Авто-даты</button></div>
+        <div><label class="fl">Запуск</label><input id="e-launch" class="fc" type="date" oninput="warnIfWeekend(this.value,'Запуск')"></div>
+        <div><label class="fl">Распил</label><input id="e-cutting" class="fc" type="date" oninput="onEditCutChange()"></div>
+        <div><label class="fl">Кромка</label><input id="e-edging" class="fc" type="date" oninput="onEditEdgingChange()"></div>
+        <div><label class="fl">Присадка</label><input id="e-drilling" class="fc" type="date" oninput="onEditDrillChange()"></div>
+        <div><label class="fl">Упаковка/Отгрузка</label><input id="e-packing" class="fc" type="date" oninput="warnIfWeekend(this.value,'Упаковка')"></div>
+        <div><label class="fl" style="opacity:0">.</label><button class="btn btn-secondary btn-sm" onclick="autoEditDates()" style="width:100%"> Авто-даты</button></div>
       </div>
       <div style="margin-top:10px;display:flex;gap:12px 16px;flex-wrap:wrap">
         <label class="checkbox-row"><input type="checkbox" id="e-no-project"> Без конструктора</label>
@@ -1075,24 +1095,24 @@ table{max-width:100%}
         <div id="e-split-txt" style="font-size:12px;color:#78350f;margin-bottom:8px"></div>
         <div style="display:flex;gap:16px;align-items:center">
           <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:700;color:#92400e">
-            <input type="radio" name="e-split-mode" id="e-sp-radio-split" onchange="editChooseSplit('split')" checked> ✂️ Дробить по дням
+            <input type="radio" name="e-split-mode" id="e-sp-radio-split" onchange="editChooseSplit('split')" checked> Дробить по дням
           </label>
           <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:600;color:#475569">
-            <input type="radio" name="e-split-mode" id="e-sp-radio-night" onchange="editChooseSplit('night')"> 🌙 Ночная смена
+            <input type="radio" name="e-split-mode" id="e-sp-radio-night" onchange="editChooseSplit('night')"> Ночная смена
           </label>
         </div>
       </div>
     </div>
-    <div class="mf"><button class="btn btn-danger" onclick="deleteFromEdit()" style="margin-right:auto">🗑 Удалить</button><button class="btn btn-secondary" onclick="closeEdit()">Отмена</button><button class="btn btn-primary" onclick="saveEdit()">💾 Сохранить</button></div>
+    <div class="mf"><button class="btn btn-danger" onclick="deleteFromEdit()" style="margin-right:auto"> Удалить</button><button class="btn btn-secondary" onclick="closeEdit()">Отмена</button><button class="btn btn-primary" onclick="saveEdit()">Сохранить</button></div>
   </div>
 </div>
 
 <!-- ── MODAL: CHECKIN ── -->
 <div class="overlay" role="dialog" aria-modal="true" id="checkin-overlay">
   <div class="modal">
-    <div class="mh"><div><div class="mt">🌙 Вечерняя сверка</div><div class="ms">Отметьте что напилено сегодня</div></div><button class="mx" aria-label="Закрыть" onclick="closeCheckin()">×</button></div>
+    <div class="mh"><div><div class="mt">Вечерняя сверка</div><div class="ms">Отметьте что напилено сегодня</div></div><button class="mx" aria-label="Закрыть" onclick="closeCheckin()">×</button></div>
     <div class="mb" id="checkin-body"></div>
-    <div class="mf"><button class="btn btn-secondary" onclick="closeCheckin()">Отмена</button><button class="btn btn-success" onclick="submitCheckin()">✅ Подтвердить</button></div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeCheckin()">Отмена</button><button class="btn btn-success" onclick="submitCheckin()">Подтвердить</button></div>
   </div>
 </div>
 
@@ -1108,7 +1128,7 @@ table{max-width:100%}
       <button class="btn btn-secondary" onclick="backFromStages()">← Назад</button>
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary" onclick="closeStages()">Закрыть</button>
-        <button class="btn btn-primary" onclick="openEdit(stagesOrderId);closeStages()">✏️ Редактировать даты</button>
+        <button class="btn btn-primary" onclick="openEdit(stagesOrderId);closeStages()">Редактировать даты</button>
       </div>
     </div>
   </div>
@@ -1117,7 +1137,7 @@ table{max-width:100%}
 <!-- ── MODAL: ADD EMPLOYEE ── -->
 <div class="overlay" role="dialog" aria-modal="true" id="addemp-overlay">
   <div class="modal" style="width:440px">
-    <div class="mh"><div><div class="mt" id="addemp-title">➕ Новый сотрудник</div></div><button class="mx" aria-label="Закрыть" onclick="closeAddEmp()">×</button></div>
+    <div class="mh"><div><div class="mt" id="addemp-title">Новый сотрудник</div></div><button class="mx" aria-label="Закрыть" onclick="closeAddEmp()">×</button></div>
     <div class="mb">
       <div class="fg" style="gap:11px">
         <div class="fs2"><label class="fl">Имя (Фамилия Имя Отчество)</label><input id="ae-name" class="fc" type="text" placeholder="Иванов Иван Иванович"></div>
@@ -1139,7 +1159,7 @@ table{max-width:100%}
         </div>
       </div>
     </div>
-    <div class="mf"><button class="btn btn-secondary" onclick="closeAddEmp()">Отмена</button><button class="btn btn-primary" onclick="saveNewEmployee()">💾 Добавить</button></div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeAddEmp()">Отмена</button><button class="btn btn-primary" onclick="saveNewEmployee()"> Добавить</button></div>
   </div>
 </div>
 
@@ -1158,7 +1178,7 @@ table{max-width:100%}
 <!-- ── MODAL: ASSIGN DESIGNER ── -->
 <div class="overlay" role="dialog" aria-modal="true" id="assign-overlay">
   <div class="modal" style="width:420px">
-    <div class="mh"><div><div class="mt">✏️ Назначить конструктора</div><div class="ms" id="assign-order-sub"></div></div><button class="mx" aria-label="Закрыть" onclick="closeAssign()">×</button></div>
+    <div class="mh"><div><div class="mt">Назначить конструктора</div><div class="ms" id="assign-order-sub"></div></div><button class="mx" aria-label="Закрыть" onclick="closeAssign()">×</button></div>
     <div class="mb" id="assign-body"></div>
     <div class="mf"><button class="btn btn-secondary" onclick="closeAssign()">Отмена</button></div>
   </div>
@@ -1564,13 +1584,13 @@ async function testCloudConnection() {
     let data;
     try { data = JSON.parse(text); } catch(_) { throw new Error('Ответ не JSON: ' + text.substring(0, 100)); }
     if (data.ok) {
-      alert('✅ Подключение успешно!');
+      alert('Подключение успешно!');
       updateSyncIndicator('ok');
     } else if (data.error) {
       throw new Error(data.error);
     }
   } catch(e) {
-    alert('❌ Ошибка подключения: ' + e.message);
+    alert('Ошибка подключения: ' + e.message);
     updateSyncIndicator('error', e.message);
   }
 }
@@ -1582,9 +1602,9 @@ async function manualCloudLoad() {
   const ok = await cloudLoadAll();
   if (ok) {
     refreshAll();
-    alert('✅ Данные загружены из облака!');
+    alert('Данные загружены из облака!');
   } else {
-    alert('❌ Ошибка загрузки. Проверьте подключение.');
+    alert('Ошибка загрузки. Проверьте подключение.');
   }
 }
 
@@ -1594,9 +1614,9 @@ async function manualCloudSave() {
   if (!confirm('Отправить все данные в облако? Данные в таблице будут перезаписаны.')) return;
   await cloudSaveAll();
   if (_lastSyncTime > Date.now() - 5000) {
-    alert('✅ Данные отправлены в облако!');
+    alert('Данные отправлены в облако!');
   } else {
-    alert('❌ Ошибка отправки. Проверьте подключение.');
+    alert('Ошибка отправки. Проверьте подключение.');
   }
 }
 
@@ -1669,9 +1689,9 @@ function importBackup(inputEl) {
       rebuildProdCal();
       rebuildProdCalFact();
       refreshAll();
-      alert('✅ Импорт завершён.\nЗаказов: ' + orders.length + '\nСотрудников: ' + USERS.length + '\n\nНажмите «Отправить в облако» чтобы разослать на остальные компьютеры.');
+      alert('Импорт завершён.\nЗаказов: ' + orders.length + '\nСотрудников: ' + USERS.length + '\n\nНажмите «Отправить в облако» чтобы разослать на остальные компьютеры.');
     } catch(err) {
-      alert('❌ Ошибка импорта: ' + err.message);
+      alert('Ошибка импорта: ' + err.message);
     } finally {
       inputEl.value = '';
     }
@@ -1685,8 +1705,8 @@ function updateSyncIndicator(status, msg) {
   if (!el) return;
   const m = {
     ok:      { icon: '🟢', text: 'Синхронизировано', color: '#16a34a' },
-    saving:  { icon: '🔄', text: 'Сохранение...', color: '#d97706' },
-    loading: { icon: '🔄', text: 'Загрузка...', color: '#2563eb' },
+    saving:  { icon: '', text: 'Сохранение...', color: '#d97706' },
+    loading: { icon: '', text: 'Загрузка...', color: '#2563eb' },
     error:   { icon: '🔴', text: 'Ошибка: ' + (msg||''), color: '#dc2626' },
     off:     { icon: '⚪', text: 'Не подключено', color: '#64748b' }
   };
@@ -2734,16 +2754,16 @@ function renderMetrics() {
   const curviToday = orders.filter(o => o.status!=='done' && o.has_curvilinear && getCurviDate(o)===TODAY);
   const curviMeters = curviToday.reduce((s,o) => s + (o.curvilinear_meters||0), 0);
   const data = [
-    { lbl:'Проект',         ico:'✏️', v:inDesign,    max:Math.max(1,designTotal), sub:`Всего в работе: ${designTotal}`, pb:'pb-purple' },
-    { lbl:'Запуск',         ico:'🚀', v:needLaunch,  max:Math.max(1,needLaunch+launchedToday), sub:`Запущено сегодня: ${launchedToday}`, pb:'pb-blue' },
-    { lbl:'Распил сегодня', ico:'✂️', v:tc.cutting,  max:CAP.cutting,  sub:`Свободно: ${CAP.cutting-tc.cutting}`, pb:'pb-blue' },
-    { lbl:'Кромка сегодня', ico:'🔲', v:tc.edging,   max:CAP.edging,   sub:`Свободно: ${CAP.edging-tc.edging}`,  pb:'pb-purple' },
-    { lbl:'Присадка сегодня',ico:'🔩', v:tc.drilling, max:CAP.drilling, sub:`Свободно: ${CAP.drilling-tc.drilling}`,pb:'pb-amber' },
-    { lbl:'Склейка',        ico:'🧴', v:gluingToday.length, max:Math.max(1,gluingToday.length), sub:`${gluingSqm.toFixed(1)} м\u00B2`, pb:'pb-teal' },
-    { lbl:'Криволинейка',   ico:'〰️', v:curviToday.length, max:Math.max(1,curviToday.length), sub:`${curviMeters.toFixed(1)} м`, pb:'pb-purple' },
-    { lbl:'Фрезеровка',    ico:'⚙️', v:millToday,    max:Math.max(1,millToday), sub:`Заказов`, pb:'pb-amber' },
-    { lbl:'Упаковка сегодня',ico:'📦', v:tc.packing||0,max:50, sub:'Отгрузка', pb:'pb-teal' },
-    { lbl:'Активных заказов',ico:'📊', v:active,      max:Math.max(10,active), sub:`Всего: ${orders.length}`, pb:'pb-green' }
+    { lbl:'Проект',         ico:'', v:inDesign,    max:Math.max(1,designTotal), sub:`Всего в работе: ${designTotal}`, pb:'pb-purple' },
+    { lbl:'Запуск',         ico:'', v:needLaunch,  max:Math.max(1,needLaunch+launchedToday), sub:`Запущено сегодня: ${launchedToday}`, pb:'pb-blue' },
+    { lbl:'Распил сегодня', ico:'', v:tc.cutting,  max:CAP.cutting,  sub:`Свободно: ${CAP.cutting-tc.cutting}`, pb:'pb-blue' },
+    { lbl:'Кромка сегодня', ico:'', v:tc.edging,   max:CAP.edging,   sub:`Свободно: ${CAP.edging-tc.edging}`,  pb:'pb-purple' },
+    { lbl:'Присадка сегодня',ico:'', v:tc.drilling, max:CAP.drilling, sub:`Свободно: ${CAP.drilling-tc.drilling}`,pb:'pb-amber' },
+    { lbl:'Склейка',        ico:'', v:gluingToday.length, max:Math.max(1,gluingToday.length), sub:`${gluingSqm.toFixed(1)} м\u00B2`, pb:'pb-teal' },
+    { lbl:'Криволинейка',   ico:'', v:curviToday.length, max:Math.max(1,curviToday.length), sub:`${curviMeters.toFixed(1)} м`, pb:'pb-purple' },
+    { lbl:'Фрезеровка',    ico:'', v:millToday,    max:Math.max(1,millToday), sub:`Заказов`, pb:'pb-amber' },
+    { lbl:'Упаковка сегодня',ico:'', v:tc.packing||0,max:50, sub:'Отгрузка', pb:'pb-teal' },
+    { lbl:'Активных заказов',ico:'', v:active,      max:Math.max(10,active), sub:`Всего: ${orders.length}`, pb:'pb-green' }
   ];
   document.getElementById('metrics-block').innerHTML = data.map(m => `
     <div class="mc">
@@ -2759,16 +2779,16 @@ function renderTodayOrders() {
   document.getElementById('today-cnt-tag').textContent = todayO.length + ' зак.';
   document.getElementById('badge-today').textContent = todayO.length;
   const tbody = document.getElementById('today-tbody');
-  if (!todayO.length) { tbody.innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="es-icon">🎉</div><div class="es-title">Производство свободно</div><div class="es-sub">На сегодня нет запланированных операций</div></div></td></tr>'; return; }
+  if (!todayO.length) { tbody.innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="es-title">Производство свободно</div><div class="es-sub">На сегодня нет запланированных операций</div></div></td></tr>'; return; }
   tbody.innerHTML = todayO.map((o,i)=>{
     let badges = [];
-    if (o.cutting_date===TODAY)  badges.push('<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">✂️ Распил</span>');
-    if (o.edging_date===TODAY && !o.no_edging) badges.push('<span style="background:#ede9fe;color:#5b21b6;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">🔲 Кромка</span>');
-    if (o.materials && o.materials.some(m=>m.type==='mill' && m.mill_date===TODAY)) badges.push('<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">⚙️ Фрезеровка</span>');
-    if (getDrillSchedule(o).some(s=>s.date===TODAY)) badges.push('<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">🔩 Присадка</span>');
-    if (o.has_gluing && getGluingDate(o)===TODAY) badges.push('<span style="background:#f0fdfa;color:#0f766e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">🧴 Склейка</span>');
-    if (o.has_curvilinear && getCurviDate(o)===TODAY) badges.push('<span style="background:#fdf2f8;color:#9d174d;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">〰️ Криволинейка</span>');
-    if (o.packing_date===TODAY && !o.no_packing)  badges.push('<span style="background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">📦 Упаковка</span>');
+    if (o.cutting_date===TODAY)  badges.push('<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Распил</span>');
+    if (o.edging_date===TODAY && !o.no_edging) badges.push('<span style="background:#ede9fe;color:#5b21b6;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Кромка</span>');
+    if (o.materials && o.materials.some(m=>m.type==='mill' && m.mill_date===TODAY)) badges.push('<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Фрезеровка</span>');
+    if (getDrillSchedule(o).some(s=>s.date===TODAY)) badges.push('<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Присадка</span>');
+    if (o.has_gluing && getGluingDate(o)===TODAY) badges.push('<span style="background:#f0fdfa;color:#0f766e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Склейка</span>');
+    if (o.has_curvilinear && getCurviDate(o)===TODAY) badges.push('<span style="background:#fdf2f8;color:#9d174d;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Криволинейка</span>');
+    if (o.packing_date===TODAY && !o.no_packing)  badges.push('<span style="background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Упаковка</span>');
     const opBadge = badges.join(' ');
     return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer">
       <td><span class="pc pr${Math.min(i+1,5)}">${i+1}</span></td>
@@ -2777,8 +2797,8 @@ function renderTodayOrders() {
       <td>${opBadge}</td>
       <td>${sBadge(o.status)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
-        <button class="btn btn-sm btn-secondary" style="padding:4px 8px" onclick="openEdit('${o.id}')">✏️</button>
-        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;margin-left:3px" onclick="openAssign('${o.id}')">👤</button>
+        <button class="btn btn-sm btn-secondary" style="padding:4px 8px" onclick="openEdit('${o.id}')"></button>
+        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;margin-left:3px" onclick="openAssign('${o.id}')"></button>
       </td>
     </tr>`;
   }).join('');
@@ -2786,9 +2806,9 @@ function renderTodayOrders() {
 
 function renderWeekLoad() {
   const ops = [
-    { key:'cutting',  ico:'✂️', color:'#3b82f6', lbl:'Распил' },
-    { key:'edging',   ico:'🔲', color:'#8b5cf6', lbl:'Кромка' },
-    { key:'drilling', ico:'🔩', color:'#f59e0b', lbl:'Присадка' },
+    { key:'cutting',  ico:'', color:'#3b82f6', lbl:'Распил' },
+    { key:'edging',   ico:'', color:'#8b5cf6', lbl:'Кромка' },
+    { key:'drilling', ico:'', color:'#f59e0b', lbl:'Присадка' },
   ];
 
   // Первая карточка — всегда СЕГОДНЯ (даже если выходной)
@@ -3106,7 +3126,7 @@ function renderSchedPreview(p) {
     document.getElementById('sp-timeline').innerHTML = mills.map(m => {
       const dur = m.mill_duration == 0.5 ? 'Полдня' : m.mill_duration == 2 ? '2 дня' : '1 день';
       return `<div class="sp-step">
-        <div class="sp-ic" style="background:#fef3c7;color:#92400e">⚙️</div>
+        <div class="sp-ic" style="background:#fef3c7;color:#92400e"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
         <div class="sp-lbl">Фрезеровка</div>
         <div class="sp-date">${m.mill_date ? fmt(m.mill_date,true) : '—'}</div>
         <div class="sp-note">${escHtml(m.desc||'МДФ')} · ${dur}</div>
@@ -3119,11 +3139,11 @@ function renderSchedPreview(p) {
   }
 
   const steps = [
-    { ic:'ic-des', emoji:'✏️', lbl:'Проект',  date:p.designEnd,     note:p.designer?desName(p.designer.id).split(' ')[0]:'—', skip:p.noProject },
-    { ic:'ic-cut', emoji:'✂️', lbl:'Распил',  date:p.cuttingDate,   note:p.sheets+' л.'+(p.nightShift?' 🌙ночь':''),  skip:false },
-    { ic:'ic-edg', emoji:'🔲', lbl:'Кромка',  date:p.edgingDate,    note: p.edgeSchedule && p.edgeSchedule.length > 1 ? p.edgeSchedule.map(s=>`${Math.round(s.meters)}м→${fmt(s.date)}`).join(' + ') : (p.doSplit ? 'после допила' : 'тот же день'),   skip:p.noEdging },
-    { ic:'ic-drl', emoji:'🔩', lbl:'Присадка',date:p.drillingDate,  note: p.drillSchedule && p.drillSchedule.length > 1 ? p.drillSchedule.map(s=>`${s.sheets}л.→${fmt(s.date)}`).join(' + ') : 'след. день', skip:p.noDrilling },
-    { ic:'ic-pkg', emoji:'📦', lbl:'Упаковка',date:p.packingDate,   note:'след. день',    skip:false }
+    { ic:'ic-des', emoji:'', lbl:'Проект',  date:p.designEnd,     note:p.designer?desName(p.designer.id).split(' ')[0]:'—', skip:p.noProject },
+    { ic:'ic-cut', emoji:'', lbl:'Распил',  date:p.cuttingDate,   note:p.sheets+' л.'+(p.nightShift?' ночь':''),  skip:false },
+    { ic:'ic-edg', emoji:'', lbl:'Кромка',  date:p.edgingDate,    note: p.edgeSchedule && p.edgeSchedule.length > 1 ? p.edgeSchedule.map(s=>`${Math.round(s.meters)}м→${fmt(s.date)}`).join(' + ') : (p.doSplit ? 'после допила' : 'тот же день'),   skip:p.noEdging },
+    { ic:'ic-drl', emoji:'', lbl:'Присадка',date:p.drillingDate,  note: p.drillSchedule && p.drillSchedule.length > 1 ? p.drillSchedule.map(s=>`${s.sheets}л.→${fmt(s.date)}`).join(' + ') : 'след. день', skip:p.noDrilling },
+    { ic:'ic-pkg', emoji:'', lbl:'Упаковка',date:p.packingDate,   note:'след. день',    skip:false }
   ];
   document.getElementById('sp-timeline').innerHTML = steps.map(s=>`
     <div class="sp-step ${s.skip?'sp-skip':''}">
@@ -3159,7 +3179,7 @@ function renderSchedPreview(p) {
   if (perMatEl) {
     if (sheetMatsForm.length > 1 && p.cuttingDate) {
       perMatEl.style.display = 'block';
-      perMatEl.innerHTML = `<div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:8px">📋 Даты распила по материалам (необязательно):</div>` +
+      perMatEl.innerHTML = `<div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:8px">Даты распила по материалам (необязательно):</div>` +
         sheetMatsForm.map(m => {
           const matDate = (p.perMatDates && p.perMatDates[m.id]) || p.cuttingDate;
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
@@ -3398,7 +3418,7 @@ function createOrder() {
   document.getElementById('form-btns').classList.add('hidden');
   const res = document.getElementById('create-result');
   res.classList.remove('hidden');
-  const millMatsInfo = mats.filter(m => m.type === 'mill').map(m => `⚙️ ${escHtml(m.desc||'Фрезеровка')}${m.mill_date?' до '+fmt(m.mill_date,true):''}`).join(', ');
+  const millMatsInfo = mats.filter(m => m.type === 'mill').map(m => `${escHtml(m.desc||'Фрезеровка')}${m.mill_date?' до '+fmt(m.mill_date,true):''}`).join(', ');
   document.getElementById('cr-body').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:13px">
       <div><span class="tm">Заказ:</span> <b>${num}</b></div>
@@ -3411,8 +3431,8 @@ function createOrder() {
          <div><span class="tm">Упаковка:</span> <b>${fmt(p.packingDate,true)}</b></div>`}
     </div>
     <div style="margin-top:10px;display:flex;gap:8px">
-      <button class="btn btn-secondary btn-sm" onclick="resetForm()">➕ Ещё заказ</button>
-      <button class="btn btn-primary btn-sm" onclick="showPage('calendar')">📅 В календарь</button>
+      <button class="btn btn-secondary btn-sm" onclick="resetForm()">Ещё заказ</button>
+      <button class="btn btn-primary btn-sm" onclick="showPage('calendar')">В календарь</button>
     </div>`;
   renderDashboard();
 }
@@ -3497,7 +3517,7 @@ function calNav(delta) {
 function toggleCalHistory() {
   calShowHistory = !calShowHistory;
   const btn = document.getElementById('cal-history-btn');
-  if (btn) btn.textContent = calShowHistory ? '📅 Скрыть прошлое' : '📅 Прошлые дни';
+  if (btn) btn.textContent = calShowHistory ? 'Скрыть прошлое' : 'Прошлые дни';
   renderCalendar();
 }
 
@@ -3664,7 +3684,7 @@ function renderCalTableView(days) {
     const total = inProgress.length + launchDone.length;
     if (!total) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = [
-      ...inProgress.map(o => `<span class="cc cc-des" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="background:#fef3c7;color:#92400e">🚀 ${o.id}/${o.sheets}л.</span>`),
+      ...inProgress.map(o => `<span class="cc cc-des" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="background:#fef3c7;color:#92400e"> ${o.id}/${o.sheets}л.</span>`),
       ...launchDone.map(o => `<span class="cc cc-des" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="background:#fef3c7;color:#92400e;text-decoration:line-through;opacity:0.65">✓ ${o.id}/${o.sheets}л.</span>`)
     ].join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#92400e;font-weight:700">${total} зак.</div><div class="cal-chips">${chips}</div></div></td>`;
@@ -3687,7 +3707,7 @@ function renderCalTableView(days) {
       return `<span class="cc" onclick="openStages('${o.id}')" title="${escHtml(o.desc)} — ${escHtml(m.desc||'Фрезеровка')}"
         style="background:#fef3c7;color:#92400e;${done?'text-decoration:line-through;opacity:0.65':''}">${done?'✓ ':''}${o.id}/${escHtml(m.desc||'—')} ${dur}</span>`;
     }).join('');
-    return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#92400e;font-weight:700">⚙️ ${items.length} поз.</div><div class="cal-chips">${chips}</div></div></td>`;
+    return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#92400e;font-weight:700">${items.length} поз.</div><div class="cal-chips">${chips}</div></div></td>`;
   }
 
   function gluingTd(date) {
@@ -3700,7 +3720,7 @@ function renderCalTableView(days) {
       const done = !!o.stages_done?.gluing;
       return `<span class="cc cc-glu" onclick="openStages('${o.id}')" title="${escHtml(o.desc)} — ${o.gluing_sqm||0}м²" style="${done?'text-decoration:line-through;opacity:0.65':''}">${done?'✓ ':''}${o.id} ${o.gluing_sqm||''}м²</span>`;
     }).join('');
-    return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#0d9488;font-weight:700">🧴 ${items.length}</div><div class="cal-chips">${chips}</div></div></td>`;
+    return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#0d9488;font-weight:700">${items.length}</div><div class="cal-chips">${chips}</div></div></td>`;
   }
   function curvilinearTd(date) {
     const items = orders.filter(o => {
@@ -3712,7 +3732,7 @@ function renderCalTableView(days) {
       const done = !!o.stages_done?.curvilinear;
       return `<span class="cc cc-cur" onclick="openStages('${o.id}')" title="${escHtml(o.desc)} — ${o.curvilinear_meters||0}м" style="${done?'text-decoration:line-through;opacity:0.65':''}">${done?'✓ ':''}${o.id} ${o.curvilinear_meters||''}м</span>`;
     }).join('');
-    return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#be185d;font-weight:700">〰️ ${items.length}</div><div class="cal-chips">${chips}</div></div></td>`;
+    return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#be185d;font-weight:700">${items.length}</div><div class="cal-chips">${chips}</div></div></td>`;
   }
 
   function redzoneTd(date) {
@@ -3983,15 +4003,15 @@ function renderCalTableView(days) {
     <table class="cal-t">
       <thead><tr>
         <th style="min-width:95px">Дата</th>
-        <th style="color:#3730a3">✏️ Проект</th>
-        <th style="color:#92400e">🚀 Запуск</th>
-        <th style="color:#1d4ed8">✂️ Распил</th>
-        <th style="color:#5b21b6">🔲 Кромка</th>
-        <th style="color:#92400e">🔩 Присадка</th>
-        <th style="color:#0d9488">🧴 Склейка</th>
-        <th style="color:#be185d">〰️ Криволинейка</th>
-        <th style="color:#92400e">⚙️ Фрезеровка</th>
-        <th style="color:#065f46">📦 Упаковка/Отгрузка</th>
+        <th style="color:#3730a3">Проект</th>
+        <th style="color:#92400e">Запуск</th>
+        <th style="color:#1d4ed8">Распил</th>
+        <th style="color:#5b21b6">Кромка</th>
+        <th style="color:#92400e">Присадка</th>
+        <th style="color:#0d9488">Склейка</th>
+        <th style="color:#be185d">Криволинейка</th>
+        <th style="color:#92400e">Фрезеровка</th>
+        <th style="color:#065f46">Упаковка/Отгрузка</th>
         <th style="color:#991b1b">🔴 Красная зона</th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -4002,10 +4022,10 @@ function renderCalTableView(days) {
 // ── DETAIL VIEW (день / 3 дня) ─────────────────────────────────
 function renderCalDetailView(days) {
   const OPS = [
-    {key:'cutting',  icon:'✂️',  label:'Распил',            cls:'cc-cut', border:'#bfdbfe', bg:'#eff6ff', hdr:'#1d4ed8'},
-    {key:'edging',   icon:'🔲', label:'Кромка',             cls:'cc-edg', border:'#ddd6fe', bg:'#f5f3ff', hdr:'#5b21b6'},
-    {key:'drilling', icon:'🔩', label:'Присадка',           cls:'cc-drl', border:'#fde68a', bg:'#fffbeb', hdr:'#92400e'},
-    {key:'packing',  icon:'📦', label:'Упаковка/Отгрузка', cls:'cc-pkg', border:'#a7f3d0', bg:'#f0fdf4', hdr:'#065f46'},
+    {key:'cutting',  icon:'',  label:'Распил',            cls:'cc-cut', border:'#bfdbfe', bg:'#eff6ff', hdr:'#1d4ed8'},
+    {key:'edging',   icon:'', label:'Кромка',             cls:'cc-edg', border:'#ddd6fe', bg:'#f5f3ff', hdr:'#5b21b6'},
+    {key:'drilling', icon:'', label:'Присадка',           cls:'cc-drl', border:'#fde68a', bg:'#fffbeb', hdr:'#92400e'},
+    {key:'packing',  icon:'', label:'Упаковка/Отгрузка', cls:'cc-pkg', border:'#a7f3d0', bg:'#f0fdf4', hdr:'#065f46'},
   ];
 
   const visibleDays = days;
@@ -4040,14 +4060,14 @@ function renderCalDetailView(days) {
     });
     const millSectionHtml = millItems.length ? `<div style="border:1px solid #fde68a;border-radius:9px;padding:12px;margin-bottom:10px;background:#fffbeb">
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">
-        <span style="font-size:14px">⚙️</span>
+        <span style="font-size:14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
         <span style="font-size:12px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.05em">Фрезеровка МДФ</span>
       </div>
       ${millItems.map(({o, m}) => {
         const done = !!(m.stages?.mill?.done);
         const dur = m.mill_duration == 0.5 ? '½ дня' : m.mill_duration == 2 ? '2 дня' : '1 день';
         return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed #fde68a;cursor:pointer" onclick="openStages('${o.id}')">
-          <span style="font-size:13px">${done?'✅':'⬜'}</span>
+          <span style="font-size:13px">${done?'':'⬜'}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:800;color:#92400e">${escHtml(o.id)}</div>
             <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.desc||'Фрезеровка')} · ${escHtml(o.client)}</div>
@@ -4082,14 +4102,14 @@ function renderCalDetailView(days) {
           else if (reschedTo === date) suffix = ' ↩';
           const matLabel = matDef.label || m.type;
           const descText = m.desc ? `${escHtml(m.desc)}` : matLabel;
-          const edgM = matHasEdging(m) && m.edging_m > 0 ? ` · 🔲 ${m.edging_m}м` : '';
+          const edgM = matHasEdging(m) && m.edging_m > 0 ? ` ·  ${m.edging_m}м` : '';
           // В секции КРОМКА листовой материал показывает метры своей inline-кромки, а не листы
           const isEdgSec = op.key === 'edging';
           const qtyVal = isEdgSec ? (matHasEdging(m) ? matAutoEdging(m) : 0) : (m.qty || 0);
           const qtyUnit = isEdgSec ? 'м' : 'л';
           if (isEdgSec && qtyVal <= 0) return '';
           return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed #f1f5f9">
-            <span style="font-size:13px">${done?'✅':'⬜'}</span>
+            <span style="font-size:13px">${done?'':'⬜'}</span>
             <div style="flex:1;min-width:0">
               <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(m.desc)}">${descText}</div>
               <div style="font-size:10px;color:var(--muted)">${matLabel}${isEdgSec ? '' : edgM}</div>
@@ -4106,7 +4126,7 @@ function renderCalDetailView(days) {
           else if (reschedTo === date) suffix = ' ↩';
           const descText = m.desc ? escHtml(m.desc) : 'Кромка';
           return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed #f1f5f9">
-            <span style="font-size:13px">${done?'✅':'⬜'}</span>
+            <span style="font-size:13px">${done?'':'⬜'}</span>
             <div style="flex:1;min-width:0">
               <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(m.desc)}">${descText}</div>
               <div style="font-size:10px;color:var(--muted)">Кромка (отдельно)</div>
@@ -4117,7 +4137,7 @@ function renderCalDetailView(days) {
         const matRows = sheetRows + edgingRows;
 
         const edgRow = (op.key === 'edging' || op.key === 'cutting') && o.edging_meters > 0
-          ? `<div style="font-size:10px;color:#5b21b6;font-weight:600;margin-top:3px">🔲 Кромка: ${o.edging_meters} м.</div>` : '';
+          ? `<div style="font-size:10px;color:#5b21b6;font-weight:600;margin-top:3px">Кромка: ${o.edging_meters} м.</div>` : '';
 
         const statusBadge = {'new':'Новый','designing':'Конструктор','production':'В производстве','done':'Готово'}[o.status]||o.status;
         const doneStages = (o.stages_done||[]).length;
@@ -4159,7 +4179,7 @@ function renderCalDetailView(days) {
 
     return `<div style="flex:1;min-width:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff">
       ${dateHeader}
-      <div style="padding:10px 12px;overflow-y:auto;max-height:72vh">${millSectionHtml}${opsHtml || (!millItems.length ? '<div style="text-align:center;padding:30px 16px;color:var(--muted);font-size:13px">📭 Нет заказов</div>' : '')}</div>
+      <div style="padding:10px 12px;overflow-y:auto;max-height:72vh">${millSectionHtml}${opsHtml || (!millItems.length ? '<div style="text-align:center;padding:30px 16px;color:var(--muted);font-size:13px"> Нет заказов</div>' : '')}</div>
     </div>`;
   }).join('');
 
@@ -4243,12 +4263,12 @@ function renderAllOrders(filter) {
       <td style="font-size:12px;font-weight:600">${fmt(o.packing_date)}</td>
       <td>${sBadge(o.status)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
-        <button class="btn btn-sm btn-secondary" style="padding:4px 8px" onclick="openEdit('${o.id}')">✏️</button>
-        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;margin-left:3px" onclick="openAssign('${o.id}')">👤</button>
-        <button class="btn btn-sm btn-danger"    style="padding:4px 8px;margin-left:3px" onclick="doDelete('${o.id}')">🗑</button>
+        <button class="btn btn-sm btn-secondary" style="padding:4px 8px" onclick="openEdit('${o.id}')"></button>
+        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;margin-left:3px" onclick="openAssign('${o.id}')"></button>
+        <button class="btn btn-sm btn-danger"    style="padding:4px 8px;margin-left:3px" onclick="doDelete('${o.id}')"></button>
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="8"><div class="empty-state"><div class="es-icon">📭</div><div class="es-title">Заказов не найдено</div><div class="es-sub">Попробуйте изменить фильтр или создайте первый заказ</div><button class="btn btn-primary" onclick="showPage('new-order')">➕ Создать заказ</button></div></td></tr>`;
+  }).join('') || `<tr><td colspan="8"><div class="empty-state"><div class="es-title">Заказов не найдено</div><div class="es-sub">Попробуйте изменить фильтр или создайте первый заказ</div><button class="btn btn-primary" onclick="showPage('new-order')">Создать заказ</button></div></td></tr>`;
 }
 
 // ============================================================
@@ -4265,14 +4285,14 @@ function openOrderModal(id) {
 
   const launchDate = getLaunchDate(o);
   const stages = [
-    { key:'design',   ic:'✏️', bg:'#dbeafe', lbl:'Проект',   date:o.design_end,    note:desName(o.designer_id), skip:o.no_project },
-    { key:'launch',   ic:'🚀', bg:'#fef3c7', lbl:'Запуск',   date:launchDate, note:o.launch_date?'Задано вручную':(o.no_project ? 'До распила' : 'После проекта'), skip:!!o.no_launch },
-    { key:'cutting',  ic:'✂️', bg:'#ede9fe', lbl:'Распил',   date:o.cutting_date,  note:o.sheets+' листов',     skip:!!o.no_cutting },
-    { key:'edging',   ic:'🔲', bg:'#fce7f3', lbl:'Кромка',   date:o.edging_date,   note: o.cutting_date2 ? 'После допила' : 'Тот же день', skip:o.no_edging },
-    { key:'drilling',    ic:'🔩', bg:'#fef3c7', lbl:'Присадка',     date:o.drilling_date, note:'+1 день',              skip:o.no_drilling },
-    { key:'gluing',      ic:'🧴', bg:'#f0fdfa', lbl:'Склейка',      date:getGluingDate(o),   note:(o.gluing_sqm||0)+'м²', skip:!o.has_gluing },
-    { key:'curvilinear', ic:'〰️', bg:'#fdf2f8', lbl:'Криволинейка', date:getCurviDate(o),   note:(o.curvilinear_meters||0)+'м', skip:!o.has_curvilinear },
-    { key:'packing',     ic:'📦', bg:'#d1fae5', lbl:'Упаковка',     date:o.packing_date,  note:'+1 день',              skip:o.no_packing }
+    { key:'design',   ic:'', bg:'#dbeafe', lbl:'Проект',   date:o.design_end,    note:desName(o.designer_id), skip:o.no_project },
+    { key:'launch',   ic:'', bg:'#fef3c7', lbl:'Запуск',   date:launchDate, note:o.launch_date?'Задано вручную':(o.no_project ? 'До распила' : 'После проекта'), skip:!!o.no_launch },
+    { key:'cutting',  ic:'', bg:'#ede9fe', lbl:'Распил',   date:o.cutting_date,  note:o.sheets+' листов',     skip:!!o.no_cutting },
+    { key:'edging',   ic:'', bg:'#fce7f3', lbl:'Кромка',   date:o.edging_date,   note: o.cutting_date2 ? 'После допила' : 'Тот же день', skip:o.no_edging },
+    { key:'drilling',    ic:'', bg:'#fef3c7', lbl:'Присадка',     date:o.drilling_date, note:'+1 день',              skip:o.no_drilling },
+    { key:'gluing',      ic:'', bg:'#f0fdfa', lbl:'Склейка',      date:getGluingDate(o),   note:(o.gluing_sqm||0)+'м²', skip:!o.has_gluing },
+    { key:'curvilinear', ic:'', bg:'#fdf2f8', lbl:'Криволинейка', date:getCurviDate(o),   note:(o.curvilinear_meters||0)+'м', skip:!o.has_curvilinear },
+    { key:'packing',     ic:'', bg:'#d1fae5', lbl:'Упаковка',     date:o.packing_date,  note:'+1 день',              skip:o.no_packing }
   ];
 
   const sd = o.stages_done || {};
@@ -4339,7 +4359,7 @@ function openOrderModal(id) {
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="closeOrderModal();openStages('${o.id}')">☑ Отметить стадии</button>
-      <button class="btn btn-secondary btn-sm" onclick="openOrderHistory('${o.id}')">📋 История</button>
+      <button class="btn btn-secondary btn-sm" onclick="openOrderHistory('${o.id}')">История</button>
     </div>`;
 
   document.getElementById('order-overlay').classList.add('show');
@@ -4377,7 +4397,7 @@ function openOrderHistory(orderId) {
   const html = `<div id="history-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">
     <div style="background:#fff;border-radius:14px;width:90%;max-width:700px;max-height:80vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:15px;font-weight:800">📋 История заказа ${escHtml(orderId)}</div>
+        <div style="font-size:15px;font-weight:800">История заказа ${escHtml(orderId)}</div>
         <button onclick="document.getElementById('history-modal-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">&times;</button>
       </div>
       <div style="padding:16px 20px;overflow-x:auto">
@@ -4561,14 +4581,14 @@ function renderEditWorkersSection(o) {
     }).filter(Boolean);
   }
   const stagesDef = [
-    { key:'design',  ic:'✏️', lbl:'Проект',   wids: o.design_worker_ids||[], skip: o.no_project, done: o.stages_done?.design },
-    { key:'launch',  ic:'🚀', lbl:'Запуск',   wids: o.launch_worker_ids||[], skip: o.no_launch, done: o.launch_stage_data?.done || o.stages_done?.launch },
-    { key:'cutting', ic:'✂️', lbl:'Распил',   wids: [], skip: !!o.no_cutting, done: false },
-    { key:'edging',  ic:'🔲', lbl:'Кромка',   wids: [], skip: o.no_edging, done: false },
-    { key:'drilling',    ic:'🔩', lbl:'Присадка',     wids: [], skip: o.no_drilling, done: false },
-    { key:'gluing',      ic:'🧴', lbl:'Склейка',      wids: o.gluing_worker_ids||[], skip: !o.has_gluing, done: !!o.stages_done?.gluing },
-    { key:'curvilinear', ic:'〰️', lbl:'Криволинейка', wids: o.curvilinear_worker_ids||[], skip: !o.has_curvilinear, done: !!o.stages_done?.curvilinear },
-    { key:'packing',     ic:'📦', lbl:'Упаковка',     wids: [], skip: o.no_packing, done: false }
+    { key:'design',  ic:'', lbl:'Проект',   wids: o.design_worker_ids||[], skip: o.no_project, done: o.stages_done?.design },
+    { key:'launch',  ic:'', lbl:'Запуск',   wids: o.launch_worker_ids||[], skip: o.no_launch, done: o.launch_stage_data?.done || o.stages_done?.launch },
+    { key:'cutting', ic:'', lbl:'Распил',   wids: [], skip: !!o.no_cutting, done: false },
+    { key:'edging',  ic:'', lbl:'Кромка',   wids: [], skip: o.no_edging, done: false },
+    { key:'drilling',    ic:'', lbl:'Присадка',     wids: [], skip: o.no_drilling, done: false },
+    { key:'gluing',      ic:'', lbl:'Склейка',      wids: o.gluing_worker_ids||[], skip: !o.has_gluing, done: !!o.stages_done?.gluing },
+    { key:'curvilinear', ic:'', lbl:'Криволинейка', wids: o.curvilinear_worker_ids||[], skip: !o.has_curvilinear, done: !!o.stages_done?.curvilinear },
+    { key:'packing',     ic:'', lbl:'Упаковка',     wids: [], skip: o.no_packing, done: false }
   ];
   // Aggregate material-level worker_ids — считаем только релевантные материалы для стадии
   if (o.materials && o.materials.length) {
@@ -4985,7 +5005,7 @@ function openCheckin() {
   ));
   const body = document.getElementById('checkin-body');
   if (!todayO.length) {
-    body.innerHTML = '<div class="alert a-ok">✅ Нет плановых операций на сегодня.</div>';
+    body.innerHTML = '<div class="alert a-ok">Нет плановых операций на сегодня.</div>';
     document.getElementById('checkin-overlay').classList.add('show');
     return;
   }
@@ -4993,13 +5013,13 @@ function openCheckin() {
     todayO.map(o => {
       const ops = [];
       if (o.cutting_date === TODAY)
-        ops.push({ key:'cut', icon:'✂️', label:'Распил', partial:true });
+        ops.push({ key:'cut', icon:'', label:'Распил', partial:true });
       if (!o.no_edging && o.edging_date === TODAY)
-        ops.push({ key:'edg', icon:'🔲', label:'Кромка', partial:false });
+        ops.push({ key:'edg', icon:'', label:'Кромка', partial:false });
       if (!o.no_drilling && getDrillSchedule(o).some(s=>s.date===TODAY))
-        ops.push({ key:'drl', icon:'🔩', label:'Присадка', partial:false });
+        ops.push({ key:'drl', icon:'', label:'Присадка', partial:false });
       if (o.packing_date === TODAY)
-        ops.push({ key:'pkg', icon:'📦', label:'Упаковка / Отгрузка', partial:false });
+        ops.push({ key:'pkg', icon:'', label:'Упаковка / Отгрузка', partial:false });
 
       return `<div class="ci-it" id="cirow-${o.id}">
         <div style="flex:1">
@@ -5124,7 +5144,7 @@ function submitCheckin() {
   // Пометить все заказы из сверки как изменённые
   todayO.forEach(o => markDirty(o.id));
   closeCheckin();
-  alert('✅ Сверка сохранена!');
+  alert('Сверка сохранена!');
   refreshAll();
 }
 
@@ -5148,11 +5168,11 @@ function renderSettings() {
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
       <div class="des-av" style="width:34px;height:34px;font-size:11px;background:${u.color}" id="uav-${i}">${u.initials}</div>
       <div style="flex:1">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">${u.role}${u.department ? ' · '+( DEPARTMENTS[u.department]?.name || u.department) : ''}${u.login ? ' · 🔐 логин: '+escHtml(u.login) : ''}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">${u.role}${u.department ? ' · '+( DEPARTMENTS[u.department]?.name || u.department) : ''}${u.login ? ' · логин: '+escHtml(u.login) : ''}</div>
         <input class="fc" style="font-size:14px;padding:7px 10px" value="${u.name}"
           id="uname-${i}" oninput="liveUpdateUserInitials(${i},this.value)">
       </div>
-      <button class="btn btn-sm btn-danger" style="padding:5px 9px" onclick="deleteEmployee('${u.id}')" title="Удалить сотрудника">🗑</button>
+      <button class="btn btn-sm btn-danger" style="padding:5px 9px" onclick="deleteEmployee('${u.id}')" title="Удалить сотрудника"></button>
     </div>`).join('');
 }
 
@@ -5167,7 +5187,7 @@ function saveCapSettings() {
   CAP.edging   = parseInt(document.getElementById('cap-edging').value)||50;
   CAP.drilling = parseInt(document.getElementById('cap-drilling').value)||25;
   saveCapToStorage();
-  alert('✅ Мощность сохранена!');
+  alert('Мощность сохранена!');
   refreshAll();
 }
 
@@ -5362,14 +5382,14 @@ let prodCalFact = {}; // { 'YYYY-MM-DD': { cutting:N, edging:N, drilling:N, pack
 
 function getStages(o) {
   return [
-    { key:'design',   icon:'✏️', label:'Проект готов',        date: o.design_end,    skip: o.no_project },
-    { key:'launch',   icon:'🚀', label:'Запуск выполнен',     date: null,            skip: !!o.no_launch },
-    { key:'cutting',  icon:'✂️', label:'Распил выполнен',     date: o.cutting_date,  skip: !!o.has_milling || !!o.no_cutting },
-    { key:'edging',   icon:'🔲', label:'Кромка выполнена',    date: o.edging_date,   skip: o.no_edging || !!o.has_milling },
-    { key:'drilling',    icon:'🔩', label:'Присадка выполнена',     date: o.drilling_date, skip: o.no_drilling },
-    { key:'gluing',      icon:'🧴', label:'Склейка выполнена',     date: getGluingDate(o),   skip: !o.has_gluing },
-    { key:'curvilinear', icon:'〰️', label:'Криволинейка выполнена', date: getCurviDate(o),   skip: !o.has_curvilinear || !!o.has_milling },
-    { key:'packing',     icon:'📦', label:'Упакован / Отгружен',   date: o.packing_date,  skip: o.no_packing }
+    { key:'design',   icon:'', label:'Проект готов',        date: o.design_end,    skip: o.no_project },
+    { key:'launch',   icon:'', label:'Запуск выполнен',     date: null,            skip: !!o.no_launch },
+    { key:'cutting',  icon:'', label:'Распил выполнен',     date: o.cutting_date,  skip: !!o.has_milling || !!o.no_cutting },
+    { key:'edging',   icon:'', label:'Кромка выполнена',    date: o.edging_date,   skip: o.no_edging || !!o.has_milling },
+    { key:'drilling',    icon:'', label:'Присадка выполнена',     date: o.drilling_date, skip: o.no_drilling },
+    { key:'gluing',      icon:'', label:'Склейка выполнена',     date: getGluingDate(o),   skip: !o.has_gluing },
+    { key:'curvilinear', icon:'', label:'Криволинейка выполнена', date: getCurviDate(o),   skip: !o.has_curvilinear || !!o.has_milling },
+    { key:'packing',     icon:'', label:'Упакован / Отгружен',   date: o.packing_date,  skip: o.no_packing }
   ];
 }
 
@@ -5408,7 +5428,7 @@ function renderStagesBody(o) {
     const done = !!sd.design;
     return `<label style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?'#dcfce7':'#f8fafc'};border-radius:9px;cursor:pointer;border:1.5px solid ${done?'#86efac':'var(--border)'};margin-bottom:10px">
       <input type="checkbox" ${done?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" onchange="toggleStage('${o.id}','design',this.checked)">
-      <div style="flex:1"><div style="font-weight:700;font-size:13px">✏️ Проект готов</div>
+      <div style="flex:1"><div style="font-weight:700;font-size:13px">Проект готов</div>
         <div style="font-size:11px;color:var(--muted)">${o.design_end?fmt(o.design_end,true):'— не задана'}</div></div>
       ${done?'<span style="font-size:11px;font-weight:700;color:#15803d">✓ Готово</span>':''}
     </label>`;
@@ -5424,7 +5444,7 @@ function renderStagesBody(o) {
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?'#dcfce7':'#e0f2fe'};border-radius:9px;border:1.5px solid ${done?'#86efac':'#7dd3fc'};margin-bottom:10px;flex-wrap:wrap">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:180px">
         <input type="checkbox" ${done?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" onchange="toggleStage('${o.id}','launch',this.checked)">
-        <div style="flex:1"><div style="font-weight:700;font-size:13px">🚀 Запуск выполнен</div>
+        <div style="flex:1"><div style="font-weight:700;font-size:13px">Запуск выполнен</div>
           <div style="font-size:11px;color:var(--muted)">${o.launch_stage_data?.completed_at?fmt(o.launch_stage_data.completed_at,true):(curLaunchDate?('План: '+fmt(curLaunchDate,true)):'— ожидает запуска')}</div></div>
       </label>
       <div style="display:flex;align-items:center;gap:6px">
@@ -5462,7 +5482,7 @@ function renderStagesBody(o) {
 
   // Materials table
   const stageKeys = ['cutting','edging','drilling','packing'];
-  const stageIco = { cutting:'✂️', edging:'🔲', drilling:'🔩', packing:'📦' };
+  const stageIco = { cutting:'', edging:'', drilling:'', packing:'' };
   const stageLbl = { cutting:'Распил', edging:'Кромка', drilling:'Присадка', packing:'Упаковка' };
 
   const headerCells = stageKeys.map(k =>
@@ -5511,7 +5531,7 @@ function renderStagesBody(o) {
         </label>
         <button type="button" onclick="openMaterialNote('${o.id}','${mat.id}','${k}','${planDate}')"
           style="background:none;border:1px dashed ${isRz?'#f87171':hasReschedule?'#f59e0b':'#d1d5db'};border-radius:4px;cursor:pointer;font-size:9px;color:${isRz?'#dc2626':hasReschedule?'#d97706':'#9ca3af'};padding:1px 4px;width:100%;line-height:1.4"
-          >${isRz?'🔴 Брак':hasReschedule?'📅 Перенос':'+ примечание'}</button>
+          >${isRz?'🔴 Брак':hasReschedule?' Перенос':'+ примечание'}</button>
         ${hasReschedule ? `<div style="font-size:9px;color:#d97706;margin-top:2px">→ ${fmt(stg.reschedule_date)}</div>` : ''}
         ${(()=>{
           const wids = stg.worker_ids || [];
@@ -5551,7 +5571,7 @@ function renderStagesBody(o) {
       <td style="padding:8px 10px;border:1px solid var(--border);min-width:130px;vertical-align:middle" colspan="${stageKeys.length + 1}">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <div>
-            <div style="font-weight:700;font-size:12px">⚙️ ${escHtml(mat.desc||'Фрезеровка МДФ')}</div>
+            <div style="font-weight:700;font-size:12px"> ${escHtml(mat.desc||'Фрезеровка МДФ')}</div>
             <div style="font-size:11px;color:var(--muted)">${mat.qty} д · Фрезеровка МДФ · ${millDur}${mat.mill_date?' · до '+fmt(mat.mill_date,true):''}</div>
           </div>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:auto">
@@ -5582,7 +5602,7 @@ function renderStagesBody(o) {
     const done = !!(o.stages_done?.design);
     return `<tr style="background:${done?'#dcfce7':'#f0f9ff'}">
       <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
-        <div>✏️ Проект готов</div>
+        <div>Проект готов</div>
         <div style="font-size:10px;color:var(--muted);font-weight:400">${o.design_end?fmt(o.design_end,true):'— не задана'}</div>
       </td>
       <td colspan="${stageKeys.length + 1}" style="border:1px solid var(--border);padding:7px 10px">
@@ -5604,7 +5624,7 @@ function renderStagesBody(o) {
     const done = !!(o.stages_done?.launch || o.launch_stage_data?.done);
     return `<tr style="background:${done?'#dcfce7':'#e0f2fe'}">
       <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
-        <div>🚀 Запуск</div>
+        <div>Запуск</div>
         <div style="font-size:10px;color:var(--muted);font-weight:400">${o.launch_stage_data?.completed_at?fmt(o.launch_stage_data.completed_at,true):'— ожидает'}</div>
       </td>
       <td colspan="${stageKeys.length + 1}" style="border:1px solid var(--border);padding:7px 10px">
@@ -5639,7 +5659,7 @@ function renderStagesBody(o) {
             const gluDate = getGluingDate(o) || '';
             extra += `<tr style="background:${done?'#dcfce7':'#f0fdfa'}">
               <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
-                <div>🧴 Склейка</div>
+                <div>Склейка</div>
                 <div style="font-size:10px;color:var(--muted);font-weight:400">${o.gluing_sqm||0} м²</div>
                 <div style="font-size:10px;color:var(--muted);font-weight:400">${gluDate ? fmt(gluDate,true) : (o.no_edging?'день распила':'день кромки')}</div>
               </td>
@@ -5664,7 +5684,7 @@ function renderStagesBody(o) {
             const curDate = getCurviDate(o) || '';
             extra += `<tr style="background:${done?'#dcfce7':'#fdf2f8'}">
               <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
-                <div>〰️ Криволинейка</div>
+                <div>Криволинейка</div>
                 <div style="font-size:10px;color:var(--muted);font-weight:400">${o.curvilinear_meters||0} м</div>
                 <div style="font-size:10px;color:var(--muted);font-weight:400">${curDate ? fmt(curDate,true) : (o.no_edging?'день распила':'день кромки')}</div>
               </td>
@@ -5819,7 +5839,7 @@ function openMaterialNote(orderId, matId, stageKey, planDate) {
   panel.style.display = 'block';
   panel.innerHTML = `
     <div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px;margin-top:10px">
-      <div style="font-weight:700;font-size:12px;margin-bottom:10px;color:#991b1b">📝 ${escHtml(mat.desc||'—')} — ${lbl}${planDate?' · '+fmt(planDate,true):''}</div>
+      <div style="font-weight:700;font-size:12px;margin-bottom:10px;color:#991b1b">${escHtml(mat.desc||'—')} — ${lbl}${planDate?' · '+fmt(planDate,true):''}</div>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;padding:8px 10px;background:${isRz?'#fee2e2':'#fff8f8'};border-radius:7px;border:1.5px solid ${isRz?'#fca5a5':'#e2e8f0'}">
         <input type="checkbox" id="mat-rz-check" ${isRz?'checked':''} style="width:17px;height:17px;accent-color:#dc2626;cursor:pointer;flex-shrink:0"
           onchange="document.getElementById('mat-rz-reason').style.display=this.checked?'block':'none'">
@@ -5832,9 +5852,9 @@ function openMaterialNote(orderId, matId, stageKey, planDate) {
         <input type="text" id="mat-rz-text" class="fc" style="width:100%;font-size:12px;padding:6px 9px" placeholder="Причина брака / комментарий..." value="${escHtml(stg.redzone_reason||'')}">
       </div>
       <div style="display:flex;gap:8px;margin-top:4px;align-items:center;flex-wrap:wrap">
-        <label style="font-size:12px;white-space:nowrap;color:var(--muted)">📅 Перенести на:</label>
+        <label style="font-size:12px;white-space:nowrap;color:var(--muted)"> Перенести на:</label>
         <input type="date" class="fc" id="mat-note-date" style="flex:1;min-width:130px;padding:5px 8px;font-size:12px" value="${stg.reschedule_date||''}">
-        <button class="btn btn-sm btn-primary" onclick="saveMaterialNote()">💾 Сохранить</button>
+        <button class="btn btn-sm btn-primary" onclick="saveMaterialNote()">Сохранить</button>
         <button class="btn btn-sm btn-secondary" onclick="closeMaterialNote()">Отмена</button>
       </div>
     </div>`;
@@ -6201,10 +6221,10 @@ function renderStats() {
   });
 
   const ops = [
-    {lbl:'✂️ Распил',   ico:'✂️', key:'cutting',  pb:'pb-blue',   max:CAP.cutting},
-    {lbl:'🔲 Кромка',   ico:'🔲', key:'edging',   pb:'pb-purple', max:CAP.edging},
-    {lbl:'🔩 Присадка', ico:'🔩', key:'drilling', pb:'pb-amber',  max:CAP.drilling},
-    {lbl:'📦 Упаковка', ico:'📦', key:'packing',  pb:'pb-teal',   max:50}
+    {lbl:'Распил',   ico:'', key:'cutting',  pb:'pb-blue',   max:CAP.cutting},
+    {lbl:'Кромка',   ico:'', key:'edging',   pb:'pb-purple', max:CAP.edging},
+    {lbl:'Присадка', ico:'', key:'drilling', pb:'pb-amber',  max:CAP.drilling},
+    {lbl:'Упаковка', ico:'', key:'packing',  pb:'pb-teal',   max:50}
   ];
 
   // Design stage stats: count orders designed in period
@@ -6295,7 +6315,7 @@ function renderStats() {
       <div class="pw"><div class="pb ${op.pb}" style="width:${Math.min(100,pct)}%"></div></div>
     </div>`;
   }).join('') + `<div class="mc">
-    <div class="mc-top"><div class="mc-lbl">✏️ Проект</div><span style="font-size:20px">✏️</span></div>
+    <div class="mc-top"><div class="mc-lbl">Проект</div><span style="font-size:20px"></span></div>
     <div class="mc-val">${designedOrders.length} <span style="font-size:13px;color:var(--muted)">/ ${designPlanOrders.length} зак.</span></div>
     <div class="mc-sub">Выполнено</div>
     <div class="pw"><div class="pb pb-blue" style="width:${designPlanOrders.length>0?Math.min(100,Math.round(designedOrders.length/designPlanOrders.length*100)):0}%"></div></div>
@@ -6315,7 +6335,7 @@ function renderStats() {
       return launchDate >= from && launchDate <= to;
     });
     return `<div class="mc">
-      <div class="mc-top"><div class="mc-lbl">🚀 Запуск</div><span style="font-size:20px">🚀</span></div>
+      <div class="mc-top"><div class="mc-lbl">Запуск</div><span style="font-size:20px"></span></div>
       <div class="mc-val">${launchedOrders.length} <span style="font-size:13px;color:var(--muted)">/ ${launchPlanOrders.length} зак. (${launchedSheets} л.)</span></div>
       <div class="mc-sub">Запущено</div>
       <div class="pw"><div class="pb pb-amber" style="width:${launchPlanOrders.length>0?Math.min(100,Math.round(launchedOrders.length/launchPlanOrders.length*100)):0}%"></div></div>
@@ -6347,19 +6367,19 @@ function renderStats() {
     const millPlan = orders.filter(o => o.has_milling && o.materials && o.materials.some(m => m.type === 'mill' && m.mill_date >= from && m.mill_date <= to)).length;
     const millDone = orders.filter(o => o.has_milling && o.materials && o.materials.some(m => m.type === 'mill' && m.mill_date >= from && m.mill_date <= to && m.stages?.mill?.done)).length;
     return `<div class="mc">
-      <div class="mc-top"><div class="mc-lbl">🧴 Склейка</div><span style="font-size:20px">🧴</span></div>
+      <div class="mc-top"><div class="mc-lbl">Склейка</div><span style="font-size:20px"></span></div>
       <div class="mc-val">${gluingDone} <span style="font-size:13px;color:var(--muted)">/ ${gluingPlan} зак.</span></div>
       <div class="mc-sub">Выполнено</div>
       <div class="pw"><div class="pb pb-teal" style="width:${gluingPlan>0?Math.min(100,Math.round(gluingDone/gluingPlan*100)):0}%"></div></div>
     </div>
     <div class="mc">
-      <div class="mc-top"><div class="mc-lbl">〰️ Криволинейка</div><span style="font-size:20px">〰️</span></div>
+      <div class="mc-top"><div class="mc-lbl">Криволинейка</div><span style="font-size:20px"></span></div>
       <div class="mc-val">${curviDone} <span style="font-size:13px;color:var(--muted)">/ ${curviPlan} зак.</span></div>
       <div class="mc-sub">Выполнено</div>
       <div class="pw"><div class="pb pb-purple" style="width:${curviPlan>0?Math.min(100,Math.round(curviDone/curviPlan*100)):0}%"></div></div>
     </div>
     <div class="mc">
-      <div class="mc-top"><div class="mc-lbl">⚙️ Фрезеровка</div><span style="font-size:20px">⚙️</span></div>
+      <div class="mc-top"><div class="mc-lbl">Фрезеровка</div><span style="font-size:20px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span></div>
       <div class="mc-val">${millDone} <span style="font-size:13px;color:var(--muted)">/ ${millPlan} зак.</span></div>
       <div class="mc-sub">Выполнено</div>
       <div class="pw"><div class="pb pb-amber" style="width:${millPlan>0?Math.min(100,Math.round(millDone/millPlan*100)):0}%"></div></div>
@@ -6372,7 +6392,7 @@ function renderStats() {
       const u = USERS.find(u => u.name === d.name);
       return { ...d, _wid: u ? String(u.id) : d.name };
     });
-    statsWorkerBlock.innerHTML = `<div style="font-weight:700;font-size:13px;margin-bottom:10px">👷 Начисления за период</div>
+    statsWorkerBlock.innerHTML = `<div style="font-weight:700;font-size:13px;margin-bottom:10px">Начисления за период</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         ${workerEntriesWithId.map(d=>{
           const isOpen = statsWorkerExpanded.has(d._wid);
@@ -6630,7 +6650,7 @@ function renderConstructorTasks() {
       <div class="dtl">Текущий заказ</div>
       <div class="dtid">${co.id}</div>
       <div class="dtnm">${co.desc} · ${co.client}</div>
-      <div class="dtnm" style="margin-top:2px">📄 ${co.sheets} л.</div>
+      <div class="dtnm" style="margin-top:2px">${co.sheets} л.</div>
       <div class="dtfd">Сдать: ${fmt(d.busy_until,true)}</div>
     </div>` : `<div style="text-align:center;padding:14px;color:var(--muted);font-size:13px">Свободен</div>`;
     const qBlock = qo.length ? `<div class="des-q">
@@ -6663,8 +6683,8 @@ function renderConstructorTasks() {
       <td style="font-size:12px;font-weight:600">${fmt(o.cutting_date,true)}</td>
       <td>${sBadge(o.status)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
-        <button class="btn btn-sm btn-secondary" style="padding:4px 8px" onclick="openAssign('${o.id}')">👤 Назначить</button>
-        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;margin-left:3px" onclick="openEdit('${o.id}')">✏️</button>
+        <button class="btn btn-sm btn-secondary" style="padding:4px 8px" onclick="openAssign('${o.id}')">Назначить</button>
+        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;margin-left:3px" onclick="openEdit('${o.id}')"></button>
       </td>
     </tr>`).join('') || '<tr><td colspan="8" class="empty">Нет активных задач</td></tr>';
 
@@ -6672,7 +6692,7 @@ function renderConstructorTasks() {
     <div style="margin-bottom:20px"><div style="font-size:15px;font-weight:800;margin-bottom:12px">Конструкторы — загрузка</div>
     <div class="three-col">${desGrid}</div></div>
     <div class="card">
-      <div class="ch"><div class="ct">📋 Все задачи конструкторов</div></div>
+      <div class="ch"><div class="ct">Все задачи конструкторов</div></div>
       <div style="overflow-x:auto"><table class="ot"><thead><tr><th>Заказ</th><th>Клиент</th><th>Листов</th><th>Конструктор</th><th>Сдать до</th><th>Распил</th><th>Статус</th><th>Действия</th></tr></thead><tbody>${desTasksHtml}</tbody></table></div>
     </div>`;
 }
@@ -6765,11 +6785,11 @@ function renderStaff() {
         <div style="flex:1;min-width:0">
           <div style="font-weight:800;font-size:13px">${escHtml(u.name)}${isAdmin?' <span style="background:#fee2e2;color:#dc2626;font-size:9px;padding:1px 6px;border-radius:10px;font-weight:700">ADMIN</span>':''}</div>
           <div style="font-size:10px;color:var(--muted)">${escHtml(u.role||'—')}</div>
-          ${u.login ? '<div style="font-size:10px;color:var(--primary);margin-top:2px">🔐 '+escHtml(u.login)+'</div>' : ''}
+          ${u.login ? '<div style="font-size:10px;color:var(--primary);margin-top:2px">'+escHtml(u.login)+'</div>' : ''}
         </div>
         ${isManagement() ? `
-          <button class="btn btn-sm btn-secondary" style="padding:3px 7px;font-size:11px" onclick="openAddEmpEdit('${u.id}')">✏️</button>
-          ${!isAdmin ? `<button class="btn btn-sm btn-danger" style="padding:3px 7px;font-size:11px" onclick="deleteEmployee('${u.id}')">🗑</button>` : ''}
+          <button class="btn btn-sm btn-secondary" style="padding:3px 7px;font-size:11px" onclick="openAddEmpEdit('${u.id}')"></button>
+          ${!isAdmin ? `<button class="btn btn-sm btn-danger" style="padding:3px 7px;font-size:11px" onclick="deleteEmployee('${u.id}')"></button>` : ''}
         ` : ''}
       </div>
       <div style="display:flex;gap:6px;font-size:12px">
@@ -6880,10 +6900,10 @@ function updateProdWorkerFilter() {
 // ЗАДАНИЯ НА ПРОИЗВОДСТВО
 // ============================================================
 const PROD_STAGES = [
-  { key:'cutting',  icon:'✂️', label:'Распил',   color:'#1d4ed8', bg:'#eff6ff', border:'#bfdbfe' },
-  { key:'edging',   icon:'🔲', label:'Кромка',   color:'#5b21b6', bg:'#f5f3ff', border:'#ddd6fe' },
-  { key:'drilling', icon:'🔩', label:'Присадка', color:'#92400e', bg:'#fffbeb', border:'#fde68a' },
-  { key:'packing',  icon:'📦', label:'Упаковка', color:'#065f46', bg:'#f0fdf4', border:'#a7f3d0' },
+  { key:'cutting',  icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>', label:'Распил',   color:'#1d4ed8', bg:'#eff6ff', border:'#bfdbfe' },
+  { key:'edging',   icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="3" x2="3" y2="21"/></svg>', label:'Кромка',   color:'#5b21b6', bg:'#f5f3ff', border:'#ddd6fe' },
+  { key:'drilling', icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>', label:'Присадка', color:'#92400e', bg:'#fffbeb', border:'#fde68a' },
+  { key:'packing',  icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', label:'Упаковка', color:'#065f46', bg:'#f0fdf4', border:'#a7f3d0' },
 ];
 function renderProduction() {
   updateProdWorkerFilter();
@@ -6903,7 +6923,7 @@ function renderProduction() {
       const assignedIds  = o.design_worker_ids  || [];
       const completedIds = o.design_stage_data?.completed_ids || [];
       if (workerFilter && !assignedIds.includes(workerFilter) && !completedIds.includes(workerFilter)) return;
-      tasks.push({ o, m: null, stg: { key:'design', icon:'✏️', label:'Проект', color:'#3730a3', bg:'#ede9fe', border:'#c7d2fe' }, done, assignedIds, completedIds, planDate: o.design_end });
+      tasks.push({ o, m: null, stg: { key:'design', icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>', label:'Проект', color:'#3730a3', bg:'#ede9fe', border:'#c7d2fe' }, done, assignedIds, completedIds, planDate: o.design_end });
     });
   }
   // Launch tasks (per order — shown when design is done; или сразу если проект не нужен)
@@ -6919,7 +6939,7 @@ function renderProduction() {
       const assignedIds  = o.launch_worker_ids || [];
       const completedIds = lsd.completed_ids || [];
       if (workerFilter && !assignedIds.includes(workerFilter) && !completedIds.includes(workerFilter)) return;
-      tasks.push({ o, m: null, stg: { key:'launch', icon:'🚀', label:'Запуск', color:'#0369a1', bg:'#e0f2fe', border:'#7dd3fc' }, done, assignedIds, completedIds, planDate: o.design_stage_data?.completed_at || o.design_end });
+      tasks.push({ o, m: null, stg: { key:'launch', icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>', label:'Запуск', color:'#0369a1', bg:'#e0f2fe', border:'#7dd3fc' }, done, assignedIds, completedIds, planDate: o.design_stage_data?.completed_at || o.design_end });
     });
   }
   // Gluing tasks (order-level)
@@ -6932,7 +6952,7 @@ function renderProduction() {
       const assignedIds = o.gluing_worker_ids || [];
       const completedIds = o.stages_done?._gluing_completed_ids || [];
       if (workerFilter && !assignedIds.includes(workerFilter) && !completedIds.includes(workerFilter)) return;
-      tasks.push({ o, m: null, stg: { key:'gluing', icon:'🧴', label:'Склейка', color:'#0d9488', bg:'#f0fdfa', border:'#99f6e4' }, done, assignedIds, completedIds, planDate: getGluingDate(o) });
+      tasks.push({ o, m: null, stg: { key:'gluing', icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>', label:'Склейка', color:'#0d9488', bg:'#f0fdfa', border:'#99f6e4' }, done, assignedIds, completedIds, planDate: getGluingDate(o) });
     });
   }
   // Curvilinear tasks (order-level)
@@ -6945,7 +6965,7 @@ function renderProduction() {
       const assignedIds = o.curvilinear_worker_ids || [];
       const completedIds = o.stages_done?._curvilinear_completed_ids || [];
       if (workerFilter && !assignedIds.includes(workerFilter) && !completedIds.includes(workerFilter)) return;
-      tasks.push({ o, m: null, stg: { key:'curvilinear', icon:'〰️', label:'Криволинейка', color:'#be185d', bg:'#fdf2f8', border:'#fbcfe8' }, done, assignedIds, completedIds, planDate: getCurviDate(o) });
+      tasks.push({ o, m: null, stg: { key:'curvilinear', icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c.5-3 2.5-5 4.5-5s3.5 1.5 4.5 3 2.5 4 4.5 4 4-2 4.5-5"/></svg>', label:'Криволинейка', color:'#be185d', bg:'#fdf2f8', border:'#fbcfe8' }, done, assignedIds, completedIds, planDate: getCurviDate(o) });
     });
   }
   orders.forEach(o => {
@@ -6982,11 +7002,11 @@ function renderProduction() {
     });
   });
   if (!tasks.length) {
-    board.innerHTML = '<div class="card" style="padding:30px;text-align:center;color:var(--muted)">📭 Нет заданий</div>';
+    board.innerHTML = '<div class="empty-state"><div class="es-title">Нет заданий</div><div class="es-sub">Все задания выполнены или не назначены</div></div>';
     return;
   }
-  const DESIGN_STAGE = { key:'design', icon:'✏️', label:'Проект', color:'#3730a3', bg:'#ede9fe', border:'#c7d2fe' };
-  const LAUNCH_STAGE = { key:'launch', icon:'🚀', label:'Запуск', color:'#0369a1', bg:'#e0f2fe', border:'#7dd3fc' };
+  const DESIGN_STAGE = { key:'design', icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>', label:'Проект', color:'#3730a3', bg:'#ede9fe', border:'#c7d2fe' };
+  const LAUNCH_STAGE = { key:'launch', icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>', label:'Запуск', color:'#0369a1', bg:'#e0f2fe', border:'#7dd3fc' };
   const allStages = [DESIGN_STAGE, LAUNCH_STAGE, ...PROD_STAGES];
   const stages = stageFilter ? allStages.filter(s=>s.key===stageFilter) : allStages;
   board.innerHTML = stages.map(stg => {
@@ -6999,7 +7019,7 @@ function renderProduction() {
     const doneBadgeColor = isDarkTheme() ? '#6ee7b7' : '#15803d';
     return `<div style="margin-bottom:18px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:18px">${stg.icon}</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;background:${s.bg};color:${s.color}">${stg.icon}</span>
         <span style="font-size:15px;font-weight:800;color:${s.color}">${stg.label}</span>
         <span style="background:${s.bg};color:${s.color};border-radius:999px;padding:1px 10px;font-size:12px;font-weight:700">${open.length} откр.</span>
         ${done.length?`<span style="background:${doneBadgeBg};color:${doneBadgeColor};border-radius:999px;padding:1px 10px;font-size:12px;font-weight:700">${done.length} вып.</span>`:''}
@@ -7062,7 +7082,7 @@ function renderTaskCard(t) {
         <div style="font-size:10px;color:${isOverdue?overdueColor:'var(--muted)'};font-weight:600">${planDate?fmt(planDate,true):'—'}</div>
       </div>
     </div>
-    ${assignedWorkers.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px">${assignedWorkers.map(w=>`<span style="background:${w.color}${dark?'30':'22'};color:${w.color};border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">👤 ${escHtml(w.name)}</span>`).join('')}${takenAt?`<span style="font-size:10px;color:var(--muted);align-self:center">${takenAt}</span>`:''}</div>` : ''}
+    ${assignedWorkers.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px">${assignedWorkers.map(w=>`<span style="background:${w.color}${dark?'30':'22'};color:${w.color};border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">${escHtml(w.name)}</span>`).join('')}${takenAt?`<span style="font-size:10px;color:var(--muted);align-self:center">${takenAt}</span>`:''}</div>` : ''}
     ${done
       ? `<div style="background:${doneBg};border-radius:7px;padding:6px 10px;font-size:11px;color:${doneColor};font-weight:700">Выполнено ${stgData.completed_at?fmt(stgData.completed_at,true):''}</div>`
       : `<div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -7554,7 +7574,7 @@ function renderPayroll() {
         const rate   = workerRates.design || 4000;
         const total  = (o.sheets || 0) * rate;
         const share  = total / (dsd.completed_ids.length || 1);
-        const stgDes = { key:'design', icon:'✏️', label:'Проектирование' };
+        const stgDes = { key:'design', icon:'', label:'Проектирование' };
         dsd.completed_ids.forEach(wid => {
           if (!workerData[wid]) return;
           workerData[wid].tasks.push({ o, m: null, stg: stgDes, qty: o.sheets||0, share, completedAt });
@@ -7570,7 +7590,7 @@ function renderPayroll() {
         if (desUser && workerData[desUser.id]) {
           const rate   = workerRates.design || 4000;
           const total  = (o.sheets || 0) * rate;
-          const stgDes = { key:'design', icon:'✏️', label:'Проектирование' };
+          const stgDes = { key:'design', icon:'', label:'Проектирование' };
           workerData[desUser.id].tasks.push({ o, m: null, stg: stgDes, qty: o.sheets||0, share: total, completedAt });
           workerData[desUser.id].totalPay += total;
         }
@@ -7583,7 +7603,7 @@ function renderPayroll() {
         const rate   = workerRates.launch || 500;
         const total  = (o.sheets || 0) * rate;
         const share  = total / (lsd.completed_ids.length || 1);
-        const stgLaunch = { key:'launch', icon:'🚀', label:'Запуск заказа' };
+        const stgLaunch = { key:'launch', icon:'', label:'Запуск заказа' };
         lsd.completed_ids.forEach(wid => {
           if (!workerData[wid]) return;
           workerData[wid].tasks.push({ o, m: null, stg: stgLaunch, qty: o.sheets||0, share, completedAt });
@@ -7598,7 +7618,7 @@ function renderPayroll() {
         const rate  = workerRates.gluing || 0;
         const total = (o.gluing_sqm || 0) * rate;
         const share = total / (o.stages_done._gluing_completed_ids.length || 1);
-        const stgG  = { key:'gluing', icon:'🧴', label:'Склейка' };
+        const stgG  = { key:'gluing', icon:'', label:'Склейка' };
         o.stages_done._gluing_completed_ids.forEach(wid => {
           if (!workerData[wid]) return;
           workerData[wid].tasks.push({ o, m: null, stg: stgG, qty: o.gluing_sqm||0, share, completedAt });
@@ -7613,7 +7633,7 @@ function renderPayroll() {
         const rate  = workerRates.curvilinear || 0;
         const total = (o.curvilinear_meters || 0) * rate;
         const share = total / (o.stages_done._curvilinear_completed_ids.length || 1);
-        const stgC  = { key:'curvilinear', icon:'〰️', label:'Криволинейка' };
+        const stgC  = { key:'curvilinear', icon:'', label:'Криволинейка' };
         o.stages_done._curvilinear_completed_ids.forEach(wid => {
           if (!workerData[wid]) return;
           workerData[wid].tasks.push({ o, m: null, stg: stgC, qty: o.curvilinear_meters||0, share, completedAt });
