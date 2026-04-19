@@ -2463,19 +2463,21 @@ function renderWeekLoad() {
     { key:'drilling', ico:'🔩', color:'#f59e0b', lbl:'Присадка' },
   ];
 
-  // Collect next working days
-  const workDays = [];
-  let d = TODAY;
+  // Первая карточка — всегда СЕГОДНЯ (даже если выходной)
+  // Остальные — ближайшие рабочие дни после сегодняшнего
+  const workDays = [TODAY];
+  let d = plusOneDay(TODAY);
   while (workDays.length < 8) { if (isWork(d)) workDays.push(d); d = plusOneDay(d); }
 
   // 3 main day cards
   const mainDays = workDays.slice(0, 3);
   const restDays = workDays.slice(3);
+  const todayIsWork = isWork(TODAY);
 
   const dayCards = mainDays.map((date, idx) => {
     const c = prodCal[date] || {};
     const isT = idx === 0;
-    const lbl = isT ? 'Сегодня' : (idx === 1 ? 'Завтра' : 'Послезавтра');
+    const lbl = isT ? 'Сегодня' : (idx === 1 ? (todayIsWork?'Завтра':'Ближайший раб. день') : (idx === 2 ? (todayIsWork?'Послезавтра':dayName(date).l) : dayName(date).l));
     const border = isT ? '2px solid #3b82f6' : '1px solid #e2e8f0';
     const bg = isT ? 'linear-gradient(135deg,#eff6ff,#e0e7ff)' : '#f8fafc';
     const opBars = ops.map(op => {
@@ -2496,13 +2498,14 @@ function renderWeekLoad() {
         <div style="font-size:11px;margin-top:3px">${freeStr}</div>
       </div>`;
     }).join('');
+    const isHol = !isWork(date);
     return `<div style="flex:1;background:${bg};border:${border};border-radius:12px;padding:${isT?'18':'14'}px;min-width:0;position:relative">
       ${isT ? '<div style="position:absolute;top:12px;right:12px;background:#3b82f6;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px">СЕГОДНЯ</div>' : ''}
       <div style="margin-bottom:14px">
-        <div style="font-size:${isT?'18':'15'}px;font-weight:800;color:${isT?'#1d4ed8':'var(--text)'}">${lbl}</div>
+        <div style="font-size:${isT?'18':'15'}px;font-weight:800;color:${isT?'#1d4ed8':'var(--text)'}">${lbl}${isHol?' <span style="font-size:11px;font-weight:600;color:#64748b;background:#e2e8f0;padding:1px 7px;border-radius:10px;vertical-align:middle">Выходной</span>':''}</div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px">${fmt(date, true)} · ${dayName(date).l}</div>
       </div>
-      ${opBars}
+      ${isHol ? '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Производство не запланировано</div>' : opBars}
     </div>`;
   }).join('');
 
@@ -6773,7 +6776,7 @@ function selfTakeLaunch(orderId) {
 }
 
 function takeTask(orderId, matId, stageKey) {
-  const prodUsers = USERS.filter(u => { const d = u.department || getDepartmentForRole(u.role); return d === 'production' || d === 'management'; });
+  const prodUsers = USERS.filter(u => u.id !== 'admin');
   if (!prodUsers.length) { alert('Нет сотрудников. Добавьте в разделе «Сотрудники».'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o?.materials) return;
@@ -6813,7 +6816,7 @@ function completeTask(orderId, matId, stageKey) {
   renderProduction();
 }
 function openAssignWorker(orderId, matId, stageKey) {
-  const prodUsers = USERS.filter(u => { const d = u.department || getDepartmentForRole(u.role); return d === 'production' || d === 'management'; });
+  const prodUsers = USERS.filter(u => u.id !== 'admin');
   if (!prodUsers.length) { alert('Нет сотрудников. Добавьте в разделе «Сотрудники».'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o?.materials) return;
@@ -6904,7 +6907,7 @@ function assignStageFromEditModal(orderId, stageKey) {
   });
 }
 function takeDesignTask(orderId) {
-  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
+  const allW = USERS.filter(u => u.id !== 'admin').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||''}));
   if (!allW.length) { alert('Нет сотрудников конструкторского отдела. Добавьте в разделе «Сотрудники».'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o) return;
@@ -6957,7 +6960,7 @@ function syncDesignerDropdown(o) {
 }
 const DESIGN_ROLES = ['Конструктор', 'Конструктор старший', 'Пусковой'];
 function openAssignWorkerDesign(orderId) {
-  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management' || DESIGN_ROLES.includes(u.role)).map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
+  const allW = USERS.filter(u => u.id !== 'admin').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||''}));
   if (!allW.length) { alert('Нет сотрудников.'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o) return;
@@ -6980,7 +6983,7 @@ function openAssignWorkerDesign(orderId) {
   });
 }
 function takeLaunchTask(orderId) {
-  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management' || DESIGN_ROLES.includes(u.role)).map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
+  const allW = USERS.filter(u => u.id !== 'admin').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||''}));
   if (!allW.length) { alert('Нет сотрудников. Добавьте в разделе «Сотрудники».'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o) return;
@@ -7017,7 +7020,7 @@ function completeLaunchTask(orderId) {
   renderProduction();
 }
 function openAssignWorkerLaunch(orderId) {
-  const allW = USERS.filter(u => u.department === 'design' || u.department === 'management' || DESIGN_ROLES.includes(u.role)).map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||'Конструктор'}));
+  const allW = USERS.filter(u => u.id !== 'admin').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||''}));
   if (!allW.length) { alert('Нет сотрудников.'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o) return;
@@ -7043,7 +7046,7 @@ function openAssignWorkerLaunch(orderId) {
 // ── ASSIGN WORKER: ORDER-LEVEL STAGES (gluing, curvilinear) ──
 function openAssignWorkerOrderStage(orderId, stageKey) {
   const STAGE_LBL_MAP = {gluing:'Склейка',curvilinear:'Криволинейка'};
-  const allW = USERS.filter(u => u.department === 'production' || u.department === 'management').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||''}));
+  const allW = USERS.filter(u => u.id !== 'admin').map(u => ({id:u.id,name:u.name,color:u.color,initials:u.initials,role:u.role||''}));
   if (!allW.length) { alert('Нет сотрудников.'); return; }
   const o = orders.find(x=>x.id===orderId);
   if (!o) return;
