@@ -551,6 +551,11 @@ table{max-width:100%}
 :focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:3px}
 .overlay[role="dialog"]{outline:none}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ── CAL HOVER CARD ── */
+#cal-hover-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:0;box-shadow:0 8px 32px rgba(0,0,0,.35)}
+#cal-hover-card .chc-section{padding:10px 14px;border-bottom:1px solid var(--border)}
+#cal-hover-card .chc-section:last-child{border-bottom:none}
 </style>
 </head>
 <body>
@@ -560,7 +565,7 @@ table{max-width:100%}
 <!-- STARTUP SCREEN -->
 <div class="startup" id="startup">
   <div class="startup-box">
-    <div class="startup-logo"><svg viewBox="0 0 48 48" width="48" height="48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" fill="#111"/><polygon points="0,15 15,0 36,0 0,36" fill="white"/><polygon points="12,48 48,12 48,33 33,48" fill="white"/></svg></div>
+    <div class="startup-logo"><svg viewBox="0 0 48 48" width="48" height="48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" fill="#111"/><polygon points="0,15 15,0 36,0 0,36" fill="white"/><polygon points="12,48 48,12 48,33 33,48" fill="white"/><rect x="0.75" y="0.75" width="46.5" height="46.5" fill="none" stroke="white" stroke-width="1.5"/></svg></div>
     <div class="startup-title">QazJihaz</div>
     <div class="startup-sub">Авторизация</div>
     <!-- Login form -->
@@ -597,6 +602,7 @@ table{max-width:100%}
         <rect width="32" height="32" fill="#111"/>
         <polygon points="0,10 10,0 24,0 0,24" fill="white"/>
         <polygon points="8,32 32,8 32,22 22,32" fill="white"/>
+        <rect x="0.5" y="0.5" width="31" height="31" fill="none" stroke="white" stroke-width="1.5"/>
       </svg>
     </div>
     <div><div class="sb-title">QazJihaz</div><div class="sb-sub">Производство</div></div>
@@ -1023,6 +1029,8 @@ table{max-width:100%}
   <div id="payroll-body"></div>
 </div>
 
+<!-- ── CAL HOVER CARD ── -->
+<div id="cal-hover-card" style="display:none;position:fixed;z-index:9500;width:340px;max-height:80vh;overflow-y:auto;pointer-events:none"></div>
 </main><!-- /main -->
 
 
@@ -2776,6 +2784,11 @@ function renderMetrics() {
     </div>`).join('');
 }
 
+function opBadge(lbl, bgLight, colorLight, bgDark, colorDark) {
+  const dk = isDarkTheme();
+  return `<span style="background:${dk?bgDark:bgLight};color:${dk?colorDark:colorLight};padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">${lbl}</span>`;
+}
+
 function renderTodayOrders() {
   const todayO = orders.filter(o => o.cutting_date===TODAY || getDrillSchedule(o).some(s=>s.date===TODAY) || o.packing_date===TODAY || o.edging_date===TODAY || (o.materials && o.materials.some(m=>m.type==='mill' && m.mill_date===TODAY)) || (o.has_gluing && getGluingDate(o)===TODAY) || (o.has_curvilinear && getCurviDate(o)===TODAY));
   document.getElementById('today-cnt-tag').textContent = todayO.length + ' зак.';
@@ -2784,19 +2797,19 @@ function renderTodayOrders() {
   if (!todayO.length) { tbody.innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="es-title">Производство свободно</div><div class="es-sub">На сегодня нет запланированных операций</div></div></td></tr>'; return; }
   tbody.innerHTML = todayO.map((o,i)=>{
     let badges = [];
-    if (o.cutting_date===TODAY)  badges.push('<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Распил</span>');
-    if (o.edging_date===TODAY && !o.no_edging) badges.push('<span style="background:#ede9fe;color:#5b21b6;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Кромка</span>');
-    if (o.materials && o.materials.some(m=>m.type==='mill' && m.mill_date===TODAY)) badges.push('<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Фрезеровка</span>');
-    if (getDrillSchedule(o).some(s=>s.date===TODAY)) badges.push('<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Присадка</span>');
-    if (o.has_gluing && getGluingDate(o)===TODAY) badges.push('<span style="background:#f0fdfa;color:#0f766e;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Склейка</span>');
-    if (o.has_curvilinear && getCurviDate(o)===TODAY) badges.push('<span style="background:#fdf2f8;color:#9d174d;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Криволинейка</span>');
-    if (o.packing_date===TODAY && !o.no_packing)  badges.push('<span style="background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">Упаковка</span>');
-    const opBadge = badges.join(' ');
+    if (o.cutting_date===TODAY)  badges.push(opBadge('Распил','#dbeafe','#1d4ed8','rgba(147,197,253,.2)','#93c5fd'));
+    if (o.edging_date===TODAY && !o.no_edging) badges.push(opBadge('Кромка','#ede9fe','#5b21b6','rgba(196,181,253,.2)','#c4b5fd'));
+    if (o.materials && o.materials.some(m=>m.type==='mill' && m.mill_date===TODAY)) badges.push(opBadge('Фрезеровка','#fef3c7','#92400e','rgba(251,191,36,.2)','#fbbf24'));
+    if (getDrillSchedule(o).some(s=>s.date===TODAY)) badges.push(opBadge('Присадка','#fef3c7','#92400e','rgba(251,191,36,.2)','#fbbf24'));
+    if (o.has_gluing && getGluingDate(o)===TODAY) badges.push(opBadge('Склейка','#f0fdfa','#0f766e','rgba(45,212,191,.2)','#2dd4bf'));
+    if (o.has_curvilinear && getCurviDate(o)===TODAY) badges.push(opBadge('Криволинейка','#fdf2f8','#9d174d','rgba(244,114,182,.2)','#f472b6'));
+    if (o.packing_date===TODAY && !o.no_packing)  badges.push(opBadge('Упаковка','#d1fae5','#065f46','rgba(110,231,183,.2)','#6ee7b7'));
+    const opBadgesHtml = badges.join(' ');
     return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer">
       <td><span class="pc pr${Math.min(i+1,5)}">${i+1}</span></td>
       <td><div class="od">${o.desc}</div><div class="oc"><span style="color:var(--primary);font-weight:800;font-size:12px">${o.id}</span> · ${o.client}</div></td>
       <td><span class="sv">${o.sheets}</span> л.${o.materials&&o.materials.length>1?`<div style="font-size:10px;color:var(--muted)">${o.materials.filter(m=>isSheetMat(m)).length} видов</div>`:''}</td>
-      <td>${opBadge}</td>
+      <td>${opBadgesHtml}</td>
       <td>${sBadge(o.status)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
         <button class="btn btn-sm btn-secondary" style="padding:4px 8px" onclick="openEdit('${o.id}')"></button>
@@ -2824,12 +2837,14 @@ function renderWeekLoad() {
   const restDays = workDays.slice(3);
   const todayIsWork = isWork(TODAY);
 
+  const dk = isDarkTheme();
   const dayCards = mainDays.map((date, idx) => {
     const c = prodCal[date] || {};
     const isT = idx === 0;
     const lbl = isT ? 'Сегодня' : (idx === 1 ? (todayIsWork?'Завтра':'Ближайший раб. день') : (idx === 2 ? (todayIsWork?'Послезавтра':dayName(date).l) : dayName(date).l));
-    const border = isT ? '2px solid #3b82f6' : '1px solid #e2e8f0';
-    const bg = isT ? 'linear-gradient(135deg,#eff6ff,#e0e7ff)' : '#f8fafc';
+    const border = isT ? (dk ? '2px solid rgba(10,132,255,.4)' : '2px solid #3b82f6') : (dk ? '1px solid var(--border)' : '1px solid #e2e8f0');
+    const bg = isT ? (dk ? 'rgba(10,132,255,.1)' : 'linear-gradient(135deg,#eff6ff,#e0e7ff)') : (dk ? 'var(--card)' : '#f8fafc');
+    const trackBg = dk ? '#3a3a3c' : '#e2e8f0';
     const opBars = ops.map(op => {
       const used = c[op.key] || 0;
       const cap = CAP[op.key] || 50;
@@ -2842,17 +2857,19 @@ function renderWeekLoad() {
           <span style="font-size:13px;color:${col};font-weight:700">${op.ico} ${op.lbl}</span>
           <span style="font-size:12px;font-weight:700;color:${col}">${used}<span style="font-weight:400;color:var(--muted)">/${cap}</span></span>
         </div>
-        <div style="background:#e2e8f0;height:${isT?'10':'7'}px;border-radius:4px;overflow:hidden">
+        <div style="background:${trackBg};height:${isT?'10':'7'}px;border-radius:4px;overflow:hidden">
           <div style="width:${pct}%;background:${col};height:100%;border-radius:4px;transition:width .3s"></div>
         </div>
         <div style="font-size:11px;margin-top:3px">${freeStr}</div>
       </div>`;
     }).join('');
     const isHol = !isWork(date);
+    const todayTitleColor = isT ? (dk ? '#7ab0fa' : '#1d4ed8') : 'var(--text)';
+    const holBadge = isHol ? ` <span style="font-size:11px;font-weight:600;color:${dk?'var(--muted)':'#64748b'};background:${dk?'#3a3a3c':'#e2e8f0'};padding:1px 7px;border-radius:10px;vertical-align:middle">Выходной</span>` : '';
     return `<div style="flex:1;background:${bg};border:${border};border-radius:12px;padding:${isT?'18':'14'}px;min-width:0;position:relative">
       ${isT ? '<div style="position:absolute;top:12px;right:12px;background:#3b82f6;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px">СЕГОДНЯ</div>' : ''}
       <div style="margin-bottom:14px">
-        <div style="font-size:${isT?'18':'15'}px;font-weight:800;color:${isT?'#1d4ed8':'var(--text)'}">${lbl}${isHol?' <span style="font-size:11px;font-weight:600;color:#64748b;background:#e2e8f0;padding:1px 7px;border-radius:10px;vertical-align:middle">Выходной</span>':''}</div>
+        <div style="font-size:${isT?'18':'15'}px;font-weight:800;color:${todayTitleColor}">${lbl}${holBadge}</div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px">${fmt(date, true)} · ${dayName(date).l}</div>
       </div>
       ${isHol ? '<div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Производство не запланировано</div>' : opBars}
@@ -2860,20 +2877,23 @@ function renderWeekLoad() {
   }).join('');
 
   // Remaining days as compact grid
+  const restTrackBg = dk ? '#3a3a3c' : '#e2e8f0';
+  const restCardBg = dk ? '#2c2c2e' : '#f8fafc';
+  const restCardBorder = dk ? 'var(--border)' : '#e2e8f0';
   const restHtml = restDays.length ? `
-    <div style="border-top:1px solid #e2e8f0;margin-top:4px;padding-top:12px">
+    <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:8px;letter-spacing:.5px">Следующие дни</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px">
         ${restDays.map(date => {
           const c = prodCal[date] || {};
-          return `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px">
+          return `<div style="background:${restCardBg};border:1px solid ${restCardBorder};border-radius:8px;padding:9px 11px">
             <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">${dayName(date).s} ${fmt(date)}</div>
             ${ops.map(op => {
               const pct = Math.min(100, Math.round((c[op.key]||0)/(CAP[op.key]||50)*100));
               const col = pct>=100?'#ef4444':pct>70?'#f59e0b':op.color;
               return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
                 <span style="font-size:10px;width:14px">${op.ico}</span>
-                <div style="flex:1;background:#e2e8f0;height:5px;border-radius:2px;overflow:hidden">
+                <div style="flex:1;background:${restTrackBg};height:5px;border-radius:2px;overflow:hidden">
                   <div style="width:${pct}%;background:${col};height:100%"></div>
                 </div>
                 <span style="font-size:10px;color:var(--muted);width:28px;text-align:right">${c[op.key]||0}</span>
@@ -3637,6 +3657,145 @@ function renderCalendar() {
   }
 }
 
+// ── CAL HOVER CARD ────────────────────────────────────────────
+function buildCalHoverHtml(orderId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return '';
+  const dk = isDarkTheme();
+  const OPS_CFG = dk ? [
+    {key:'cutting',  label:'Распил',   hdr:'#93c5fd', border:'rgba(79,142,247,.3)',  bg:'rgba(79,142,247,.08)'},
+    {key:'edging',   label:'Кромка',   hdr:'#c4b5fd', border:'rgba(139,92,246,.3)',  bg:'rgba(139,92,246,.08)'},
+    {key:'drilling', label:'Присадка', hdr:'#fbbf24', border:'rgba(251,191,36,.35)', bg:'rgba(251,191,36,.08)'},
+    {key:'packing',  label:'Упаковка', hdr:'#6ee7b7', border:'rgba(52,211,153,.3)',  bg:'rgba(52,211,153,.08)'},
+  ] : [
+    {key:'cutting',  label:'Распил',   hdr:'#1d4ed8', border:'#bfdbfe', bg:'#eff6ff'},
+    {key:'edging',   label:'Кромка',   hdr:'#5b21b6', border:'#ddd6fe', bg:'#f5f3ff'},
+    {key:'drilling', label:'Присадка', hdr:'#92400e', border:'#fde68a', bg:'#fffbeb'},
+    {key:'packing',  label:'Упаковка', hdr:'#065f46', border:'#a7f3d0', bg:'#f0fdf4'},
+  ];
+
+  const statusMap = {'new':'Новый','designing':'Конструктор','production':'В производстве','done':'Готово'};
+  const statusTxt = statusMap[o.status] || o.status;
+
+  let html = `<div class="chc-section">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <div>
+        <div style="font-size:14px;font-weight:900;color:var(--primary);font-family:monospace">ID ${escHtml(o.id)}</div>
+        <div style="font-size:13px;font-weight:800;color:var(--text)">${escHtml(o.client)}</div>
+        <div style="font-size:11px;color:var(--muted)">${escHtml(o.desc)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:18px;font-weight:900;color:var(--primary)">${o.sheets} л</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:600">${statusTxt}</div>
+      </div>
+    </div>
+  </div>`;
+
+  OPS_CFG.forEach(op => {
+    const sheetMats = (o.materials||[]).filter(m => isSheetMat(m));
+    const edgingMats = (o.materials||[]).filter(m => m.type === 'edging');
+
+    let hasOp = false;
+    if (op.key === 'cutting' || op.key === 'packing') hasOp = sheetMats.length > 0;
+    if (op.key === 'edging') hasOp = sheetMats.some(m => matHasEdging(m)) || edgingMats.length > 0;
+    if (op.key === 'drilling') hasOp = sheetMats.length > 0 && !o.no_drilling;
+    if (!hasOp) return;
+
+    const rows = [];
+    if (op.key === 'edging') {
+      sheetMats.filter(m => matHasEdging(m)).forEach(m => {
+        const done = m.stages?.edging?.done;
+        rows.push(`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:11px">${done?'✓':'☐'}</span>
+          <div style="flex:1;font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.desc||'—')}</div>
+          <span style="font-size:11px;font-weight:800;color:${op.hdr}">${matAutoEdging(m)} м</span>
+        </div>`);
+      });
+      edgingMats.forEach(m => {
+        const done = m.stages?.edging?.done;
+        rows.push(`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:11px">${done?'✓':'☐'}</span>
+          <div style="flex:1;font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.desc||'Кромка')}</div>
+          <span style="font-size:11px;font-weight:800;color:${op.hdr}">${parseFloat(m.qty)||0} м</span>
+        </div>`);
+      });
+    } else {
+      sheetMats.forEach(m => {
+        const done = m.stages?.[op.key]?.done;
+        rows.push(`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:11px">${done?'✓':'☐'}</span>
+          <div style="flex:1;font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.desc||'—')}</div>
+          <span style="font-size:11px;font-weight:800;color:${op.hdr}">${m.qty||0} л</span>
+        </div>`);
+      });
+    }
+    if (!rows.length) return;
+
+    html += `<div class="chc-section" style="background:${op.bg}">
+      <div style="font-size:11px;font-weight:800;color:${op.hdr};text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${op.label}</div>
+      ${rows.join('')}
+    </div>`;
+  });
+
+  if (o.edging_meters > 0) {
+    html += `<div class="chc-section"><div style="font-size:11px;color:var(--primary);font-weight:700">Кромка: ${o.edging_meters} м.</div></div>`;
+  }
+
+  return html;
+}
+
+// Calendar chip hover
+(function setupCalHover() {
+  const container = document.getElementById('cal-container');
+  const popup = document.getElementById('cal-hover-card');
+  let _hideTimer = null;
+
+  function showPopup(orderId, clientX, clientY) {
+    if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
+    const html = buildCalHoverHtml(orderId);
+    if (!html) return;
+    popup.innerHTML = html;
+    popup.style.display = 'block';
+    let left = clientX + 18;
+    let top = clientY - 10;
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+    requestAnimationFrame(() => {
+      const r = popup.getBoundingClientRect();
+      if (r.right > window.innerWidth - 12) popup.style.left = (clientX - r.width - 12) + 'px';
+      if (r.bottom > window.innerHeight - 12) popup.style.top = (window.innerHeight - r.height - 12) + 'px';
+    });
+  }
+
+  function hidePopup() {
+    _hideTimer = setTimeout(() => { popup.style.display = 'none'; }, 80);
+  }
+
+  if (container) {
+    container.addEventListener('mouseover', function(e) {
+      const chip = e.target.closest('.cc');
+      if (!chip) return;
+      const oid = chip.dataset.oid;
+      if (oid) showPopup(oid, e.clientX, e.clientY);
+    });
+    container.addEventListener('mouseout', function(e) {
+      const chip = e.target.closest('.cc');
+      if (!chip) return;
+      hidePopup();
+    });
+    container.addEventListener('mousemove', function(e) {
+      if (popup.style.display === 'none') return;
+      const chip = e.target.closest('.cc');
+      if (!chip) return;
+      if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
+      let left = e.clientX + 18;
+      let top = e.clientY - 10;
+      popup.style.left = left + 'px';
+      popup.style.top = top + 'px';
+    });
+  }
+})();
+
 // ── TABLE VIEW (week / month) ──────────────────────────────────
 function renderCalTableView(days) {
   const ORD_COLORS  = ['#1d4ed8','#7c3aed','#0f766e','#b45309','#9d174d','#1e3a5f','#3730a3','#065f46'];
@@ -3658,8 +3817,8 @@ function renderCalTableView(days) {
     const total = inProgress.length + designDone.length;
     if (!total) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = [
-      ...inProgress.map(o => `<span class="cc cc-des" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}">${o.id}/${o.sheets}л.</span>`),
-      ...designDone.map(o => `<span class="cc cc-des" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${o.id}/${o.sheets}л.</span>`)
+      ...inProgress.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}">${o.id}/${o.sheets}л.</span>`),
+      ...designDone.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${o.id}/${o.sheets}л.</span>`)
     ].join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#3730a3;font-weight:700">${total} зак.</div><div class="cal-chips">${chips}</div></div></td>`;
   }
@@ -3686,8 +3845,8 @@ function renderCalTableView(days) {
     const total = inProgress.length + launchDone.length;
     if (!total) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = [
-      ...inProgress.map(o => `<span class="cc cc-des" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="background:#fef3c7;color:#92400e"> ${o.id}/${o.sheets}л.</span>`),
-      ...launchDone.map(o => `<span class="cc cc-des" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="background:#fef3c7;color:#92400e;text-decoration:line-through;opacity:0.65">✓ ${o.id}/${o.sheets}л.</span>`)
+      ...inProgress.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="background:#fef3c7;color:#92400e"> ${o.id}/${o.sheets}л.</span>`),
+      ...launchDone.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="background:#fef3c7;color:#92400e;text-decoration:line-through;opacity:0.65">✓ ${o.id}/${o.sheets}л.</span>`)
     ].join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#92400e;font-weight:700">${total} зак.</div><div class="cal-chips">${chips}</div></div></td>`;
   }
@@ -3706,7 +3865,7 @@ function renderCalTableView(days) {
     const chips = items.map(({o, m}) => {
       const done = !!(m.stages?.mill?.done);
       const dur = m.mill_duration == 0.5 ? '½д' : m.mill_duration == 2 ? '2д' : '1д';
-      return `<span class="cc" onclick="openStages('${o.id}')" title="${escHtml(o.desc)} — ${escHtml(m.desc||'Фрезеровка')}"
+      return `<span class="cc" data-oid="${o.id}" onclick="openStages('${o.id}')" title="${escHtml(o.desc)} — ${escHtml(m.desc||'Фрезеровка')}"
         style="background:#fef3c7;color:#92400e;${done?'text-decoration:line-through;opacity:0.65':''}">${done?'✓ ':''}${o.id}/${escHtml(m.desc||'—')} ${dur}</span>`;
     }).join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#92400e;font-weight:700">${items.length} поз.</div><div class="cal-chips">${chips}</div></div></td>`;
@@ -3720,7 +3879,7 @@ function renderCalTableView(days) {
     if (!items.length) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = items.map(o => {
       const done = !!o.stages_done?.gluing;
-      return `<span class="cc cc-glu" onclick="openStages('${o.id}')" title="${escHtml(o.desc)} — ${o.gluing_sqm||0}м²" style="${done?'text-decoration:line-through;opacity:0.65':''}">${done?'✓ ':''}${o.id} ${o.gluing_sqm||''}м²</span>`;
+      return `<span class="cc cc-glu" data-oid="${o.id}" onclick="openStages('${o.id}')" title="${escHtml(o.desc)} — ${o.gluing_sqm||0}м²" style="${done?'text-decoration:line-through;opacity:0.65':''}">${done?'✓ ':''}${o.id} ${o.gluing_sqm||''}м²</span>`;
     }).join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#0d9488;font-weight:700">${items.length}</div><div class="cal-chips">${chips}</div></div></td>`;
   }
@@ -3732,7 +3891,7 @@ function renderCalTableView(days) {
     if (!items.length) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = items.map(o => {
       const done = !!o.stages_done?.curvilinear;
-      return `<span class="cc cc-cur" onclick="openStages('${o.id}')" title="${escHtml(o.desc)} — ${o.curvilinear_meters||0}м" style="${done?'text-decoration:line-through;opacity:0.65':''}">${done?'✓ ':''}${o.id} ${o.curvilinear_meters||''}м</span>`;
+      return `<span class="cc cc-cur" data-oid="${o.id}" onclick="openStages('${o.id}')" title="${escHtml(o.desc)} — ${o.curvilinear_meters||0}м" style="${done?'text-decoration:line-through;opacity:0.65':''}">${done?'✓ ':''}${o.id} ${o.curvilinear_meters||''}м</span>`;
     }).join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#be185d;font-weight:700">${items.length}</div><div class="cal-chips">${chips}</div></div></td>`;
   }
@@ -3766,7 +3925,7 @@ function renderCalTableView(days) {
     if (!items.length) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = items.map(({o, m, reason, stageLabel}) => {
       const tip = [escHtml(o.desc), escHtml(m.desc||'—'), stageLabel, reason].filter(Boolean).join(' — ');
-      return `<span class="cc cc-red" onclick="openStages('${o.id}')" title="${tip}">${o.id} ${escHtml(m.desc||'—')}${stageLabel?' ('+stageLabel+')':''} ${reason?'· '+escHtml(reason.length>25?reason.slice(0,25)+'…':reason):''}</span>`;
+      return `<span class="cc cc-red" data-oid="${o.id}" onclick="openStages('${o.id}')" title="${tip}">${o.id} ${escHtml(m.desc||'—')}${stageLabel?' ('+stageLabel+')':''} ${reason?'· '+escHtml(reason.length>25?reason.slice(0,25)+'…':reason):''}</span>`;
     }).join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#991b1b;font-weight:700">🔴 ${items.length} поз.</div><div class="cal-chips">${chips}</div></div></td>`;
   }
@@ -3792,7 +3951,7 @@ function renderCalTableView(days) {
       }
       const factKeyMap = {cutting:'_cut_fact_date', edging:'_edg_fact_date', drilling:'_drl_fact_date', packing:'_pkg_fact_date'};
       return o.stages_done?.[factKeyMap[op]] === date;
-    }).map(o => `<span class="cc cc-done" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${o.id}</span>`) : [];
+    }).map(o => `<span class="cc cc-done" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${o.id}</span>`) : [];
 
     // Чипы
     const chips = [...ordersHere.map(o => {
@@ -3836,7 +3995,7 @@ function renderCalTableView(days) {
       }
       if (hasReschedule) label += ' ↩';
       const doneStyle = stgDone ? 'text-decoration:line-through;opacity:0.65' : '';
-      return `<span class="cc ${chipCls}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="${doneStyle}">${label}</span>`;
+      return `<span class="cc ${chipCls}" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="${doneStyle}">${label}</span>`;
     }), ...doneChips].join('');
 
     if (isPast) {
