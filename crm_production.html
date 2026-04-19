@@ -2574,6 +2574,9 @@ function calcSchedule(sheets, preferredDate, noEdging, noDrilling, noProject, la
 // НАВИГАЦИЯ
 // ============================================================
 function showPage(id) {
+  // Скрываем hover-попап при смене раздела
+  const _chp = document.getElementById('cal-hover-card');
+  if (_chp) _chp.style.display = 'none';
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-it').forEach(n => n.classList.remove('active'));
   const page = document.getElementById('page-'+id);
@@ -3655,6 +3658,8 @@ function renderCalendar() {
       chip.style.display = (oid.includes(calSearchQuery)||cli.includes(calSearchQuery)||tip.includes(calSearchQuery)) ? '' : 'none';
     });
   }
+  // Убираем нативный тултип браузера — используется кастомная hover-карточка
+  container.querySelectorAll('.cc[title]').forEach(el => el.removeAttribute('title'));
 }
 
 // ── CAL HOVER CARD ────────────────────────────────────────────
@@ -3748,52 +3753,98 @@ function buildCalHoverHtml(orderId) {
 (function setupCalHover() {
   const container = document.getElementById('cal-container');
   const popup = document.getElementById('cal-hover-card');
+  if (!container || !popup) return;
+
+  const POPUP_W = 344; // ширина попапа (из CSS width:340px + border)
   let _hideTimer = null;
+  let _currentOid = null;
+
+  function calcPosition(clientX, clientY) {
+    // Получаем реальную высоту (если попап уже виден) или оцениваем
+    const popH = popup.offsetHeight || Math.min(popup.scrollHeight || 400, window.innerHeight * 0.8);
+    const margin = 14;
+    let left, top;
+
+    // По горизонтали: открываем вправо если есть место, иначе влево
+    if (clientX + margin + POPUP_W <= window.innerWidth - margin) {
+      left = clientX + margin;
+    } else {
+      left = clientX - margin - POPUP_W;
+    }
+    // Не выходим за левый край
+    if (left < margin) left = margin;
+
+    // По вертикали: стараемся открыть чуть ниже курсора
+    top = clientY - 10;
+    if (top + popH > window.innerHeight - margin) {
+      top = window.innerHeight - popH - margin;
+    }
+    if (top < margin) top = margin;
+
+    return { left, top };
+  }
 
   function showPopup(orderId, clientX, clientY) {
     if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
-    const html = buildCalHoverHtml(orderId);
-    if (!html) return;
-    popup.innerHTML = html;
-    popup.style.display = 'block';
-    let left = clientX + 18;
-    let top = clientY - 10;
+    if (_currentOid !== orderId) {
+      const html = buildCalHoverHtml(orderId);
+      if (!html) return;
+      // Рендерим вне экрана чтобы измерить высоту до позиционирования
+      popup.innerHTML = html;
+      popup.style.visibility = 'hidden';
+      popup.style.display = 'block';
+      popup.style.left = '-9999px';
+      popup.style.top = '-9999px';
+      _currentOid = orderId;
+    }
+    // Теперь у попапа есть реальный offsetHeight
+    const { left, top } = calcPosition(clientX, clientY);
     popup.style.left = left + 'px';
     popup.style.top = top + 'px';
-    requestAnimationFrame(() => {
-      const r = popup.getBoundingClientRect();
-      if (r.right > window.innerWidth - 12) popup.style.left = (clientX - r.width - 12) + 'px';
-      if (r.bottom > window.innerHeight - 12) popup.style.top = (window.innerHeight - r.height - 12) + 'px';
-    });
+    popup.style.visibility = 'visible';
   }
 
-  function hidePopup() {
-    _hideTimer = setTimeout(() => { popup.style.display = 'none'; }, 80);
+  function hidePopup(immediate) {
+    _currentOid = null;
+    if (immediate) {
+      popup.style.display = 'none';
+      return;
+    }
+    _hideTimer = setTimeout(() => { popup.style.display = 'none'; }, 100);
   }
 
-  if (container) {
-    container.addEventListener('mouseover', function(e) {
-      const chip = e.target.closest('.cc');
-      if (!chip) return;
-      const oid = chip.dataset.oid;
-      if (oid) showPopup(oid, e.clientX, e.clientY);
-    });
-    container.addEventListener('mouseout', function(e) {
-      const chip = e.target.closest('.cc');
-      if (!chip) return;
-      hidePopup();
-    });
-    container.addEventListener('mousemove', function(e) {
-      if (popup.style.display === 'none') return;
-      const chip = e.target.closest('.cc');
-      if (!chip) return;
-      if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
-      let left = e.clientX + 18;
-      let top = e.clientY - 10;
-      popup.style.left = left + 'px';
-      popup.style.top = top + 'px';
-    });
-  }
+  // mouseover — показываем при наведении на чип
+  container.addEventListener('mouseover', function(e) {
+    const chip = e.target.closest('.cc');
+    if (!chip) return;
+    if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
+    const oid = chip.dataset.oid;
+    if (oid) showPopup(oid, e.clientX, e.clientY);
+  });
+
+  // mousemove — обновляем позицию, скрываем если ушли с чипа
+  container.addEventListener('mousemove', function(e) {
+    const chip = e.target.closest('.cc');
+    if (!chip) {
+      if (popup.style.display !== 'none' && !_hideTimer) {
+        _hideTimer = setTimeout(() => { popup.style.display = 'none'; _currentOid = null; }, 120);
+      }
+      return;
+    }
+    if (_hideTimer) { clearTimeout(_hideTimer); _hideTimer = null; }
+    if (popup.style.display === 'none') return;
+    const { left, top } = calcPosition(e.clientX, e.clientY);
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+  });
+
+  // mouseleave контейнера — скрываем сразу
+  container.addEventListener('mouseleave', function() {
+    hidePopup(false);
+  });
+
+  // Скрываем при скролле страницы
+  document.addEventListener('scroll', function() { hidePopup(true); }, { passive: true, capture: true });
 })();
 
 // ── TABLE VIEW (week / month) ──────────────────────────────────
@@ -4452,15 +4503,16 @@ function openOrderModal(id) {
   document.getElementById('om-edit-btn').onclick  = () => { closeOrderModal(); openEdit(id); };
 
   const launchDate = getLaunchDate(o);
+  const _omDk = isDarkTheme();
   const stages = [
-    { key:'design',   ic:'', bg:'#dbeafe', lbl:'Проект',   date:o.design_end,    note:desName(o.designer_id), skip:o.no_project },
-    { key:'launch',   ic:'', bg:'#fef3c7', lbl:'Запуск',   date:launchDate, note:o.launch_date?'Задано вручную':(o.no_project ? 'До распила' : 'После проекта'), skip:!!o.no_launch },
-    { key:'cutting',  ic:'', bg:'#ede9fe', lbl:'Распил',   date:o.cutting_date,  note:o.sheets+' листов',     skip:!!o.no_cutting },
-    { key:'edging',   ic:'', bg:'#fce7f3', lbl:'Кромка',   date:o.edging_date,   note: o.cutting_date2 ? 'После допила' : 'Тот же день', skip:o.no_edging },
-    { key:'drilling',    ic:'', bg:'#fef3c7', lbl:'Присадка',     date:o.drilling_date, note:'+1 день',              skip:o.no_drilling },
-    { key:'gluing',      ic:'', bg:'#f0fdfa', lbl:'Склейка',      date:getGluingDate(o),   note:(o.gluing_sqm||0)+'м²', skip:!o.has_gluing },
-    { key:'curvilinear', ic:'', bg:'#fdf2f8', lbl:'Криволинейка', date:getCurviDate(o),   note:(o.curvilinear_meters||0)+'м', skip:!o.has_curvilinear },
-    { key:'packing',     ic:'', bg:'#d1fae5', lbl:'Упаковка',     date:o.packing_date,  note:'+1 день',              skip:o.no_packing }
+    { key:'design',      ic:'', bg:_omDk?'rgba(167,139,250,.18)':'#dbeafe', lbl:'Проект',        date:o.design_end,       note:desName(o.designer_id), skip:o.no_project },
+    { key:'launch',      ic:'', bg:_omDk?'rgba(251,191,36,.18)':'#fef3c7',  lbl:'Запуск',        date:launchDate,         note:o.launch_date?'Задано вручную':(o.no_project?'До распила':'После проекта'), skip:!!o.no_launch },
+    { key:'cutting',     ic:'', bg:_omDk?'rgba(79,142,247,.18)':'#ede9fe',  lbl:'Распил',        date:o.cutting_date,     note:o.sheets+' листов',     skip:!!o.no_cutting },
+    { key:'edging',      ic:'', bg:_omDk?'rgba(196,181,253,.18)':'#fce7f3', lbl:'Кромка',        date:o.edging_date,      note:o.cutting_date2?'После допила':'Тот же день', skip:o.no_edging },
+    { key:'drilling',    ic:'', bg:_omDk?'rgba(251,191,36,.18)':'#fef3c7',  lbl:'Присадка',      date:o.drilling_date,    note:'+1 день',              skip:o.no_drilling },
+    { key:'gluing',      ic:'', bg:_omDk?'rgba(45,212,191,.18)':'#f0fdfa',  lbl:'Склейка',       date:getGluingDate(o),   note:(o.gluing_sqm||0)+'м²', skip:!o.has_gluing },
+    { key:'curvilinear', ic:'', bg:_omDk?'rgba(244,114,182,.18)':'#fdf2f8', lbl:'Криволинейка',  date:getCurviDate(o),    note:(o.curvilinear_meters||0)+'м', skip:!o.has_curvilinear },
+    { key:'packing',     ic:'', bg:_omDk?'rgba(52,211,153,.18)':'#d1fae5',  lbl:'Упаковка',      date:o.packing_date,     note:'+1 день',              skip:o.no_packing }
   ];
 
   const sd = o.stages_done || {};
@@ -4496,15 +4548,18 @@ function openOrderModal(id) {
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;margin-bottom:14px">
       ${stages.map(s=>{
         const done = !s.skip && (s.key==='launch' ? (sd.launch || o.launch_stage_data?.done) : sd[s.key]);
-        return `<div style="background:${done?'#dcfce7':s.bg};border-radius:9px;padding:10px;text-align:center;opacity:${s.skip?.4:1};border:1.5px solid ${done?'#86efac':'transparent'}">
+        const doneBg    = _omDk ? 'rgba(52,211,153,.22)' : '#dcfce7';
+        const doneBdr   = _omDk ? 'rgba(52,211,153,.45)' : '#86efac';
+        const doneClr   = _omDk ? '#6ee7b7' : '#15803d';
+        return `<div style="background:${done?doneBg:s.bg};border-radius:9px;padding:10px;text-align:center;opacity:${s.skip?.4:1};border:1.5px solid ${done?doneBdr:'rgba(255,255,255,.07)'}">
           <div style="font-size:20px;margin-bottom:3px">${s.ic}</div>
           <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">${s.lbl}</div>
-          <div style="font-size:12px;font-weight:800;margin-top:2px">${s.skip?'---':fmt(s.date,true)}</div>
-          <div style="font-size:10px;margin-top:2px;font-weight:700;color:${done?'#15803d':'var(--muted)'}">${s.skip?'Не нужно':(done?'Готово':s.note)}</div>
+          <div style="font-size:12px;font-weight:800;margin-top:2px;color:var(--text)">${s.skip?'---':fmt(s.date,true)}</div>
+          <div style="font-size:10px;margin-top:2px;font-weight:700;color:${done?doneClr:'var(--muted)'}">${s.skip?'Не нужно':(done?'Готово':s.note)}</div>
         </div>`;
       }).join('')}
     </div>
-    <div style="background:#f8fafc;border-radius:9px;padding:12px;margin-bottom:12px">
+    <div style="background:${_omDk?'rgba(255,255,255,.04)':'#f8fafc'};border-radius:9px;padding:12px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Назначенные сотрудники</div>
       ${stages.filter(s=>!s.skip).map(s => {
         const ws = stageWorkers[s.key];
