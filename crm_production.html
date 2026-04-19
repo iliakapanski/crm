@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QazJihaz — Производство</title>
+<script>
+  // Ранний бутстрап темы — до рендера, чтобы не было моргания
+  try {
+    var _t = localStorage.getItem('crm_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', _t);
+  } catch(e){}
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -292,9 +299,177 @@ td.today-c .cal-wd{color:var(--primary);font-weight:800}
 /* Общая защита от горизонтального переполнения */
 html,body{max-width:100%;overflow-x:hidden}
 table{max-width:100%}
+
+/* ══════════════════════════════════════════════
+   ТЁМНАЯ ТЕМА
+   ══════════════════════════════════════════════ */
+:root[data-theme="dark"]{
+  --primary:#3b82f6;--primary-l:#1e3a5f;--primary-d:#60a5fa;
+  --success:#22c55e;--success-l:#14361f;
+  --warn:#f59e0b;--warn-l:#3b2a10;
+  --danger:#ef4444;--danger-l:#3b1818;
+  --purple:#a78bfa;--purple-l:#2a1f47;
+  --gray:#94a3b8;--gray-l:#1e293b;
+  --border:#334155;--text:#e2e8f0;--muted:#94a3b8;
+  --bg:#0f172a;--card:#1e293b;
+  --sb:#0b1220;--sb-text:#94a3b8;
+  --sh:0 1px 3px rgba(0,0,0,.4);--sh-md:0 4px 12px rgba(0,0,0,.5);
+}
+/* Переопределяем захардкоженные светлые поверхности */
+:root[data-theme="dark"] body{background:var(--bg);color:var(--text)}
+:root[data-theme="dark"] .fc{background:#0f172a;color:var(--text);border-color:var(--border)}
+:root[data-theme="dark"] .fc::placeholder{color:#64748b}
+:root[data-theme="dark"] select.fc{background:#0f172a;color:var(--text)}
+:root[data-theme="dark"] select.fc option{background:#1e293b;color:var(--text)}
+:root[data-theme="dark"] .ot th{background:#0f172a;color:var(--muted);border-bottom-color:var(--border)}
+:root[data-theme="dark"] .ot td{border-bottom-color:#293548}
+:root[data-theme="dark"] .ot tr:hover td{background:#253146}
+:root[data-theme="dark"] .cal-t th{background:#0f172a;border-bottom-color:var(--border)}
+:root[data-theme="dark"] .cal-dc{background:#0f172a;border-right-color:var(--border)}
+:root[data-theme="dark"] td.today-c .cal-dc{background:#172554}
+:root[data-theme="dark"] td.today-c .cal-dd{color:#60a5fa}
+:root[data-theme="dark"] td.today-c .cal-wd{color:#60a5fa}
+:root[data-theme="dark"] .weekend td,
+:root[data-theme="dark"] .weekend .cal-dc{background:#151e30}
+:root[data-theme="dark"] .cal-op{border-right-color:var(--border)}
+:root[data-theme="dark"] .cal-t td{border-bottom-color:var(--border)}
+:root[data-theme="dark"] .cal-bw{background:#0f172a}
+:root[data-theme="dark"] .modal{background:var(--card);color:var(--text)}
+:root[data-theme="dark"] .mh{background:var(--card);border-bottom-color:var(--border)}
+:root[data-theme="dark"] .mf{border-top-color:var(--border)}
+:root[data-theme="dark"] .btn-secondary{background:#334155;color:var(--text)}
+:root[data-theme="dark"] .btn-secondary:hover{background:#475569}
+:root[data-theme="dark"] .sp{background:#172554;border-color:#1e3a5f}
+:root[data-theme="dark"] .sp-title{color:#93c5fd}
+:root[data-theme="dark"] .sp-date{color:var(--text)}
+:root[data-theme="dark"] .split-dlg{background:#2b2010;border-color:#78511a}
+:root[data-theme="dark"] .split-title,
+:root[data-theme="dark"] .split-text{color:#fbbf24}
+:root[data-theme="dark"] .a-info{background:#172554;border-color:#1e3a5f;color:#93c5fd}
+:root[data-theme="dark"] .a-warn{background:#2b2010;border-color:#78511a;color:#fbbf24}
+:root[data-theme="dark"] .a-ok{background:#14361f;border-color:#15803d;color:#86efac}
+:root[data-theme="dark"] .a-err{background:#3b1818;border-color:#991b1b;color:#fca5a5}
+:root[data-theme="dark"] .sres{background:#14361f;border-color:#15803d}
+:root[data-theme="dark"] .sres-t{color:#86efac}
+:root[data-theme="dark"] .ci-rem{background:#2b2010;border-color:#78511a}
+:root[data-theme="dark"] .ci-rem label{color:#fbbf24}
+:root[data-theme="dark"] .ci-rem input{background:#0f172a;color:var(--text);border-color:#78511a}
+:root[data-theme="dark"] .ci-it{border-bottom-color:#293548}
+:root[data-theme="dark"] .des-qi{border-bottom-color:#293548}
+:root[data-theme="dark"] .tag{background:#334155;color:var(--muted)}
+:root[data-theme="dark"] .on,
+:root[data-theme="dark"] .oc,
+:root[data-theme="dark"] .tm,
+:root[data-theme="dark"] .psub{color:var(--muted)}
+:root[data-theme="dark"] .divider{background:var(--border)}
+/* Badges: слегка приглушаем светлые фоны */
+:root[data-theme="dark"] .b-new{background:#334155;color:#cbd5e1}
+:root[data-theme="dark"] .b-des{background:#1e3a5f;color:#93c5fd}
+:root[data-theme="dark"] .b-res{background:#2a1f47;color:#c4b5fd}
+:root[data-theme="dark"] .b-prod{background:#3b2a10;color:#fbbf24}
+:root[data-theme="dark"] .b-done{background:#14361f;color:#86efac}
+/* Календарные чипы */
+:root[data-theme="dark"] .cc-cut{background:#1e3a5f;color:#93c5fd}
+:root[data-theme="dark"] .cc-edg{background:#2a1f47;color:#c4b5fd}
+:root[data-theme="dark"] .cc-drl{background:#3b2a10;color:#fbbf24}
+:root[data-theme="dark"] .cc-pkg{background:#0f3a2f;color:#6ee7b7}
+:root[data-theme="dark"] .cc-done{background:#14361f;color:#86efac}
+:root[data-theme="dark"] .cc-des{background:#1a1f4a;color:#a5b4fc}
+:root[data-theme="dark"] .cc-red{background:#3b1818;color:#fca5a5}
+:root[data-theme="dark"] .cc-glu{background:#0f3a3a;color:#5eead4}
+:root[data-theme="dark"] .cc-cur{background:#3a1226;color:#f9a8d4}
+/* Priority чипы */
+:root[data-theme="dark"] .pr1{background:#3b1818;color:#fca5a5}
+:root[data-theme="dark"] .pr2{background:#3b2310;color:#fdba74}
+:root[data-theme="dark"] .pr3{background:#3b3010;color:#fde047}
+:root[data-theme="dark"] .pr4{background:#14361f;color:#86efac}
+:root[data-theme="dark"] .pr5{background:#334155;color:#cbd5e1}
+/* Settings секция с особым фоном (облако) */
+:root[data-theme="dark"] .settings-section[style*="background:#f0f7ff"]{background:#0f1e36!important;border-color:#1e3a5f!important}
+:root[data-theme="dark"] details > div[style*="background:#fff"]{background:#0f172a!important;border-color:var(--border)!important}
+/* Orders table / cards helpers, inline #fff/#f8fafc  */
+:root[data-theme="dark"] [style*="background:#fff"]:not(.startup *):not(.sb-icon):not(.b-new *){background:var(--card)!important}
+:root[data-theme="dark"] [style*="background:#f8fafc"]{background:#0f172a!important}
+:root[data-theme="dark"] [style*="background:#f1f5f9"]{background:#1e293b!important}
+:root[data-theme="dark"] [style*="background:#fafbfc"]{background:#151e30!important}
+:root[data-theme="dark"] [style*="background:#eff6ff"]{background:#172554!important}
+:root[data-theme="dark"] [style*="background:#f0fdf4"]{background:#14361f!important}
+:root[data-theme="dark"] [style*="background:#fffbeb"]{background:#2b2010!important}
+:root[data-theme="dark"] [style*="background:#fef9c3"]{background:#2b2010!important}
+:root[data-theme="dark"] [style*="background:#fef3c7"]{background:#2b2010!important}
+:root[data-theme="dark"] [style*="background:#fee2e2"]{background:#3b1818!important}
+:root[data-theme="dark"] [style*="background:#dcfce7"]{background:#14361f!important}
+:root[data-theme="dark"] [style*="background:#dbeafe"]{background:#1e3a5f!important}
+:root[data-theme="dark"] [style*="color:#1e293b"]{color:var(--text)!important}
+/* Toggle switch */
+.theme-switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.theme-switch input{display:none}
+.theme-switch .ts-track{position:relative;width:52px;height:28px;background:#cbd5e1;border-radius:14px;transition:background .2s}
+.theme-switch .ts-thumb{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s;display:flex;align-items:center;justify-content:center;font-size:12px}
+.theme-switch input:checked ~ .ts-track{background:#2563eb}
+.theme-switch input:checked ~ .ts-track .ts-thumb{left:27px}
+:root[data-theme="dark"] .theme-switch .ts-track{background:#475569}
+:root[data-theme="dark"] .theme-switch input:checked ~ .ts-track{background:#3b82f6}
+
+/* ── SIDEBAR COLLAPSE ── */
+.sidebar.sb-collapsed{width:64px}
+.sidebar.sb-collapsed .sb-title,
+.sidebar.sb-collapsed .sb-sub,
+.sidebar.sb-collapsed .sb-user-name,
+.sidebar.sb-collapsed .sb-user-role,
+.sidebar.sb-collapsed .nav-lbl,
+.sidebar.sb-collapsed .nav-badge,
+.sidebar.sb-collapsed .nav-it > span:not(.nav-ico),
+.sidebar.sb-collapsed .checkin-btn > span:not(:first-child){display:none!important}
+.sidebar.sb-collapsed .sb-logo{justify-content:center;padding:14px 8px}
+.sidebar.sb-collapsed .sb-user{justify-content:center;padding:10px 8px}
+.sidebar.sb-collapsed .sb-nav{padding:8px 4px}
+.sidebar.sb-collapsed .nav-it{justify-content:center;padding:9px 6px;position:relative}
+.sidebar.sb-collapsed .nav-it .nav-ico{width:auto;font-size:17px}
+.sidebar.sb-collapsed .checkin-btn{justify-content:center;padding:9px 6px;width:100%}
+.sidebar.sb-collapsed .sb-bottom{padding:8px 6px}
+.sidebar.sb-collapsed ~ .main{margin-left:64px}
+.sb-collapse-btn{background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;transition:color .15s;margin-left:auto;flex-shrink:0}
+.sb-collapse-btn:hover{color:#fff}
+.sidebar.sb-collapsed .sb-collapse-btn{margin-left:0}
+/* tooltip для иконок в свёрнутом сайдбаре */
+.sidebar.sb-collapsed .nav-it[title]{position:relative}
+.sidebar.sb-collapsed .nav-it::after{content:attr(title);position:absolute;left:68px;top:50%;transform:translateY(-50%);background:#1e293b;color:#fff;font-size:12px;font-weight:600;padding:5px 10px;border-radius:7px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.sidebar.sb-collapsed .nav-it:hover::after{opacity:1}
+@media(max-width:900px){
+  .sidebar.sb-collapsed{transform:translateX(-100%)}
+  .sidebar.sb-collapsed~.main{margin-left:0}
+}
+:root[data-theme="dark"] .sb-collapse-btn{color:rgba(255,255,255,.4)}
+:root[data-theme="dark"] .sb-collapse-btn:hover{color:#fff}
+
+/* ── TOAST ── */
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:9000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);pointer-events:all;animation:toastIn .25s ease;max-width:360px;min-width:220px}
+.toast-undo{background:none;border:1.5px solid rgba(255,255,255,.35);color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s}
+.toast-undo:hover{background:rgba(255,255,255,.15)}
+.toast-close{background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:16px;line-height:1;padding:0;margin-left:auto;flex-shrink:0}
+.toast-close:hover{color:#fff}
+.toast.toast-out{animation:toastOut .2s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateY(16px)}}
+:root[data-theme="dark"] .toast{background:#334155}
+
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted)}
+.empty-state .es-icon{font-size:48px;margin-bottom:12px;opacity:.7}
+.empty-state .es-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px}
+.empty-state .es-sub{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+
+/* ── A11Y ── */
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:3px}
+.overlay[role="dialog"]{outline:none}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>
 </head>
 <body>
+
+<div id="toast-container"></div>
 
 <!-- STARTUP SCREEN -->
 <div class="startup" id="startup">
@@ -323,7 +498,7 @@ table{max-width:100%}
 </div>
 
 <!-- HAMBURGER -->
-<button class="hamburger" id="hamburger" onclick="toggleSidebar()">
+<button class="hamburger" id="hamburger" aria-label="Открыть меню" onclick="toggleSidebar()">
   <span></span><span></span><span></span>
 </button>
 <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
@@ -333,6 +508,7 @@ table{max-width:100%}
   <div class="sb-logo">
     <div class="sb-icon">🪵</div>
     <div><div class="sb-title">QazJihaz</div><div class="sb-sub">Производство</div></div>
+    <button class="sb-collapse-btn" onclick="toggleSidebarCollapse()" title="Свернуть/развернуть">◀</button>
   </div>
   <div class="sb-user" onclick="switchUser()" title="Сменить пользователя">
     <div class="sb-user-av" id="sb-av" style="background:#4f46e5">?</div>
@@ -340,19 +516,19 @@ table{max-width:100%}
   </div>
   <nav class="sb-nav">
     <div class="nav-lbl">Главное</div>
-    <div class="nav-it active" data-page="dashboard" onclick="showPage('dashboard')"><span class="nav-ico">📊</span>Дашборд<span class="nav-badge" id="badge-today">0</span></div>
-    <div class="nav-it" data-page="new-order" onclick="showPage('new-order')"><span class="nav-ico">➕</span>Новый заказ</div>
+    <div class="nav-it active" data-page="dashboard" title="Дашборд" onclick="showPage('dashboard')"><span class="nav-ico">📊</span>Дашборд<span class="nav-badge" id="badge-today">0</span></div>
+    <div class="nav-it" data-page="new-order" title="Новый заказ" onclick="showPage('new-order')"><span class="nav-ico">➕</span>Новый заказ</div>
     <div class="nav-lbl">Производство</div>
-    <div class="nav-it" data-page="calendar" onclick="showPage('calendar')"><span class="nav-ico">📅</span>Календарь</div>
-    <div class="nav-it" data-page="staff" onclick="showPage('staff')"><span class="nav-ico">👥</span>Сотрудники</div>
-    <div class="nav-it" data-page="production" onclick="showPage('production')"><span class="nav-ico">🏭</span>Задания</div>
-    <div class="nav-it" data-page="constructor-tasks" onclick="showPage('constructor-tasks')"><span class="nav-ico">✏️</span>Задачи конструкторов</div>
+    <div class="nav-it" data-page="calendar" title="Календарь" onclick="showPage('calendar')"><span class="nav-ico">📅</span>Календарь</div>
+    <div class="nav-it" data-page="staff" title="Сотрудники" onclick="showPage('staff')"><span class="nav-ico">👥</span>Сотрудники</div>
+    <div class="nav-it" data-page="production" title="Задания" onclick="showPage('production')"><span class="nav-ico">🏭</span>Задания</div>
+    <div class="nav-it" data-page="constructor-tasks" title="Задачи конструкторов" onclick="showPage('constructor-tasks')"><span class="nav-ico">✏️</span>Задачи конструкторов</div>
     <div class="nav-lbl">Заказы</div>
-    <div class="nav-it" data-page="orders" onclick="showPage('orders')"><span class="nav-ico">📦</span>Все заказы</div>
-    <div class="nav-it" data-page="stats" onclick="showPage('stats')"><span class="nav-ico">📈</span>Статистика</div>
-    <div class="nav-it" data-page="payroll" onclick="showPage('payroll')"><span class="nav-ico">💰</span>Начисления</div>
+    <div class="nav-it" data-page="orders" title="Все заказы" onclick="showPage('orders')"><span class="nav-ico">📦</span>Все заказы</div>
+    <div class="nav-it" data-page="stats" title="Статистика" onclick="showPage('stats')"><span class="nav-ico">📈</span>Статистика</div>
+    <div class="nav-it" data-page="payroll" title="Начисления" onclick="showPage('payroll')"><span class="nav-ico">💰</span>Начисления</div>
     <div class="nav-lbl">Система</div>
-    <div class="nav-it" data-page="settings" onclick="showPage('settings')"><span class="nav-ico">⚙️</span>Настройки</div>
+    <div class="nav-it" data-page="settings" title="Настройки" onclick="showPage('settings')"><span class="nav-ico">⚙️</span>Настройки</div>
   </nav>
   <div class="sb-bottom">
     <button class="checkin-btn" onclick="openCheckin()">🌙 Вечерняя сверка</button>
@@ -478,6 +654,10 @@ table{max-width:100%}
     <div style="font-size:14px;font-weight:700;color:var(--text)" id="cal-period-label"></div>
     <button class="btn btn-secondary" onclick="calNav(1)" style="padding:6px 18px;font-size:13px;font-weight:700;">Вперёд →</button>
   </div>
+  <div style="margin-bottom:10px;position:relative;max-width:280px">
+    <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted);pointer-events:none">🔍</span>
+    <input id="cal-search" type="text" class="fc" placeholder="Фильтр: заказ, клиент..." style="padding:7px 10px 7px 30px;font-size:13px;border-radius:8px" oninput="calSearchQuery=this.value.toLowerCase().trim();renderCalendar()">
+  </div>
   <div id="cal-container"></div>
 </div>
 
@@ -523,13 +703,13 @@ table{max-width:100%}
           <button class="btn btn-sm btn-secondary" onclick="filterOrders('production')">В производстве</button>
           <button class="btn btn-sm btn-secondary" onclick="filterOrders('done')">Готово</button>
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap">Сортировка:</span>
-          <select id="sort-select" class="fc" style="width:auto;padding:5px 9px;font-size:12px" onchange="setSortOrders(this.value)">
-            <option value="created">По дате создания</option>
-            <option value="cutting_date">По дате распила</option>
-            <option value="packing_date">По дате упаковки</option>
-          </select>
+          <div style="display:flex;gap:3px;background:#f1f5f9;border-radius:8px;padding:3px" id="sort-btns">
+            <button class="btn btn-sm" id="sort-btn-created" onclick="setSortOrders('created')" style="padding:4px 10px;font-size:11px;border-radius:5px">По созданию</button>
+            <button class="btn btn-sm" id="sort-btn-cutting_date" onclick="setSortOrders('cutting_date')" style="padding:4px 10px;font-size:11px;border-radius:5px">По распилу</button>
+            <button class="btn btn-sm" id="sort-btn-packing_date" onclick="setSortOrders('packing_date')" style="padding:4px 10px;font-size:11px;border-radius:5px">По упаковке</button>
+          </div>
         </div>
       </div>
     </div>
@@ -540,6 +720,20 @@ table{max-width:100%}
 <!-- ── SETTINGS ── -->
 <div id="page-settings" class="page">
   <div class="ph"><div><div class="ptitle">⚙️ Настройки</div><div class="psub">Мощность линии, имена сотрудников</div></div></div>
+
+  <div class="settings-section">
+    <div class="settings-title">🎨 Внешний вид</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:3px">Тёмная тема</div>
+        <div style="font-size:12px;color:var(--muted)">Переключение между светлой и тёмной темой интерфейса</div>
+      </div>
+      <label class="theme-switch" title="Переключить тему">
+        <input type="checkbox" id="theme-toggle" onchange="setTheme(this.checked?'dark':'light')">
+        <span class="ts-track"><span class="ts-thumb" id="theme-thumb">☀️</span></span>
+      </label>
+    </div>
+  </div>
 
   <div class="settings-section">
     <div class="settings-title">🏭 Мощность производственной линии</div>
@@ -742,18 +936,18 @@ table{max-width:100%}
 
 
 <!-- ── MODAL: ORDER DETAIL ── -->
-<div class="overlay" id="order-overlay">
+<div class="overlay" role="dialog" aria-modal="true" id="order-overlay">
   <div class="modal wide">
-    <div class="mh"><div><div class="mt" id="om-title"></div><div class="ms" id="om-sub"></div></div><button class="mx" onclick="closeOrderModal()">×</button></div>
+    <div class="mh"><div><div class="mt" id="om-title"></div><div class="ms" id="om-sub"></div></div><button class="mx" aria-label="Закрыть" onclick="closeOrderModal()">×</button></div>
     <div class="mb" id="om-body"></div>
     <div class="mf"><button class="btn btn-secondary" onclick="closeOrderModal()">Закрыть</button><button class="btn btn-primary" id="om-edit-btn">✏️ Редактировать</button></div>
   </div>
 </div>
 
 <!-- ── MODAL: EDIT ORDER ── -->
-<div class="overlay" id="edit-overlay">
+<div class="overlay" role="dialog" aria-modal="true" id="edit-overlay">
   <div class="modal wide">
-    <div class="mh"><div><div class="mt" id="em-title">Редактирование</div><div class="ms">Изменения обновят производственный календарь</div></div><button class="mx" onclick="closeEdit()">×</button></div>
+    <div class="mh"><div><div class="mt" id="em-title">Редактирование</div><div class="ms">Изменения обновят производственный календарь</div></div><button class="mx" aria-label="Закрыть" onclick="closeEdit()">×</button></div>
     <div class="mb">
       <input type="hidden" id="e-id">
       <div class="fg" style="gap:11px">
@@ -825,20 +1019,20 @@ table{max-width:100%}
 </div>
 
 <!-- ── MODAL: CHECKIN ── -->
-<div class="overlay" id="checkin-overlay">
+<div class="overlay" role="dialog" aria-modal="true" id="checkin-overlay">
   <div class="modal">
-    <div class="mh"><div><div class="mt">🌙 Вечерняя сверка</div><div class="ms">Отметьте что напилено сегодня</div></div><button class="mx" onclick="closeCheckin()">×</button></div>
+    <div class="mh"><div><div class="mt">🌙 Вечерняя сверка</div><div class="ms">Отметьте что напилено сегодня</div></div><button class="mx" aria-label="Закрыть" onclick="closeCheckin()">×</button></div>
     <div class="mb" id="checkin-body"></div>
     <div class="mf"><button class="btn btn-secondary" onclick="closeCheckin()">Отмена</button><button class="btn btn-success" onclick="submitCheckin()">✅ Подтвердить</button></div>
   </div>
 </div>
 
 <!-- ── MODAL: STAGES ── -->
-<div class="overlay" id="stages-overlay">
+<div class="overlay" role="dialog" aria-modal="true" id="stages-overlay">
   <div class="modal" style="width:720px;max-width:95vw">
     <div class="mh">
       <div><div class="mt" id="stg-title">Стадии заказа</div><div class="ms" id="stg-sub"></div></div>
-      <button class="mx" onclick="closeStages()">×</button>
+      <button class="mx" aria-label="Закрыть" onclick="closeStages()">×</button>
     </div>
     <div class="mb" id="stg-body"></div>
     <div class="mf" style="justify-content:space-between">
@@ -852,9 +1046,9 @@ table{max-width:100%}
 </div>
 
 <!-- ── MODAL: ADD EMPLOYEE ── -->
-<div class="overlay" id="addemp-overlay">
+<div class="overlay" role="dialog" aria-modal="true" id="addemp-overlay">
   <div class="modal" style="width:440px">
-    <div class="mh"><div><div class="mt" id="addemp-title">➕ Новый сотрудник</div></div><button class="mx" onclick="closeAddEmp()">×</button></div>
+    <div class="mh"><div><div class="mt" id="addemp-title">➕ Новый сотрудник</div></div><button class="mx" aria-label="Закрыть" onclick="closeAddEmp()">×</button></div>
     <div class="mb">
       <div class="fg" style="gap:11px">
         <div class="fs2"><label class="fl">Имя (Фамилия Имя Отчество)</label><input id="ae-name" class="fc" type="text" placeholder="Иванов Иван Иванович"></div>
@@ -881,9 +1075,9 @@ table{max-width:100%}
 </div>
 
 <!-- ── MODAL: WORKER PICKER ── -->
-<div class="overlay" id="workerpick-overlay">
+<div class="overlay" role="dialog" aria-modal="true" id="workerpick-overlay">
   <div class="modal" style="width:420px">
-    <div class="mh"><div><div class="mt" id="wp-title">Выберите сотрудника</div><div class="ms" id="wp-sub"></div></div><button class="mx" onclick="closeWorkerPick()">×</button></div>
+    <div class="mh"><div><div class="mt" id="wp-title">Выберите сотрудника</div><div class="ms" id="wp-sub"></div></div><button class="mx" aria-label="Закрыть" onclick="closeWorkerPick()">×</button></div>
     <div class="mb" id="wp-body" style="max-height:400px;overflow-y:auto"></div>
     <div class="mf">
       <button class="btn btn-danger" id="wp-clear-btn" style="display:none" onclick="workerPickClear()">Убрать всех</button>
@@ -893,9 +1087,9 @@ table{max-width:100%}
 </div>
 
 <!-- ── MODAL: ASSIGN DESIGNER ── -->
-<div class="overlay" id="assign-overlay">
+<div class="overlay" role="dialog" aria-modal="true" id="assign-overlay">
   <div class="modal" style="width:420px">
-    <div class="mh"><div><div class="mt">✏️ Назначить конструктора</div><div class="ms" id="assign-order-sub"></div></div><button class="mx" onclick="closeAssign()">×</button></div>
+    <div class="mh"><div><div class="mt">✏️ Назначить конструктора</div><div class="ms" id="assign-order-sub"></div></div><button class="mx" aria-label="Закрыть" onclick="closeAssign()">×</button></div>
     <div class="mb" id="assign-body"></div>
     <div class="mf"><button class="btn btn-secondary" onclick="closeAssign()">Отмена</button></div>
   </div>
@@ -986,6 +1180,23 @@ function loadSettings() {
     rebuildProdCal();
     rebuildProdCalFact();
   } catch(e) {}
+}
+// ── Theme ──
+function setTheme(t) {
+  const theme = (t === 'dark') ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+  try { localStorage.setItem('crm_theme', theme); } catch(e){}
+  const tg = document.getElementById('theme-toggle');
+  if (tg) tg.checked = (theme === 'dark');
+  const thumb = document.getElementById('theme-thumb');
+  if (thumb) thumb.textContent = theme === 'dark' ? '🌙' : '☀️';
+}
+function loadThemeUI() {
+  const theme = (localStorage.getItem('crm_theme') || 'light');
+  const tg = document.getElementById('theme-toggle');
+  if (tg) tg.checked = (theme === 'dark');
+  const thumb = document.getElementById('theme-thumb');
+  if (thumb) thumb.textContent = theme === 'dark' ? '🌙' : '☀️';
 }
 function saveCapToStorage() { localStorage.setItem('crm_cap', JSON.stringify(CAP)); bumpSettingVersion('cap'); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
 function saveWorkerRates() { localStorage.setItem('crm_worker_rates', JSON.stringify(workerRates)); bumpSettingVersion('worker_rates'); if (typeof CLOUD_URL!=='undefined' && CLOUD_URL) debouncedCloudSave(); }
@@ -2277,6 +2488,39 @@ function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sb-overlay').classList.remove('show');
 }
+function toggleSidebarCollapse() {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('sb-collapsed');
+  const collapsed = sb.classList.contains('sb-collapsed');
+  try { localStorage.setItem('crm_sb_collapsed', collapsed ? '1' : '0'); } catch(e){}
+  const btn = sb.querySelector('.sb-collapse-btn');
+  if (btn) btn.textContent = collapsed ? '▶' : '◀';
+}
+
+// ── Toast / Undo ──
+function showToast(msg, undoFn, duration) {
+  duration = duration || 3500;
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.setAttribute('role','status');
+  el.setAttribute('aria-live','polite');
+  const undoBtn = undoFn
+    ? `<button class="toast-undo" onclick="this.closest('.toast')._undo()">↩ Отмена</button>`
+    : '';
+  el.innerHTML = `<span style="flex:1">${msg}</span>${undoBtn}<button class="toast-close" aria-label="Закрыть" onclick="dismissToast(this.closest('.toast'))">×</button>`;
+  if (undoFn) el._undo = () => { undoFn(); dismissToast(el); };
+  container.appendChild(el);
+  const timer = setTimeout(() => dismissToast(el), duration);
+  el._timer = timer;
+}
+function dismissToast(el) {
+  if (!el || !el.parentNode) return;
+  clearTimeout(el._timer);
+  el.classList.add('toast-out');
+  setTimeout(() => el.parentNode && el.parentNode.removeChild(el), 200);
+}
 
 // ============================================================
 // STARTUP / USER
@@ -2431,7 +2675,7 @@ function renderTodayOrders() {
   document.getElementById('today-cnt-tag').textContent = todayO.length + ' зак.';
   document.getElementById('badge-today').textContent = todayO.length;
   const tbody = document.getElementById('today-tbody');
-  if (!todayO.length) { tbody.innerHTML='<tr><td colspan="6" class="empty"><div class="emi">🎉</div>Нет операций на сегодня</td></tr>'; return; }
+  if (!todayO.length) { tbody.innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="es-icon">🎉</div><div class="es-title">Производство свободно</div><div class="es-sub">На сегодня нет запланированных операций</div></div></td></tr>'; return; }
   tbody.innerHTML = todayO.map((o,i)=>{
     let badges = [];
     if (o.cutting_date===TODAY)  badges.push('<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700">✂️ Распил</span>');
@@ -3139,6 +3383,7 @@ function resetForm() {
 let calShowHistory = false;
 let calView = 'week'; // 'day' | '3day' | 'week' | 'month'
 let calViewOffset = 0; // смещение в днях для режимов день/3дня
+let calSearchQuery = '';
 
 function updateCalViewBtns() {
   ['day','3day','week','month'].forEach(k => {
@@ -3274,6 +3519,15 @@ function renderCalendar() {
     container.innerHTML = renderCalDetailView(days);
   } else {
     container.innerHTML = renderCalTableView(days);
+  }
+  // Применяем фильтр календаря
+  if (calSearchQuery) {
+    container.querySelectorAll('.cc').forEach(chip => {
+      const oid = (chip.dataset.oid||chip.getAttribute('onclick')||'').toLowerCase();
+      const cli = (chip.dataset.client||'').toLowerCase();
+      const tip = (chip.getAttribute('title')||'').toLowerCase();
+      chip.style.display = (oid.includes(calSearchQuery)||cli.includes(calSearchQuery)||tip.includes(calSearchQuery)) ? '' : 'none';
+    });
   }
 }
 
@@ -3855,6 +4109,12 @@ function filterOrders(f) {
 function setSortOrders(s) {
   currentSort = s;
   renderAllOrders(currentFilter);
+  ['created','cutting_date','packing_date'].forEach(k => {
+    const btn = document.getElementById('sort-btn-'+k);
+    if (!btn) return;
+    btn.className = 'btn btn-sm' + (k===s ? ' btn-primary' : '');
+    btn.style.cssText = 'padding:4px 10px;font-size:11px;border-radius:5px' + (k!==s?';background:transparent;color:var(--muted)':'');
+  });
 }
 function orderMatchesSearch(o, q) {
   if (!q) return true;
@@ -3867,6 +4127,13 @@ function orderMatchesSearch(o, q) {
   return false;
 }
 function renderAllOrders(filter) {
+  // Sync sort buttons
+  ['created','cutting_date','packing_date'].forEach(k => {
+    const btn = document.getElementById('sort-btn-'+k);
+    if (!btn) return;
+    btn.className = 'btn btn-sm' + (k===currentSort ? ' btn-primary' : '');
+    btn.style.cssText = 'padding:4px 10px;font-size:11px;border-radius:5px' + (k!==currentSort?';background:transparent;color:var(--muted)':'');
+  });
   let list = filter==='all' ? [...orders] : orders.filter(o=>o.status===filter);
   if (currentSearch) list = list.filter(o => orderMatchesSearch(o, currentSearch));
   list.sort((a,b) => {
@@ -3897,7 +4164,7 @@ function renderAllOrders(filter) {
         <button class="btn btn-sm btn-danger"    style="padding:4px 8px;margin-left:3px" onclick="doDelete('${o.id}')">🗑</button>
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="8" class="empty"><div class="emi">📭</div>Нет заказов</td></tr>`;
+  }).join('') || `<tr><td colspan="8"><div class="empty-state"><div class="es-icon">📭</div><div class="es-title">Заказов не найдено</div><div class="es-sub">Попробуйте изменить фильтр или создайте первый заказ</div><button class="btn btn-primary" onclick="showPage('new-order')">➕ Создать заказ</button></div></td></tr>`;
 }
 
 // ============================================================
@@ -6180,6 +6447,16 @@ rebuildDesigners();
 // ============================================================
 (async function init() {
   loadSettings();
+  loadThemeUI();
+  // Restore sidebar collapse state
+  try {
+    if (localStorage.getItem('crm_sb_collapsed') === '1') {
+      const sb = document.getElementById('sidebar');
+      sb.classList.add('sb-collapsed');
+      const btn = sb.querySelector('.sb-collapse-btn');
+      if (btn) btn.textContent = '▶';
+    }
+  } catch(e){}
   // Сразу показываем/скрываем стартовый экран — НЕ ждём облако
   if (currentUser) {
     document.getElementById('startup').classList.add('hidden');
@@ -6190,6 +6467,23 @@ rebuildDesigners();
     showStartup();
   }
   document.getElementById('f-date').min = TODAY;
+  // Показываем «Вечернюю сверку» только после 17:00
+  function updateCheckinBtn() {
+    const h = new Date().getHours();
+    const btn = document.querySelector('.checkin-btn');
+    if (!btn) return;
+    if (h >= 17) {
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+      btn.title = 'Вечерняя сверка';
+    } else {
+      btn.style.opacity = '0.35';
+      btn.style.pointerEvents = 'none';
+      btn.title = `Доступно с 17:00 (сейчас ${h}:00)`;
+    }
+  }
+  updateCheckinBtn();
+  setInterval(updateCheckinBtn, 60000);
   // Cloud sync в фоне — не блокирует UI и не перебивает экран входа
   if (CLOUD_URL) {
     const cloudOk = await cloudLoadAll();
@@ -6199,6 +6493,38 @@ rebuildDesigners();
     updateSyncIndicator('off');
   }
 })();
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', function(e) {
+  const tag = (e.target.tagName||'').toUpperCase();
+  const inInput = ['INPUT','TEXTAREA','SELECT'].includes(tag) || e.target.isContentEditable;
+
+  // Esc — закрыть открытые модалки
+  if (e.key === 'Escape') {
+    const overlays = document.querySelectorAll('.overlay.show');
+    if (overlays.length) {
+      overlays[overlays.length-1].style.display='none';
+      overlays[overlays.length-1].classList.remove('show');
+      return;
+    }
+  }
+
+  if (inInput) return;
+
+  // N — новый заказ
+  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); showPage('new-order'); }
+  // G+C — календарь
+  if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey) {
+    if (window._lastKey === 'g') { e.preventDefault(); showPage('calendar'); }
+  }
+  // / — фокус поиска заказов
+  if (e.key === '/') {
+    e.preventDefault();
+    const s = document.getElementById('orders-search');
+    if (s) { showPage('orders'); setTimeout(()=>s.focus(),100); }
+  }
+  window._lastKey = e.key.toLowerCase();
+});
 
 // ============================================================
 // СОТРУДНИКИ (единая страница)
