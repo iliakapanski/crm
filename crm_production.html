@@ -343,9 +343,11 @@ table{max-width:100%}
 
 /* ── Таблицы ── */
 :root[data-theme="dark"] .ot th{background:#0f1724;color:var(--muted);border-bottom-color:var(--border)}
-:root[data-theme="dark"] .ot td{border-bottom-color:#232f3e}
-:root[data-theme="dark"] .ot tr:hover td{background:#1f2d40}
+:root[data-theme="dark"] .ot td{border-bottom-color:#3a3a3c;color:var(--text);transition:none!important}
+:root[data-theme="dark"] .ot tr:hover td{background:rgba(255,255,255,.06)!important;color:var(--text)!important;transition:none!important}
 :root[data-theme="dark"] .ot tr:last-child td{border-bottom:none}
+/* Убираем transition на light-mode тоже чтобы hover не "зависал" */
+.ot td{transition:none!important}
 
 /* ── Календарь ── */
 :root[data-theme="dark"] .cal-t th{background:#0f1724;border-bottom-color:var(--border)}
@@ -4263,9 +4265,9 @@ function renderAllOrders(filter) {
       <td style="font-size:12px;font-weight:600">${fmt(o.packing_date)}</td>
       <td>${sBadge(o.status)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap">
-        <button class="btn btn-sm btn-secondary" style="padding:4px 8px" onclick="openEdit('${o.id}')"></button>
-        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;margin-left:3px" onclick="openAssign('${o.id}')"></button>
-        <button class="btn btn-sm btn-danger"    style="padding:4px 8px;margin-left:3px" onclick="doDelete('${o.id}')"></button>
+        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;display:inline-flex;align-items:center;gap:4px" onclick="openEdit('${o.id}')" title="Редактировать"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.5 1.5 0 0 1 2 2L5 13H2v-3L11.5 2.5Z"/></svg></button>
+        <button class="btn btn-sm btn-secondary" style="padding:4px 8px;margin-left:3px;display:inline-flex;align-items:center;gap:4px" onclick="openAssign('${o.id}')" title="Назначить дизайнера"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="10" y1="10" x2="14" y2="10"/></svg></button>
+        <button class="btn btn-sm btn-danger"    style="padding:4px 8px;margin-left:3px;display:inline-flex;align-items:center;gap:4px" onclick="doDelete('${o.id}')" title="Удалить заказ"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,4 14,4"/><path d="M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M3 4l1 9a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-9"/><line x1="6.5" y1="7" x2="6.5" y2="11"/><line x1="9.5" y1="7" x2="9.5" y2="11"/></svg></button>
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="8"><div class="empty-state"><div class="es-title">Заказов не найдено</div><div class="es-sub">Попробуйте изменить фильтр или создайте первый заказ</div><button class="btn btn-primary" onclick="showPage('new-order')">Создать заказ</button></div></td></tr>`;
