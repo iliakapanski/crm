@@ -303,107 +303,173 @@ html,body{max-width:100%;overflow-x:hidden}
 table{max-width:100%}
 
 /* ══════════════════════════════════════════════
-   ТЁМНАЯ ТЕМА
+   ТЁМНАЯ ТЕМА  — рафинированная палитра v2
    ══════════════════════════════════════════════ */
 :root[data-theme="dark"]{
-  --primary:#3b82f6;--primary-l:#1e3a5f;--primary-d:#60a5fa;
-  --success:#22c55e;--success-l:#14361f;
-  --warn:#f59e0b;--warn-l:#3b2a10;
-  --danger:#ef4444;--danger-l:#3b1818;
-  --purple:#a78bfa;--purple-l:#2a1f47;
-  --gray:#94a3b8;--gray-l:#1e293b;
-  --border:#334155;--text:#e2e8f0;--muted:#94a3b8;
-  --bg:#0f172a;--card:#1e293b;
-  --sb:#0b1220;--sb-text:#94a3b8;
-  --sh:0 1px 3px rgba(0,0,0,.4);--sh-md:0 4px 12px rgba(0,0,0,.5);
+  /* Основные */
+  --primary:#4f8ef7;--primary-l:rgba(79,142,247,.18);--primary-d:#7ab0fa;
+  --success:#34d399;--success-l:rgba(52,211,153,.15);
+  --warn:#fbbf24;--warn-l:rgba(251,191,36,.15);
+  --danger:#f87171;--danger-l:rgba(248,113,113,.15);
+  --purple:#a78bfa;--purple-l:rgba(167,139,250,.15);
+  --gray:#9ca3af;--gray-l:#1e2736;
+  /* Поверхности */
+  --border:#2d3a4a;--text:#e8edf4;--muted:#8a9ab8;
+  --bg:#111827;--card:#1a2232;
+  --sb:#0d1526;--sb-text:#8a9ab8;
+  --sh:0 1px 4px rgba(0,0,0,.5);--sh-md:0 6px 18px rgba(0,0,0,.55);
 }
-/* Переопределяем захардкоженные светлые поверхности */
+
+/* ── Базовые поверхности ── */
 :root[data-theme="dark"] body{background:var(--bg);color:var(--text)}
-:root[data-theme="dark"] .fc{background:#0f172a;color:var(--text);border-color:var(--border)}
-:root[data-theme="dark"] .fc::placeholder{color:#64748b}
-:root[data-theme="dark"] select.fc{background:#0f172a;color:var(--text)}
-:root[data-theme="dark"] select.fc option{background:#1e293b;color:var(--text)}
-:root[data-theme="dark"] .ot th{background:#0f172a;color:var(--muted);border-bottom-color:var(--border)}
-:root[data-theme="dark"] .ot td{border-bottom-color:#293548}
-:root[data-theme="dark"] .ot tr:hover td{background:#253146}
-:root[data-theme="dark"] .cal-t th{background:#0f172a;border-bottom-color:var(--border)}
-:root[data-theme="dark"] .cal-dc{background:#0f172a;border-right-color:var(--border)}
-:root[data-theme="dark"] td.today-c .cal-dc{background:#172554}
-:root[data-theme="dark"] td.today-c .cal-dd{color:#60a5fa}
-:root[data-theme="dark"] td.today-c .cal-wd{color:#60a5fa}
+:root[data-theme="dark"] .fc{background:#0f1724;color:var(--text);border-color:var(--border)}
+:root[data-theme="dark"] .fc::placeholder{color:#4a5568}
+:root[data-theme="dark"] select.fc{background:#0f1724}
+:root[data-theme="dark"] select.fc option{background:#1a2232;color:var(--text)}
+
+/* ── Таблицы ── */
+:root[data-theme="dark"] .ot th{background:#0f1724;color:var(--muted);border-bottom-color:var(--border)}
+:root[data-theme="dark"] .ot td{border-bottom-color:#232f3e}
+:root[data-theme="dark"] .ot tr:hover td{background:#1f2d40}
+:root[data-theme="dark"] .ot tr:last-child td{border-bottom:none}
+
+/* ── Календарь ── */
+:root[data-theme="dark"] .cal-t th{background:#0f1724;border-bottom-color:var(--border)}
+:root[data-theme="dark"] .cal-dc{background:#0f1724;border-right-color:var(--border)}
+:root[data-theme="dark"] td.today-c .cal-dc{background:#1a2f52}
+:root[data-theme="dark"] td.today-c .cal-dd,
+:root[data-theme="dark"] td.today-c .cal-wd{color:#7ab0fa}
 :root[data-theme="dark"] .weekend td,
-:root[data-theme="dark"] .weekend .cal-dc{background:#151e30}
+:root[data-theme="dark"] .weekend .cal-dc{background:#141d2c}
 :root[data-theme="dark"] .cal-op{border-right-color:var(--border)}
 :root[data-theme="dark"] .cal-t td{border-bottom-color:var(--border)}
-:root[data-theme="dark"] .cal-bw{background:#0f172a}
+:root[data-theme="dark"] .cal-bw{background:#0f1724}
+
+/* ── Модалки ── */
 :root[data-theme="dark"] .modal{background:var(--card);color:var(--text)}
 :root[data-theme="dark"] .mh{background:var(--card);border-bottom-color:var(--border)}
 :root[data-theme="dark"] .mf{border-top-color:var(--border)}
-:root[data-theme="dark"] .btn-secondary{background:#334155;color:var(--text)}
-:root[data-theme="dark"] .btn-secondary:hover{background:#475569}
-:root[data-theme="dark"] .sp{background:#172554;border-color:#1e3a5f}
-:root[data-theme="dark"] .sp-title{color:#93c5fd}
+
+/* ── Кнопки ── */
+:root[data-theme="dark"] .btn-secondary{background:#253044;color:var(--text);border:1px solid var(--border)}
+:root[data-theme="dark"] .btn-secondary:hover{background:#2d3a4e}
+
+/* ── Планировщик ── */
+:root[data-theme="dark"] .sp{background:rgba(79,142,247,.1);border-color:rgba(79,142,247,.25)}
+:root[data-theme="dark"] .sp-title{color:#7ab0fa}
 :root[data-theme="dark"] .sp-date{color:var(--text)}
-:root[data-theme="dark"] .split-dlg{background:#2b2010;border-color:#78511a}
-:root[data-theme="dark"] .split-title,
-:root[data-theme="dark"] .split-text{color:#fbbf24}
-:root[data-theme="dark"] .a-info{background:#172554;border-color:#1e3a5f;color:#93c5fd}
-:root[data-theme="dark"] .a-warn{background:#2b2010;border-color:#78511a;color:#fbbf24}
-:root[data-theme="dark"] .a-ok{background:#14361f;border-color:#15803d;color:#86efac}
-:root[data-theme="dark"] .a-err{background:#3b1818;border-color:#991b1b;color:#fca5a5}
-:root[data-theme="dark"] .sres{background:#14361f;border-color:#15803d}
-:root[data-theme="dark"] .sres-t{color:#86efac}
-:root[data-theme="dark"] .ci-rem{background:#2b2010;border-color:#78511a}
+:root[data-theme="dark"] .split-dlg{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.3)}
+:root[data-theme="dark"] .split-title{color:#fbbf24}
+:root[data-theme="dark"] .split-text{color:#d4a83a}
+
+/* ── Алерты ── */
+:root[data-theme="dark"] .a-info{background:rgba(79,142,247,.12);border-color:rgba(79,142,247,.3);color:#7ab0fa}
+:root[data-theme="dark"] .a-warn{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.3);color:#fbbf24}
+:root[data-theme="dark"] .a-ok{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.3);color:#6ee7b7}
+:root[data-theme="dark"] .a-err{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.3);color:#fca5a5}
+:root[data-theme="dark"] .sres{background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.35)}
+:root[data-theme="dark"] .sres-t{color:#6ee7b7}
+
+/* ── Прочее UI ── */
+:root[data-theme="dark"] .ci-rem{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.3)}
 :root[data-theme="dark"] .ci-rem label{color:#fbbf24}
-:root[data-theme="dark"] .ci-rem input{background:#0f172a;color:var(--text);border-color:#78511a}
-:root[data-theme="dark"] .ci-it{border-bottom-color:#293548}
-:root[data-theme="dark"] .des-qi{border-bottom-color:#293548}
-:root[data-theme="dark"] .tag{background:#334155;color:var(--muted)}
+:root[data-theme="dark"] .ci-rem input{background:#0f1724;color:var(--text);border-color:rgba(251,191,36,.4)}
+:root[data-theme="dark"] .ci-it{border-bottom-color:#232f3e}
+:root[data-theme="dark"] .des-qi{border-bottom-color:#232f3e}
+:root[data-theme="dark"] .tag{background:#253044;color:var(--muted)}
 :root[data-theme="dark"] .on,
 :root[data-theme="dark"] .oc,
 :root[data-theme="dark"] .tm,
 :root[data-theme="dark"] .psub{color:var(--muted)}
 :root[data-theme="dark"] .divider{background:var(--border)}
-/* Badges: слегка приглушаем светлые фоны */
-:root[data-theme="dark"] .b-new{background:#334155;color:#cbd5e1}
-:root[data-theme="dark"] .b-des{background:#1e3a5f;color:#93c5fd}
-:root[data-theme="dark"] .b-res{background:#2a1f47;color:#c4b5fd}
-:root[data-theme="dark"] .b-prod{background:#3b2a10;color:#fbbf24}
-:root[data-theme="dark"] .b-done{background:#14361f;color:#86efac}
-/* Календарные чипы */
-:root[data-theme="dark"] .cc-cut{background:#1e3a5f;color:#93c5fd}
-:root[data-theme="dark"] .cc-edg{background:#2a1f47;color:#c4b5fd}
-:root[data-theme="dark"] .cc-drl{background:#3b2a10;color:#fbbf24}
-:root[data-theme="dark"] .cc-pkg{background:#0f3a2f;color:#6ee7b7}
-:root[data-theme="dark"] .cc-done{background:#14361f;color:#86efac}
-:root[data-theme="dark"] .cc-des{background:#1a1f4a;color:#a5b4fc}
-:root[data-theme="dark"] .cc-red{background:#3b1818;color:#fca5a5}
-:root[data-theme="dark"] .cc-glu{background:#0f3a3a;color:#5eead4}
-:root[data-theme="dark"] .cc-cur{background:#3a1226;color:#f9a8d4}
-/* Priority чипы */
-:root[data-theme="dark"] .pr1{background:#3b1818;color:#fca5a5}
-:root[data-theme="dark"] .pr2{background:#3b2310;color:#fdba74}
-:root[data-theme="dark"] .pr3{background:#3b3010;color:#fde047}
-:root[data-theme="dark"] .pr4{background:#14361f;color:#86efac}
-:root[data-theme="dark"] .pr5{background:#334155;color:#cbd5e1}
-/* Settings секция с особым фоном (облако) */
-:root[data-theme="dark"] .settings-section[style*="background:#f0f7ff"]{background:#0f1e36!important;border-color:#1e3a5f!important}
-:root[data-theme="dark"] details > div[style*="background:#fff"]{background:#0f172a!important;border-color:var(--border)!important}
-/* Orders table / cards helpers, inline #fff/#f8fafc  */
-:root[data-theme="dark"] [style*="background:#fff"]:not(.startup *):not(.sb-icon):not(.b-new *){background:var(--card)!important}
-:root[data-theme="dark"] [style*="background:#f8fafc"]{background:#0f172a!important}
-:root[data-theme="dark"] [style*="background:#f1f5f9"]{background:#1e293b!important}
-:root[data-theme="dark"] [style*="background:#fafbfc"]{background:#151e30!important}
-:root[data-theme="dark"] [style*="background:#eff6ff"]{background:#172554!important}
-:root[data-theme="dark"] [style*="background:#f0fdf4"]{background:#14361f!important}
-:root[data-theme="dark"] [style*="background:#fffbeb"]{background:#2b2010!important}
-:root[data-theme="dark"] [style*="background:#fef9c3"]{background:#2b2010!important}
-:root[data-theme="dark"] [style*="background:#fef3c7"]{background:#2b2010!important}
-:root[data-theme="dark"] [style*="background:#fee2e2"]{background:#3b1818!important}
-:root[data-theme="dark"] [style*="background:#dcfce7"]{background:#14361f!important}
-:root[data-theme="dark"] [style*="background:#dbeafe"]{background:#1e3a5f!important}
+:root[data-theme="dark"] .nav-badge{background:rgba(79,142,247,.8)}
+
+/* ── Бейджи статусов ── */
+:root[data-theme="dark"] .b-new{background:#253044;color:#94a3b8}
+:root[data-theme="dark"] .b-des{background:rgba(79,142,247,.18);color:#7ab0fa}
+:root[data-theme="dark"] .b-res{background:rgba(167,139,250,.18);color:#c4b5fd}
+:root[data-theme="dark"] .b-prod{background:rgba(251,191,36,.15);color:#fcd34d}
+:root[data-theme="dark"] .b-done{background:rgba(52,211,153,.15);color:#6ee7b7}
+
+/* ── Календарные чипы ── */
+:root[data-theme="dark"] .cc-cut{background:rgba(79,142,247,.2);color:#93c5fd}
+:root[data-theme="dark"] .cc-edg{background:rgba(167,139,250,.2);color:#c4b5fd}
+:root[data-theme="dark"] .cc-drl{background:rgba(251,191,36,.2);color:#fbbf24}
+:root[data-theme="dark"] .cc-pkg{background:rgba(52,211,153,.2);color:#6ee7b7}
+:root[data-theme="dark"] .cc-done{background:rgba(52,211,153,.15);color:#86efac}
+:root[data-theme="dark"] .cc-des{background:rgba(129,140,248,.2);color:#a5b4fc}
+:root[data-theme="dark"] .cc-red{background:rgba(248,113,113,.2);color:#fca5a5}
+:root[data-theme="dark"] .cc-glu{background:rgba(45,212,191,.2);color:#5eead4}
+:root[data-theme="dark"] .cc-cur{background:rgba(244,114,182,.2);color:#f9a8d4}
+
+/* ── Приоритеты ── */
+:root[data-theme="dark"] .pr1{background:rgba(248,113,113,.18);color:#fca5a5}
+:root[data-theme="dark"] .pr2{background:rgba(251,146,60,.18);color:#fdba74}
+:root[data-theme="dark"] .pr3{background:rgba(251,191,36,.18);color:#fde047}
+:root[data-theme="dark"] .pr4{background:rgba(52,211,153,.15);color:#86efac}
+:root[data-theme="dark"] .pr5{background:#253044;color:#94a3b8}
+
+/* ── Инлайн-стили: жёсткие захардкоженные фоны ── */
+:root[data-theme="dark"] [style*="background:#fff"]:not(.startup *):not(.sb-icon){background:var(--card)!important}
+:root[data-theme="dark"] [style*="background:#f8fafc"]{background:#0f1724!important}
+:root[data-theme="dark"] [style*="background:#f1f5f9"]{background:#1a2232!important}
+:root[data-theme="dark"] [style*="background:#fafbfc"]{background:#141d2c!important}
+:root[data-theme="dark"] details > div[style*="background:#fff"]{background:#0f1724!important;border-color:var(--border)!important}
+
+/* ── Инлайн-стили: светлые фоны стадий → полупрозрачные тёмные ── */
+:root[data-theme="dark"] [style*="background:#ede9fe"]{background:rgba(167,139,250,.15)!important}  /* design */
+:root[data-theme="dark"] [style*="background:#e0f2fe"]{background:rgba(56,189,248,.15)!important}   /* launch */
+:root[data-theme="dark"] [style*="background:#eff6ff"]{background:rgba(79,142,247,.15)!important}   /* cutting */
+:root[data-theme="dark"] [style*="background:#f5f3ff"]{background:rgba(139,92,246,.15)!important}   /* edging */
+:root[data-theme="dark"] [style*="background:#fffbeb"]{background:rgba(251,191,36,.12)!important}   /* drilling */
+:root[data-theme="dark"] [style*="background:#f0fdf4"]{background:rgba(52,211,153,.12)!important}   /* packing/done */
+:root[data-theme="dark"] [style*="background:#fdf2f8"]{background:rgba(244,114,182,.12)!important}  /* curvilinear */
+:root[data-theme="dark"] [style*="background:#f0fdfa"]{background:rgba(45,212,191,.12)!important}   /* gluing */
+:root[data-theme="dark"] [style*="background:#fef9c3"]{background:rgba(251,191,36,.12)!important}
+:root[data-theme="dark"] [style*="background:#fef3c7"]{background:rgba(251,191,36,.12)!important}
+:root[data-theme="dark"] [style*="background:#fee2e2"]{background:rgba(248,113,113,.12)!important}
+:root[data-theme="dark"] [style*="background:#dcfce7"]{background:rgba(52,211,153,.12)!important}
+:root[data-theme="dark"] [style*="background:#dbeafe"]{background:rgba(79,142,247,.15)!important}
+:root[data-theme="dark"] [style*="background:#fce7f3"]{background:rgba(244,114,182,.12)!important}
+:root[data-theme="dark"] [style*="background:#ccfbf1"]{background:rgba(45,212,191,.12)!important}
+:root[data-theme="dark"] .settings-section[style*="background:#f0f7ff"]{background:rgba(79,142,247,.08)!important;border-color:rgba(79,142,247,.2)!important}
+
+/* ── Инлайн-стили: насыщенные текстовые цвета → читаемые на тёмном ── */
+:root[data-theme="dark"] [style*="color:#3730a3"]{color:#a5b4fc!important}  /* design indigo */
+:root[data-theme="dark"] [style*="color:#0369a1"]{color:#7dd3fc!important}  /* launch sky */
+:root[data-theme="dark"] [style*="color:#1d4ed8"]{color:#93c5fd!important}  /* cutting blue */
+:root[data-theme="dark"] [style*="color:#5b21b6"]{color:#c4b5fd!important}  /* edging purple */
+:root[data-theme="dark"] [style*="color:#92400e"]{color:#fbbf24!important}  /* drilling amber */
+:root[data-theme="dark"] [style*="color:#065f46"]{color:#6ee7b7!important}  /* packing green */
+:root[data-theme="dark"] [style*="color:#0d9488"]{color:#2dd4bf!important}  /* gluing teal */
+:root[data-theme="dark"] [style*="color:#be185d"]{color:#f472b6!important}  /* curvilinear pink */
+:root[data-theme="dark"] [style*="color:#15803d"]{color:#6ee7b7!important}  /* success green */
+:root[data-theme="dark"] [style*="color:#dc2626"]{color:#fca5a5!important}  /* danger red */
 :root[data-theme="dark"] [style*="color:#1e293b"]{color:var(--text)!important}
-/* Toggle switch */
+:root[data-theme="dark"] [style*="color:#16a34a"]{color:#6ee7b7!important}  /* pay green */
+
+/* ── Инлайн-стили: бордеры карточек задания → лёгкие ── */
+:root[data-theme="dark"] [style*="border:1.5px solid #c7d2fe"]{border-color:rgba(199,210,254,.2)!important}
+:root[data-theme="dark"] [style*="border:1.5px solid #7dd3fc"]{border-color:rgba(125,211,252,.2)!important}
+:root[data-theme="dark"] [style*="border:1.5px solid #bfdbfe"]{border-color:rgba(191,219,254,.2)!important}
+:root[data-theme="dark"] [style*="border:1.5px solid #ddd6fe"]{border-color:rgba(221,214,254,.2)!important}
+:root[data-theme="dark"] [style*="border:1.5px solid #fde68a"]{border-color:rgba(253,230,138,.2)!important}
+:root[data-theme="dark"] [style*="border:1.5px solid #a7f3d0"]{border-color:rgba(167,243,208,.2)!important}
+:root[data-theme="dark"] [style*="border:1.5px solid #99f6e4"]{border-color:rgba(153,246,228,.2)!important}
+:root[data-theme="dark"] [style*="border:1.5px solid #fbcfe8"]{border-color:rgba(251,207,232,.2)!important}
+:root[data-theme="dark"] [style*="border:1.5px solid #86efac"]{border-color:rgba(134,239,172,.3)!important}
+:root[data-theme="dark"] [style*="border:1.5px solid #fca5a5"]{border-color:rgba(252,165,165,.35)!important}
+
+/* ── Кнопка «Выполнено» в карточках задания ── */
+:root[data-theme="dark"] [style*="background:#16a34a;color:#fff"]{background:#15803d!important}
+
+/* Settings облако с доп. стилем */
+:root[data-theme="dark"] [style*="background:#dcfce7;color:#166534"]{background:rgba(52,211,153,.15)!important;color:#6ee7b7!important}
+:root[data-theme="dark"] [style*="background:#dbeafe;color:#1e40af"]{background:rgba(79,142,247,.15)!important;color:#93c5fd!important}
+:root[data-theme="dark"] [style*="background:#fef3c7;color:#92400e"]{background:rgba(251,191,36,.15)!important;color:#fbbf24!important}
+:root[data-theme="dark"] [style*="background:#fee2e2;color:#991b1b"]{background:rgba(248,113,113,.15)!important;color:#fca5a5!important}
+
+/* ── Toggle switch ── */
 .theme-switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
 .theme-switch input{display:none}
 .theme-switch .ts-track{position:relative;width:52px;height:28px;background:#cbd5e1;border-radius:14px;transition:background .2s}
@@ -1185,6 +1251,9 @@ function loadSettings() {
   } catch(e) {}
 }
 // ── Theme ──
+function isDarkTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark';
+}
 function setTheme(t) {
   const theme = (t === 'dark') ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', theme);
@@ -1193,6 +1262,18 @@ function setTheme(t) {
   if (tg) tg.checked = (theme === 'dark');
   const thumb = document.getElementById('theme-thumb');
   if (thumb) thumb.textContent = theme === 'dark' ? '🌙' : '☀️';
+  // Перерисовываем текущую страницу чтобы JS-рендер подхватил тему
+  const activePage = document.querySelector('.nav-it.active');
+  if (activePage) {
+    const pid = activePage.dataset.page;
+    if (pid === 'production') renderProduction();
+    else if (pid === 'payroll') renderPayroll();
+    else if (pid === 'stats') renderStats();
+    else if (pid === 'orders') renderAllOrders(currentFilter);
+    else if (pid === 'dashboard') renderDashboard();
+    else if (pid === 'staff') renderStaff();
+    else if (pid === 'calendar') renderCalendar();
+  }
 }
 function loadThemeUI() {
   const theme = (localStorage.getItem('crm_theme') || 'light');
@@ -6913,12 +6994,15 @@ function renderProduction() {
     if (!stageTasks.length) return '';
     const open = stageTasks.filter(t=>!t.done);
     const done = stageTasks.filter(t=>t.done);
+    const s = stageC(stg);
+    const doneBadgeBg = isDarkTheme() ? 'rgba(52,211,153,.15)' : '#f0fdf4';
+    const doneBadgeColor = isDarkTheme() ? '#6ee7b7' : '#15803d';
     return `<div style="margin-bottom:18px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <span style="font-size:18px">${stg.icon}</span>
-        <span style="font-size:15px;font-weight:800;color:${stg.color}">${stg.label}</span>
-        <span style="background:${stg.bg};color:${stg.color};border-radius:999px;padding:1px 10px;font-size:12px;font-weight:700">${open.length} откр.</span>
-        ${done.length?`<span style="background:#f0fdf4;color:#15803d;border-radius:999px;padding:1px 10px;font-size:12px;font-weight:700">${done.length} вып.</span>`:''}
+        <span style="font-size:15px;font-weight:800;color:${s.color}">${stg.label}</span>
+        <span style="background:${s.bg};color:${s.color};border-radius:999px;padding:1px 10px;font-size:12px;font-weight:700">${open.length} откр.</span>
+        ${done.length?`<span style="background:${doneBadgeBg};color:${doneBadgeColor};border-radius:999px;padding:1px 10px;font-size:12px;font-weight:700">${done.length} вып.</span>`:''}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
         ${stageTasks.map(t => renderTaskCard(t)).join('')}
@@ -6926,8 +7010,26 @@ function renderProduction() {
     </div>`;
   }).join('');
 }
+// Тёмные варианты цветов для каждой стадии
+const STAGE_DARK_COLORS = {
+  design:      { color:'#a5b4fc', bg:'rgba(167,139,250,.15)', border:'rgba(167,139,250,.25)' },
+  launch:      { color:'#7dd3fc', bg:'rgba(56,189,248,.15)',  border:'rgba(56,189,248,.25)'  },
+  cutting:     { color:'#93c5fd', bg:'rgba(79,142,247,.15)',  border:'rgba(79,142,247,.25)'  },
+  edging:      { color:'#c4b5fd', bg:'rgba(139,92,246,.15)',  border:'rgba(139,92,246,.25)'  },
+  drilling:    { color:'#fbbf24', bg:'rgba(251,191,36,.15)',  border:'rgba(251,191,36,.25)'  },
+  packing:     { color:'#6ee7b7', bg:'rgba(52,211,153,.15)',  border:'rgba(52,211,153,.25)'  },
+  gluing:      { color:'#2dd4bf', bg:'rgba(45,212,191,.15)',  border:'rgba(45,212,191,.25)'  },
+  curvilinear: { color:'#f472b6', bg:'rgba(244,114,182,.15)', border:'rgba(244,114,182,.25)' },
+};
+function stageC(stg) {
+  if (!isDarkTheme()) return stg;
+  return { ...stg, ...(STAGE_DARK_COLORS[stg.key] || {}) };
+}
+
 function renderTaskCard(t) {
   const { o, m, stg, done, assignedIds, completedIds, planDate } = t;
+  const s = stageC(stg); // тема-зависимые цвета
+  const dark = isDarkTheme();
   const isDesign = stg.key === 'design';
   const isLaunch = stg.key === 'launch';
   const isOrderLevel = isDesign || isLaunch;
@@ -6941,26 +7043,32 @@ function renderTaskCard(t) {
   const takeBtn  = isDesign ? `onclick="selfTakeDesign('${o.id}')"` : isLaunch ? `onclick="selfTakeLaunch('${o.id}')"` : `onclick="selfTakeTask('${o.id}','${m?.id}','${stg.key}')"`;
   const doneBtn  = isDesign ? `onclick="completeDesignTask('${o.id}')"` : isLaunch ? `onclick="completeLaunchTask('${o.id}')"` : `onclick="completeTask('${o.id}','${m?.id}','${stg.key}')"`;
   const assignBtn = isDesign ? `onclick="openAssignWorkerDesign('${o.id}')"` : isLaunch ? `onclick="openAssignWorkerLaunch('${o.id}')"` : `onclick="openAssignWorker('${o.id}','${m?.id}','${stg.key}')"`;
+  const cardBg    = dark ? 'var(--card)' : '#fff';
+  const cardBorder = done ? (dark?'rgba(52,211,153,.35)':'#86efac') : isOverdue ? (dark?'rgba(248,113,113,.45)':'#fca5a5') : s.border;
+  const doneBg    = dark ? 'rgba(52,211,153,.15)' : '#f0fdf4';
+  const doneColor = dark ? '#6ee7b7' : '#15803d';
+  const doneBtnBg = dark ? '#15803d' : '#16a34a';
+  const overdueColor = dark ? '#fca5a5' : '#dc2626';
 
-  return `<div style="background:#fff;border:1.5px solid ${done?'#86efac':isOverdue?'#fca5a5':stg.border};border-radius:10px;padding:12px;${done?'opacity:0.75':''}">
+  return `<div style="background:${cardBg};border:1.5px solid ${cardBorder};border-radius:10px;padding:12px;${done?'opacity:0.7':''}">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:8px">
       <div style="min-width:0">
-        <div style="font-size:15px;font-weight:900;color:${stg.color};font-family:monospace;cursor:pointer" onclick="openOrderModal('${o.id}')">${escHtml(o.id)}</div>
+        <div style="font-size:15px;font-weight:900;color:${s.color};font-family:monospace;cursor:pointer" onclick="openOrderModal('${o.id}')">${escHtml(o.id)}</div>
         <div style="font-size:12px;font-weight:700;color:var(--text);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${descLine}</div>
         <div style="font-size:11px;color:var(--muted)">${escHtml(o.client)}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:17px;font-weight:900;color:${stg.color}">${qty}</div>
-        <div style="font-size:10px;color:${isOverdue?'#dc2626':'var(--muted)'};font-weight:600">${planDate?fmt(planDate,true):'—'}</div>
+        <div style="font-size:17px;font-weight:900;color:${s.color}">${qty}</div>
+        <div style="font-size:10px;color:${isOverdue?overdueColor:'var(--muted)'};font-weight:600">${planDate?fmt(planDate,true):'—'}</div>
       </div>
     </div>
-    ${assignedWorkers.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px">${assignedWorkers.map(w=>`<span style="background:${w.color}22;color:${w.color};border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">👤 ${escHtml(w.name)}</span>`).join('')}${takenAt?`<span style="font-size:10px;color:var(--muted);align-self:center">${takenAt}</span>`:''}</div>` : ''}
+    ${assignedWorkers.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px">${assignedWorkers.map(w=>`<span style="background:${w.color}${dark?'30':'22'};color:${w.color};border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">👤 ${escHtml(w.name)}</span>`).join('')}${takenAt?`<span style="font-size:10px;color:var(--muted);align-self:center">${takenAt}</span>`:''}</div>` : ''}
     ${done
-      ? `<div style="background:#f0fdf4;border-radius:7px;padding:6px 10px;font-size:11px;color:#15803d;font-weight:700">Выполнено ${stgData.completed_at?fmt(stgData.completed_at,true):''}</div>`
+      ? `<div style="background:${doneBg};border-radius:7px;padding:6px 10px;font-size:11px;color:${doneColor};font-weight:700">Выполнено ${stgData.completed_at?fmt(stgData.completed_at,true):''}</div>`
       : `<div style="display:flex;gap:6px;flex-wrap:wrap">
           ${(isDesign||isLaunch) ? (canTakeDesignTasks() ? `<button class="btn btn-sm btn-primary" style="font-size:11px;padding:4px 10px" ${takeBtn}>Принять</button>` : '') : (canTakeProductionTasks() ? `<button class="btn btn-sm btn-primary" style="font-size:11px;padding:4px 10px" ${takeBtn}>Принять</button>` : '')}
           ${canAssignTasks() ? `<button class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 10px" ${assignBtn}>Назначить</button>` : ''}
-          ${assignedIds.length ? `<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;background:#16a34a;color:#fff;border:none;border-radius:6px;cursor:pointer" ${doneBtn}>Выполнено</button>` : ''}
+          ${assignedIds.length ? `<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;background:${doneBtnBg};color:#fff;border:none;border-radius:6px;cursor:pointer" ${doneBtn}>Выполнено</button>` : ''}
         </div>`
     }
     ${completedWorkers.length ? `<div style="font-size:10px;color:var(--muted);margin-top:5px">Выполнили: ${completedWorkers.map(w=>`<span style="color:${w.color};font-weight:600">${escHtml(w.name)}</span>`).join(', ')}</div>` : ''}
