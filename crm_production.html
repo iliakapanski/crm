@@ -31,7 +31,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ── SIDEBAR ── */
 .sidebar{width:var(--sb-w);min-height:100vh;background:var(--sb);display:flex;flex-direction:column;flex-shrink:0;position:fixed;left:0;top:0;bottom:0;z-index:300;transition:transform .25s}
 .sb-logo{padding:16px 14px 12px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px}
-.sb-icon{width:32px;height:32px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sb-icon{width:32px;height:32px;background:var(--primary);border-radius:0;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .sb-title{font-size:14px;font-weight:800;color:#fff}
 .sb-sub{font-size:10px;color:var(--sb-text);margin-top:1px}
 .sb-user{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:8px;cursor:pointer}
@@ -560,7 +560,7 @@ table{max-width:100%}
 <!-- STARTUP SCREEN -->
 <div class="startup" id="startup">
   <div class="startup-box">
-    <div class="startup-logo"><svg viewBox="0 0 48 48" width="48" height="48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="8" fill="#111"/><polygon points="0,18 18,0 33,0 0,33" fill="white"/><polygon points="15,48 48,15 48,33 33,48" fill="white"/></svg></div>
+    <div class="startup-logo"><svg viewBox="0 0 48 48" width="48" height="48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" fill="#111"/><polygon points="0,0 19,0 0,19" fill="white"/><polygon points="0,38 38,0 48,10 10,48" fill="white"/><polygon points="29,48 48,29 48,48" fill="white"/></svg></div>
     <div class="startup-title">QazJihaz</div>
     <div class="startup-sub">Авторизация</div>
     <!-- Login form -->
@@ -592,11 +592,12 @@ table{max-width:100%}
 <!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="sb-logo">
-    <div class="sb-icon" style="background:none;padding:0;overflow:hidden">
-      <svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg" style="display:block;border-radius:6px">
+    <div class="sb-icon" style="background:none;padding:0;overflow:hidden;border-radius:0">
+      <svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg" style="display:block">
         <rect width="32" height="32" fill="#111"/>
-        <polygon points="0,12 12,0 22,0 0,22" fill="white"/>
-        <polygon points="10,32 32,10 32,22 22,32" fill="white"/>
+        <polygon points="0,0 13,0 0,13" fill="white"/>
+        <polygon points="0,26 26,0 32,6 6,32" fill="white"/>
+        <polygon points="19,32 32,19 32,32" fill="white"/>
       </svg>
     </div>
     <div><div class="sb-title">QazJihaz</div><div class="sb-sub">Производство</div></div>
@@ -1289,7 +1290,7 @@ function setTheme(t) {
   if (activePage) {
     const pid = activePage.dataset.page;
     if (pid === 'production') renderProduction();
-    else if (pid === 'payroll') renderPayroll();
+    else if (pid === 'payroll') setPayPeriod(payPeriod);
     else if (pid === 'stats') renderStats();
     else if (pid === 'orders') renderAllOrders(currentFilter);
     else if (pid === 'dashboard') renderDashboard();
@@ -2580,7 +2581,7 @@ function showPage(id) {
   if (id==='dashboard')   renderDashboard();
   if (id==='stats')       renderStats();
   if (id==='production')  renderProduction();
-  if (id==='payroll')     renderPayroll();
+  if (id==='payroll')     setPayPeriod(payPeriod);
   if (id==='constructor-tasks') renderConstructorTasks();
   closeSidebar();
 }
@@ -6534,7 +6535,7 @@ function refreshAll() {
   if (ap('orders'))      renderAllOrders(currentFilter);
   if (ap('stats'))       renderStats();
   if (ap('production'))  renderProduction();
-  if (ap('payroll'))     renderPayroll();
+  if (ap('payroll'))     setPayPeriod(payPeriod);
   if (ap('constructor-tasks')) renderConstructorTasks();
 }
 
@@ -7536,7 +7537,7 @@ function openAssignWorkerOrderStage(orderId, stageKey) {
 // ============================================================
 // НАЧИСЛЕНИЯ
 // ============================================================
-let payPeriod = 'month';
+let payPeriod = 'today';
 function setPayPeriod(p) {
   payPeriod = p;
   ['today','week','month','custom'].forEach(k => {
