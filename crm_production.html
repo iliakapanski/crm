@@ -769,14 +769,6 @@ table{max-width:100%}
           <div id="edit-mat-list" style="display:flex;flex-direction:column;gap:5px"></div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px">Итого листов: <b id="edit-mat-total">0</b> л. · Кромка: <b id="edit-mat-edging">0</b> м.</div>
         </div>
-        <div><label class="fl">Конструктор</label><select id="e-designer" class="fc"></select></div>
-        <div><label class="fl">Статус</label>
-          <select id="e-status" class="fc">
-            <option value="new">Новый</option><option value="designing">У конструктора</option>
-            <option value="production">В производстве</option>
-            <option value="done">Готово</option>
-          </select>
-        </div>
         <div><label class="fl">Нестинг</label>
           <div style="display:flex;gap:6px">
             <button type="button" id="e-nest-none" onclick="setEditNesting(0)" class="btn btn-sm btn-secondary" style="flex:1">Нет</button>
@@ -4140,7 +4132,7 @@ function openEdit(id) {
   document.getElementById('e-client').value = o.client;
   document.getElementById('e-desc').value   = o.desc;
   document.getElementById('e-sheets').value = o.sheets;
-  document.getElementById('e-status').value = o.status;
+  const eStatusEl = document.getElementById('e-status'); if (eStatusEl) eStatusEl.value = o.status;
   // Заполняем материалы
   editMaterials = o.materials ? o.materials.map(m => ({ ...m, stages: m.stages || {} })) : [];
   renderEditMatList();
@@ -4170,22 +4162,7 @@ function openEdit(id) {
   setEditNesting(editNesting);
   document.getElementById('e-cap-warn').classList.add('hidden');
 
-  const sel = document.getElementById('e-designer');
-  sel.innerHTML = '<option value="">-- Не назначен --</option>' +
-    designers.map(d=>`<option value="${d.id}" ${o.designer_id===d.id?'selected':''}>${desName(d.id)}</option>`).join('');
-  // При смене конструктора в dropdown — сразу обновить design_worker_ids и секцию
-  sel.onchange = function() {
-    const newDesId = parseInt(this.value) || null;
-    const newDesUser = newDesId ? USERS.find(u => u.designer_id === newDesId) : null;
-    if (newDesUser) {
-      o.design_worker_ids = [newDesUser.id];
-    } else {
-      o.design_worker_ids = [];
-    }
-    renderEditWorkersSection(o);
-  };
-
-  // Render workers section in edit modal
+  // Render workers section in edit modal (назначение конструктора теперь через этот блок)
   renderEditWorkersSection(o);
 
   document.getElementById('edit-overlay').classList.add('show');
@@ -4239,17 +4216,27 @@ function renderEditWorkersSection(o) {
     { key:'curvilinear', ic:'〰️', lbl:'Криволинейка', wids: o.curvilinear_worker_ids||[], skip: !o.has_curvilinear, done: !!o.stages_done?.curvilinear },
     { key:'packing',     ic:'📦', lbl:'Упаковка',     wids: [], skip: o.no_packing, done: false }
   ];
-  // Aggregate material-level worker_ids
+  // Aggregate material-level worker_ids — считаем только релевантные материалы для стадии
   if (o.materials && o.materials.length) {
     ['cutting','edging','drilling','packing'].forEach(k => {
       const allIds = new Set();
-      let anyDone = true;
-      o.materials.forEach(m => {
+      // Определяем какие материалы реально участвуют в этой стадии
+      const relevant = o.materials.filter(m => {
+        if (m.type === 'edging') return k === 'edging' && !o.no_edging;
+        if (!isSheetMat(m)) return false;
+        if (k === 'cutting') return !o.no_cutting;
+        if (k === 'edging') return matHasEdging(m) && !o.no_edging;
+        if (k === 'drilling') return matHasDrilling(m) && !o.no_drilling;
+        if (k === 'packing') return !o.no_packing;
+        return true;
+      });
+      let anyDone = relevant.length > 0;
+      relevant.forEach(m => {
         (m.stages?.[k]?.worker_ids||[]).forEach(id => allIds.add(id));
         if (!m.stages?.[k]?.done) anyDone = false;
       });
       const sd = stagesDef.find(s=>s.key===k);
-      if (sd) { sd.wids = [...allIds]; sd.done = anyDone && allIds.size > 0; }
+      if (sd) { sd.wids = [...allIds]; sd.done = anyDone; }
     });
   }
   el.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Назначенные сотрудники</div>
@@ -4443,21 +4430,10 @@ function saveEdit() {
   if (!o) return;
 
   const ns    = parseInt(document.getElementById('e-sheets').value)||o.sheets;
-  const newDesId = parseInt(document.getElementById('e-designer').value)||null;
   const newCut = document.getElementById('e-cutting').value||null;
   let   newEdg = document.getElementById('e-edging').value||null;  // let — может быть обновлено при сплите
   const newDrl = document.getElementById('e-drilling').value||null;
   const newPkg = document.getElementById('e-packing').value||null;
-
-  const oldDesId = o.designer_id;
-
-  // When designer changes, update design_worker_ids
-  if (newDesId !== oldDesId) {
-    const newDesUser = USERS.find(u => u.designer_id === newDesId);
-    if (newDesUser) {
-      o.design_worker_ids = [newDesUser.id];
-    }
-  }
 
   // Пересчитываем materials из edit-формы
   const editedMats = collectEditMaterials();
@@ -4472,7 +4448,6 @@ function saveEdit() {
   o.client      = document.getElementById('e-client').value.trim()||o.client;
   o.desc        = document.getElementById('e-desc').value.trim()||o.desc;
   o.sheets      = ns;
-  o.status      = document.getElementById('e-status').value;
   o.design_end  = document.getElementById('e-design-end').value||null;
   const elLaunchIn = document.getElementById('e-launch');
   o.launch_date = elLaunchIn ? (elLaunchIn.value || null) : (o.launch_date || null);
@@ -4617,24 +4592,8 @@ function doDelete(id) {
 // ============================================================
 let assignOrderId = null;
 function openAssign(id) {
-  const o = orders.find(x=>x.id===id);
-  if (!o) return;
-  assignOrderId = id;
-  document.getElementById('assign-order-sub').textContent = id + ' · ' + o.desc;
-  document.getElementById('assign-body').innerHTML = designers.map(d => {
-    const busy   = d.busy_until >= TODAY;
-    const isCur  = o.designer_id === d.id;
-    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="assignDesigner('${id}',${d.id})">
-      <div class="des-av" style="background:${desColor(d.id)}">${desInitials(d.id)}</div>
-      <div style="flex:1">
-        <div style="font-weight:700;font-size:14px">${desName(d.id)}</div>
-        <div style="font-size:12px;color:var(--muted)">Свободен: ${busy?'с '+fmt(addWorkDays(d.busy_until,1),true):'сегодня'}</div>
-      </div>
-      ${isCur?'<span class="tag" style="background:#dbeafe;color:#1d4ed8">Текущий</span>':''}
-      <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();assignDesigner('${id}',${d.id})">Назначить</button>
-    </div>`;
-  }).join('');
-  document.getElementById('assign-overlay').classList.add('show');
+  // Старый диалог заменён актуальным пикером конструкторов на базе USERS
+  if (typeof openAssignWorkerDesign === 'function') return openAssignWorkerDesign(id);
 }
 function closeAssign() { document.getElementById('assign-overlay').classList.remove('show'); assignOrderId=null; }
 
