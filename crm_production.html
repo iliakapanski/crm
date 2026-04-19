@@ -4023,7 +4023,13 @@ function renderCalTableView(days) {
 
 // ── DETAIL VIEW (день / 3 дня) ─────────────────────────────────
 function renderCalDetailView(days) {
-  const OPS = [
+  const dk = isDarkTheme();
+  const OPS = dk ? [
+    {key:'cutting',  icon:'',  label:'Распил',            cls:'cc-cut', border:'rgba(79,142,247,.3)',  bg:'rgba(79,142,247,.1)',  hdr:'#93c5fd'},
+    {key:'edging',   icon:'', label:'Кромка',             cls:'cc-edg', border:'rgba(139,92,246,.3)',  bg:'rgba(139,92,246,.1)',  hdr:'#c4b5fd'},
+    {key:'drilling', icon:'', label:'Присадка',           cls:'cc-drl', border:'rgba(251,191,36,.35)', bg:'rgba(251,191,36,.1)', hdr:'#fbbf24'},
+    {key:'packing',  icon:'', label:'Упаковка/Отгрузка', cls:'cc-pkg', border:'rgba(52,211,153,.3)',  bg:'rgba(52,211,153,.1)',  hdr:'#6ee7b7'},
+  ] : [
     {key:'cutting',  icon:'',  label:'Распил',            cls:'cc-cut', border:'#bfdbfe', bg:'#eff6ff', hdr:'#1d4ed8'},
     {key:'edging',   icon:'', label:'Кромка',             cls:'cc-edg', border:'#ddd6fe', bg:'#f5f3ff', hdr:'#5b21b6'},
     {key:'drilling', icon:'', label:'Присадка',           cls:'cc-drl', border:'#fde68a', bg:'#fffbeb', hdr:'#92400e'},
@@ -4038,7 +4044,8 @@ function renderCalDetailView(days) {
     const wd = dayName(date);
     const weekend = !isWork(date) && !workingWeekends.has(date);
 
-    const dateHeader = `<div style="text-align:center;padding:10px 8px 8px;border-bottom:2px solid var(--border);background:${isT?'#eff6ff':'#f8fafc'};border-radius:10px 10px 0 0">
+    const hdrBg = isT ? (dk?'rgba(10,132,255,.15)':'#eff6ff') : (dk?'var(--card)':'#f8fafc');
+    const dateHeader = `<div style="text-align:center;padding:10px 8px 8px;border-bottom:2px solid var(--border);background:${hdrBg};border-radius:10px 10px 0 0">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:${isT?'var(--primary)':'var(--muted)'};letter-spacing:.06em">${isT?'Сегодня':wd.l}</div>
       <div style="font-size:28px;font-weight:900;line-height:1.1;color:${isT?'var(--primary)':weekend?'#94a3b8':'var(--text)'}">${toDate(date).getDate()}</div>
       <div style="font-size:11px;color:var(--muted);font-weight:600">${fmt(date)}</div>
@@ -4110,7 +4117,7 @@ function renderCalDetailView(days) {
           const qtyVal = isEdgSec ? (matHasEdging(m) ? matAutoEdging(m) : 0) : (m.qty || 0);
           const qtyUnit = isEdgSec ? 'м' : 'л';
           if (isEdgSec && qtyVal <= 0) return '';
-          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed #f1f5f9">
+          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed var(--border)">
             <span style="font-size:13px">${done?'':'⬜'}</span>
             <div style="flex:1;min-width:0">
               <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(m.desc)}">${descText}</div>
@@ -4127,7 +4134,7 @@ function renderCalDetailView(days) {
           if (reschedTo && reschedTo !== date) suffix = ` → ${fmt(reschedTo,true)}`;
           else if (reschedTo === date) suffix = ' ↩';
           const descText = m.desc ? escHtml(m.desc) : 'Кромка';
-          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed #f1f5f9">
+          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed var(--border)">
             <span style="font-size:13px">${done?'':'⬜'}</span>
             <div style="flex:1;min-width:0">
               <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(m.desc)}">${descText}</div>
@@ -4144,7 +4151,7 @@ function renderCalDetailView(days) {
         const statusBadge = {'new':'Новый','designing':'Конструктор','production':'В производстве','done':'Готово'}[o.status]||o.status;
         const doneStages = (o.stages_done||[]).length;
 
-        return `<div style="background:${op.bg};border:1.5px solid ${op.border};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 4px 14px rgba(0,0,0,.10)'" onmouseleave="this.style.boxShadow=''" onclick="openOrderModal('${o.id}')">
+        return `<div style="background:${dk?'var(--card)':op.bg};border:1.5px solid ${op.border};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 4px 14px rgba(0,0,0,.35)'" onmouseleave="this.style.boxShadow=''" onclick="openOrderModal('${o.id}')">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
             <div style="min-width:0">
               <div style="font-size:15px;font-weight:900;font-family:monospace;color:${op.hdr};letter-spacing:.02em;margin-bottom:2px">ID ${escHtml(o.id)}</div>
@@ -4169,7 +4176,7 @@ function renderCalDetailView(days) {
         <span style="color:${free<=0?'#dc2626':free<=cap*.3?'#d97706':'#16a34a'};font-weight:700">${free<=0?'🔴 Полная загрузка':free<=cap*.3?'🟡 '+free+' св.':'🟢 '+free+' св.'}</span>
       </div>` : '';
 
-      return `<div style="border:1px solid ${op.border};border-radius:9px;padding:12px;margin-bottom:10px;background:#fff">
+      return `<div style="border:1px solid ${op.border};border-radius:9px;padding:12px;margin-bottom:10px;background:${dk?'var(--card)':'#fff'}">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">
           <span style="font-size:14px">${op.icon}</span>
           <span style="font-size:12px;font-weight:800;color:${op.hdr};text-transform:uppercase;letter-spacing:.05em">${op.label}</span>
@@ -4179,7 +4186,7 @@ function renderCalDetailView(days) {
       </div>`;
     }).filter(Boolean).join('');
 
-    return `<div style="flex:1;min-width:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff">
+    return `<div style="flex:1;min-width:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:${dk?'#1c1c1e':'#fff'}">
       ${dateHeader}
       <div style="padding:10px 12px;overflow-y:auto;max-height:72vh">${millSectionHtml}${opsHtml || (!millItems.length ? '<div style="text-align:center;padding:30px 16px;color:var(--muted);font-size:13px"> Нет заказов</div>' : '')}</div>
     </div>`;
@@ -7572,7 +7579,7 @@ function renderPayroll() {
     // Ставка зависит от СТАДИИ (design), а НЕ от флага launch_only
     if (!o.no_project && o.stages_done?.design && dsd?.completed_ids?.length) {
       const completedAt = dsd.completed_at || '';
-      if (!completedAt || (completedAt >= from && completedAt <= to)) {
+      if (completedAt && completedAt >= from && completedAt <= to) {
         const rate   = workerRates.design || 4000;
         const total  = (o.sheets || 0) * rate;
         const share  = total / (dsd.completed_ids.length || 1);
@@ -7587,7 +7594,7 @@ function renderPayroll() {
     // Legacy: design tasks by designer_id (without design_worker_ids)
     if (!o.no_project && o.stages_done?.design && o.designer_id && !(dsd?.completed_ids?.length)) {
       const completedAt = dsd?.completed_at || o.stages_done._design_fact_date || '';
-      if (!completedAt || (completedAt >= from && completedAt <= to)) {
+      if (completedAt && completedAt >= from && completedAt <= to) {
         const desUser = USERS.find(u => u.designer_id === o.designer_id);
         if (desUser && workerData[desUser.id]) {
           const rate   = workerRates.design || 4000;
@@ -7601,7 +7608,7 @@ function renderPayroll() {
     // Launch task payroll (separate stage with its own workers) — ставка launch (500₸/лист)
     if (lsd?.done && lsd.completed_ids?.length) {
       const completedAt = lsd.completed_at || '';
-      if (!completedAt || (completedAt >= from && completedAt <= to)) {
+      if (completedAt && completedAt >= from && completedAt <= to) {
         const rate   = workerRates.launch || 500;
         const total  = (o.sheets || 0) * rate;
         const share  = total / (lsd.completed_ids.length || 1);
@@ -7616,7 +7623,7 @@ function renderPayroll() {
     // Gluing payroll (order-level, по м²)
     if (o.has_gluing && o.stages_done?.gluing && o.stages_done._gluing_completed_ids?.length) {
       const completedAt = o.stages_done._gluing_fact_date || '';
-      if (!completedAt || (completedAt >= from && completedAt <= to)) {
+      if (completedAt && completedAt >= from && completedAt <= to) {
         const rate  = workerRates.gluing || 0;
         const total = (o.gluing_sqm || 0) * rate;
         const share = total / (o.stages_done._gluing_completed_ids.length || 1);
@@ -7631,7 +7638,7 @@ function renderPayroll() {
     // Curvilinear payroll (order-level, по метрам)
     if (o.has_curvilinear && o.stages_done?.curvilinear && o.stages_done._curvilinear_completed_ids?.length) {
       const completedAt = o.stages_done._curvilinear_fact_date || '';
-      if (!completedAt || (completedAt >= from && completedAt <= to)) {
+      if (completedAt && completedAt >= from && completedAt <= to) {
         const rate  = workerRates.curvilinear || 0;
         const total = (o.curvilinear_meters || 0) * rate;
         const share = total / (o.stages_done._curvilinear_completed_ids.length || 1);
@@ -7649,7 +7656,7 @@ function renderPayroll() {
         const s = m.stages?.[stg.key];
         if (!s?.done || !s.completed_ids?.length) return;
         const completedAt = s.completed_at || s.fact_date || '';
-        if (completedAt && (completedAt < from || completedAt > to)) return;
+        if (!completedAt || completedAt < from || completedAt > to) return;
         const qty   = stg.key === 'edging'
           ? (m.type === 'edging' ? (parseFloat(m.qty)||0) : matAutoEdging(m))
           : (m.qty || 0);
