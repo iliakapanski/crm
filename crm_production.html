@@ -3497,7 +3497,8 @@ function createOrder() {
       if (_formDefectFiles.length && _sb) {
         for (const file of _formDefectFiles) {
           try {
-            const path = `orders/${num}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+            const safeOrderId = String(num).replace(/[^a-zA-Z0-9_-]/g, '_');
+            const path = `orders/${safeOrderId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
             const { error } = await _sb.storage.from('crm-files').upload(path, file, { upsert: true });
             if (!error) {
               const { data: urlData } = _sb.storage.from('crm-files').getPublicUrl(path);
@@ -5103,7 +5104,8 @@ async function submitComment(orderId) {
   if (_commentFiles.length && _sb) {
     for (const file of _commentFiles) {
       try {
-        const path = `orders/${orderId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+        const safeOrderId = String(orderId).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const path = `orders/${safeOrderId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
         const { error } = await _sb.storage.from('crm-files').upload(path, file, { upsert: true });
         if (!error) {
           const { data: urlData } = _sb.storage.from('crm-files').getPublicUrl(path);
