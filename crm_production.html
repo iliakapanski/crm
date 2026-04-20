@@ -698,7 +698,9 @@ table{max-width:100%}
           <label class="checkbox-row"><input type="checkbox" id="f-no-drilling" onchange="recalcFormSheets()"> Без присадки</label>
           <label class="checkbox-row"><input type="checkbox" id="f-no-packing" onchange="recalcFormSheets()"> Без упаковки</label>
           <label class="checkbox-row" style="color:#dc2626"><input type="checkbox" id="f-urgent"> &#128293; Срочно</label>
+          <label class="checkbox-row" style="color:#dc2626;font-weight:700"><input type="checkbox" id="f-is-defect" onchange="onDefectToggle(this.checked)"> 🔴 Брак/Переделка</label>
         </div>
+        <div id="f-defect-ref-wrap" style="display:none"><label class="fl">Исходный заказ (необязательно)</label><input id="f-defect-ref" class="fc" type="text" placeholder="Номер исходного заказа, например 1333"></div>
         <div class="fs2" style="display:flex;gap:20px;flex-wrap:wrap;margin-top:6px">
           <label class="checkbox-row"><input type="checkbox" id="f-has-milling" onchange="onMillingToggle(this.checked)"> Есть фрезеровка</label>
           <label class="checkbox-row"><input type="checkbox" id="f-has-gluing" onchange="document.getElementById('f-gluing-wrap').style.display=this.checked?'':'none'"> Есть склейка</label>
@@ -815,6 +817,7 @@ table{max-width:100%}
           <button class="btn btn-sm btn-secondary" onclick="filterOrders('designing')">У конструктора</button>
           <button class="btn btn-sm btn-secondary" onclick="filterOrders('production')">В производстве</button>
           <button class="btn btn-sm btn-secondary" onclick="filterOrders('done')">Готово</button>
+          <button class="btn btn-sm" id="filter-defect-btn" onclick="toggleDefectFilter()" style="background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;font-weight:700">🔴 Брак скрыт</button>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap">Сортировка:</span>
@@ -2316,7 +2319,7 @@ function buildProdCalFrom(orderList) {
     prodCal[date][op] = (prodCal[date][op]||0) + n;
   }
   const OPS = ['cutting','edging','drilling','packing'];
-  orderList.filter(o => o.status !== 'done').forEach(o => {
+  orderList.filter(o => o.status !== 'done' && (o.type !== 'defect' || showDefectOrders)).forEach(o => {
     // Собираем ВСЕ даты, к которым причастен заказ (базовые + рескедулы)
     const dates = new Set();
     if (o.cutting_date) dates.add(o.cutting_date);
@@ -3035,6 +3038,18 @@ function recalcFormSheets() {
   onSheetsChange(sheets);
 }
 
+function onDefectToggle(checked) {
+  const wrap = document.getElementById('f-defect-ref-wrap');
+  if (wrap) wrap.style.display = checked ? '' : 'none';
+  if (checked) {
+    // Auto-fill defect number
+    const numField = document.getElementById('f-num');
+    if (numField && !numField.value.startsWith('Б-')) {
+      numField.value = getNextDefectNum();
+    }
+  }
+}
+
 function onMillingToggle(checked) {
   if (checked) {
     document.getElementById('f-no-edging').checked = true;
@@ -3382,6 +3397,10 @@ function createOrder() {
     night_shift: p.nightShift||false,
     nesting: formNesting || null,
     urgent: document.getElementById('f-urgent')?.checked||false,
+    type: document.getElementById('f-is-defect')?.checked ? 'defect' : 'order',
+    defect_num: document.getElementById('f-is-defect')?.checked ? document.getElementById('f-num').value : null,
+    defect_ref: document.getElementById('f-is-defect')?.checked ? (document.getElementById('f-defect-ref')?.value?.trim() || null) : null,
+    comments: [],
     created: TODAY,
     history: [],
     stages_done: {},
@@ -3423,6 +3442,14 @@ function createOrder() {
   if (!isNaN(numParsed)) {
     const stored = parseInt(localStorage.getItem('crm_last_order_num')||'0');
     localStorage.setItem('crm_last_order_num', String(Math.max(stored, numParsed)));
+  }
+  // Сохраняем счётчик брака
+  if (newO.type === 'defect' && newO.defect_num) {
+    const defN = parseInt(String(newO.defect_num).replace('Б-', ''));
+    if (!isNaN(defN)) {
+      const storedD = parseInt(localStorage.getItem('crm_last_defect_num') || '0');
+      localStorage.setItem('crm_last_defect_num', String(Math.max(storedD, defN)));
+    }
   }
 
   // Полный пересчёт prodCal (без инкрементальных add/sub — без призраков)
@@ -3466,6 +3493,23 @@ function getNextOrderNum() {
   return String(max + 1);
 }
 
+function getNextDefectNum() {
+  // Б-001, Б-002, ...
+  const stored = parseInt(localStorage.getItem('crm_last_defect_num') || '0');
+  let max = stored;
+  orders.forEach(o => {
+    if (o.type === 'defect' && o.defect_num) {
+      const n = parseInt(String(o.defect_num).replace('Б-', ''));
+      if (!isNaN(n)) max = Math.max(max, n);
+    }
+  });
+  return 'Б-' + String(max + 1).padStart(3, '0');
+}
+
+function defectBadge() {
+  return '<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:.05em">БРАК</span>';
+}
+
 function resetForm() {
   const nextNum = getNextOrderNum();
   document.getElementById('f-num').value    = nextNum;
@@ -3491,6 +3535,9 @@ function resetForm() {
   document.getElementById('create-result').classList.add('hidden');
   document.getElementById('form-btns').classList.remove('hidden');
   pendingSched = null;
+  const fid = document.getElementById('f-is-defect'); if(fid) fid.checked = false;
+  const fdr = document.getElementById('f-defect-ref'); if(fdr) fdr.value = '';
+  const fdrw = document.getElementById('f-defect-ref-wrap'); if(fdrw) fdrw.style.display = 'none';
   formMaterials = [];
   formNesting = 1;
   setFormNesting(1);
@@ -3985,8 +4032,8 @@ function renderCalTableView(days) {
     const total = inProgress.length + designDone.length;
     if (!total) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = [
-      ...inProgress.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}">${o.urgent?'🔥':''}${o.id}/${o.sheets}л.</span>`),
-      ...designDone.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${o.urgent?'🔥':''}${o.id}/${o.sheets}л.</span>`)
+      ...inProgress.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}">${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.id}/${o.sheets}л.</span>`),
+      ...designDone.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.id}/${o.sheets}л.</span>`)
     ].join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#3730a3;font-weight:700">${total} зак.</div><div class="cal-chips">${chips}</div></div></td>`;
   }
@@ -4142,7 +4189,7 @@ function renderCalTableView(days) {
         stgDone = !!(o.stages_done?.[op]);
       }
       const nestBadge = o.nesting ? (o.nesting===3?' [ФРС]':` [N${o.nesting}]`) : '';
-      let label = `${stgDone ? '✓ ' : ''}${o.urgent?'🔥':''}${o.id}/${qty}${unit}${nestBadge}`;
+      let label = `${stgDone ? '✓ ' : ''}${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.id}/${qty}${unit}${nestBadge}`;
       if (o.materials && o.materials.length) {
         const allSheetMats = o.materials.filter(m => isSheetMat(m));
         if (allSheetMats.length > 1) {
@@ -4702,6 +4749,7 @@ function renderDesigners() { renderStaff(); }
 let currentFilter = 'all';
 let currentSort = 'created';
 let currentSearch = '';
+let showDefectOrders = false; // по умолчанию брак скрыт
 function onOrdersSearch(val) {
   currentSearch = (val || '').trim().toLowerCase();
   renderAllOrders(currentFilter);
@@ -4710,9 +4758,21 @@ function filterOrders(f) {
   currentFilter = f;
   const filterKeys = ['all','new','designing','production','done'];
   document.querySelectorAll('#filter-btns .btn').forEach((b, i) => {
+    if (b.id === 'filter-defect-btn') return; // не трогаем кнопку брака
     b.className = 'btn btn-sm ' + (filterKeys[i] === f ? 'btn-primary' : 'btn-secondary');
   });
   renderAllOrders(f);
+}
+
+function toggleDefectFilter() {
+  showDefectOrders = !showDefectOrders;
+  const btn = document.getElementById('filter-defect-btn');
+  if (btn) {
+    btn.textContent = showDefectOrders ? '🔴 Брак виден' : '🔴 Брак скрыт';
+    btn.style.background = showDefectOrders ? '#dc2626' : '#fee2e2';
+    btn.style.color = showDefectOrders ? '#fff' : '#dc2626';
+  }
+  renderAllOrders(currentFilter);
 }
 function setSortOrders(s) {
   currentSort = s;
@@ -4743,6 +4803,8 @@ function renderAllOrders(filter) {
     btn.style.cssText = 'padding:4px 10px;font-size:11px;border-radius:5px' + (k!==currentSort?';background:transparent;color:var(--muted)':'');
   });
   let list = filter==='all' ? [...orders] : orders.filter(o=>o.status===filter);
+  // Скрываем/показываем брак
+  if (!showDefectOrders) list = list.filter(o => o.type !== 'defect');
   if (currentSearch) list = list.filter(o => orderMatchesSearch(o, currentSearch));
   list.sort((a,b) => {
     // Urgent orders always first
@@ -4753,8 +4815,8 @@ function renderAllOrders(filter) {
     return (a.created||'') < (b.created||'') ? -1 : 1;
   });
   document.getElementById('all-tbody').innerHTML = list.map(o=>{
-    return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer;${o.urgent?'background:#fff1f2':''}">
-      <td><div class="on" style="cursor:pointer;color:var(--primary);font-weight:800;font-size:13px" onclick="event.stopPropagation();openOrderModal('${o.id}')">${o.urgent?'&#128293; ':''}${o.id}</div><div style="font-size:10px;color:var(--muted)">${fmt(o.created)}</div></td>
+    return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer;${o.type==='defect'?'background:#fff5f5;border-left:3px solid #fca5a5':o.urgent?'background:#fff1f2':''}">
+      <td><div class="on" style="cursor:pointer;color:${o.type==='defect'?'#dc2626':'var(--primary)'};font-weight:800;font-size:13px" onclick="event.stopPropagation();openOrderModal('${o.id}')">${o.urgent?'&#128293; ':''}${o.id}</div>${o.type==='defect'?defectBadge():''}<div style="font-size:10px;color:var(--muted)">${fmt(o.created)}</div></td>
       <td><div class="od">${o.desc}</div><div class="oc">${o.client}</div></td>
       <td><span class="sv">${o.sheets}</span> л.
         ${o.no_edging?'<span class="tag" style="font-size:9px;margin-left:3px">без кромки</span>':''}
@@ -4828,6 +4890,7 @@ function openOrderModal(id) {
     <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       ${sBadge(o.status)}
       ${o.urgent?'<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">&#128293; Срочно</span>':''}
+      ${o.type==='defect'?`${defectBadge()}<span style="color:var(--muted);font-size:12px">Брак/Переделка${o.defect_ref?' · Исходный заказ: <b>'+escHtml(o.defect_ref)+'</b>':''}</span>`:''}
       ${o.created_by?`<span class="tag" style="margin-left:4px">Создал: ${o.created_by}</span>`:''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;margin-bottom:14px">
@@ -4865,14 +4928,106 @@ function openOrderModal(id) {
       <div style="background:#f8fafc;border-radius:7px;padding:9px 11px"><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Создан</div>${fmt(o.created,true)}</div>
       <div style="background:#f8fafc;border-radius:7px;padding:9px 11px"><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Тип</div>${o.urgent?'<span style="color:#dc2626;font-weight:700">&#128293; Срочно</span>':'Обычный'}</div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
       <button class="btn btn-primary btn-sm" onclick="closeOrderModal();openStages('${o.id}')">☑ Отметить стадии</button>
       <button class="btn btn-secondary btn-sm" onclick="openOrderHistory('${o.id}')">История</button>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">💬 Комментарии и вложения</div>
+      <div id="om-comments" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${renderComments(o)}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;background:#f8fafc;border-radius:9px;padding:12px;border:1px solid var(--border)">
+        <textarea id="om-comment-text" placeholder="Написать комментарий..." rows="2" class="fc" style="resize:vertical;font-size:13px;padding:8px 10px"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <label class="btn btn-sm btn-secondary" style="cursor:pointer;padding:5px 12px">
+            📎 Прикрепить файл
+            <input type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="display:none" onchange="onCommentFileSelect(event,'${o.id}')">
+          </label>
+          <div id="om-comment-files" style="font-size:11px;color:var(--muted)"></div>
+          <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="submitComment('${o.id}')">Отправить</button>
+        </div>
+      </div>
     </div>`;
 
   document.getElementById('order-overlay').classList.add('show');
 }
 function closeOrderModal() { document.getElementById('order-overlay').classList.remove('show'); }
+
+// ============================================================
+// КОММЕНТАРИИ И ВЛОЖЕНИЯ
+// ============================================================
+let _commentFiles = []; // pending files for current comment
+
+function renderComments(o) {
+  const comments = o.comments || [];
+  if (!comments.length) return '<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px">Комментариев пока нет</div>';
+  return comments.slice().reverse().map(c => `
+    <div style="background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:700;color:var(--primary)">${escHtml(c.user||'—')}</div>
+        <div style="font-size:10px;color:var(--muted)">${c.date||''} ${c.time||''}</div>
+      </div>
+      ${c.text ? `<div style="font-size:13px;margin-bottom:6px;white-space:pre-wrap">${escHtml(c.text)}</div>` : ''}
+      ${(c.files||[]).length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${c.files.map(f=>
+        `<a href="${escHtml(f.url)}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;text-decoration:none;color:var(--text)">
+          ${f.type&&f.type.startsWith('image/')?'🖼':'📎'} ${escHtml(f.name)}
+        </a>`).join('')}</div>` : ''}
+    </div>`).join('');
+}
+
+function onCommentFileSelect(event, orderId) {
+  const files = Array.from(event.target.files || []);
+  _commentFiles = files;
+  const el = document.getElementById('om-comment-files');
+  if (el) el.textContent = files.length ? files.map(f=>f.name).join(', ') : '';
+}
+
+async function submitComment(orderId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  const textEl = document.getElementById('om-comment-text');
+  const text = textEl ? textEl.value.trim() : '';
+  if (!text && !_commentFiles.length) return;
+
+  const comment = {
+    id: Date.now(),
+    user: currentUser?.name || 'Менеджер',
+    date: TODAY,
+    time: new Date().toLocaleTimeString('ru', {hour:'2-digit',minute:'2-digit'}),
+    text,
+    files: []
+  };
+
+  // Upload files to Supabase Storage if any
+  if (_commentFiles.length && _sb) {
+    for (const file of _commentFiles) {
+      try {
+        const path = `orders/${orderId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+        const { data, error } = await _sb.storage.from('crm-files').upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = _sb.storage.from('crm-files').getPublicUrl(path);
+          comment.files.push({ name: file.name, url: urlData.publicUrl, type: file.type, path });
+        } else {
+          console.warn('File upload error:', error.message);
+        }
+      } catch(e) { console.warn('Upload error:', e); }
+    }
+  }
+
+  if (!o.comments) o.comments = [];
+  o.comments.push(comment);
+  markDirty(orderId);
+  saveOrders();
+
+  // Reset input
+  if (textEl) textEl.value = '';
+  _commentFiles = [];
+  const filesEl = document.getElementById('om-comment-files');
+  if (filesEl) filesEl.textContent = '';
+
+  // Re-render comments
+  const commentsEl = document.getElementById('om-comments');
+  if (commentsEl) commentsEl.innerHTML = renderComments(o);
+}
 
 // ============================================================
 // ИСТОРИЯ ЗАКАЗА
