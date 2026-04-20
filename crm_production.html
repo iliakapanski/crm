@@ -3660,14 +3660,18 @@ const _CAL_TABLE_ALL_COLS = ['design','launch','cutting','edging','drilling','gl
 let calTableColFlt = new Set(_CAL_TABLE_ALL_COLS);
 function toggleCalTableCol(key) {
   if (calTableColFlt.has(key)) {
-    if (calTableColFlt.size > 1) calTableColFlt.delete(key);
+    calTableColFlt.delete(key);
   } else {
     calTableColFlt.add(key);
   }
   renderCalendar();
 }
 function calTableColAll() {
-  calTableColFlt = new Set(_CAL_TABLE_ALL_COLS);
+  if (calTableColFlt.size === _CAL_TABLE_ALL_COLS.length) {
+    calTableColFlt = new Set(); // скрыть все колонки
+  } else {
+    calTableColFlt = new Set(_CAL_TABLE_ALL_COLS); // показать все
+  }
   renderCalendar();
 }
 
@@ -4093,6 +4097,8 @@ function renderCalTableView(days) {
   const ORD_COLORS  = ['#1d4ed8','#7c3aed','#0f766e','#b45309','#9d174d','#1e3a5f','#3730a3','#065f46'];
   const MAT_PALETTE = ['#60a5fa','#a78bfa','#34d399','#fbbf24','#fb923c','#f472b6','#38bdf8','#4ade80','#c084fc','#f87171'];
   const _dk = isDarkTheme();
+  // Фильтр брака: все внутренние функции используют viewOrders вместо orders
+  const viewOrders = showDefectOrders ? orders : orders.filter(o => o.type !== 'defect');
   // Определение всех колонок с функциями рендера и стилями для фильтр-бара
   const TABLE_COLS = [
     { key:'design',      label:'Проект',            color:'#3730a3', btnBg: _dk?'rgba(99,102,241,.18)':'#eef2ff',  td: d => designTd(d) },
@@ -4108,13 +4114,13 @@ function renderCalTableView(days) {
   ];
 
   function designTd(date) {
-    const inProgress = orders.filter(o => {
+    const inProgress = viewOrders.filter(o => {
       if (o.no_project || !o.design_end || o.stages_done?.design) return false;
       if (o.launch_only) return o.design_end === date;
       const dsStart = subWorkDays(o.design_end, 2);
       return date >= dsStart && date <= o.design_end;
     });
-    const designDone = orders.filter(o => {
+    const designDone = viewOrders.filter(o => {
       if (o.no_project || !o.design_end || !o.stages_done?.design) return false;
       if (o.launch_only) return o.design_end === date;
       const dsStart = subWorkDays(o.design_end, 2);
@@ -4130,7 +4136,7 @@ function renderCalTableView(days) {
   }
 
   function launchTd(date) {
-    const inProgress = orders.filter(o => {
+    const inProgress = viewOrders.filter(o => {
       if (o.no_launch) return false;
       if (o.launch_stage_data?.done) return false;
       // Явная дата запуска имеет приоритет над design_done
@@ -4143,7 +4149,7 @@ function renderCalTableView(days) {
       if (!designDone) return false;
       return getLaunchDate(o) === date;
     });
-    const launchDone = orders.filter(o => {
+    const launchDone = viewOrders.filter(o => {
       if (!o.launch_stage_data?.done) return false;
       // Показываем выполненный запуск на плановой дате
       return getLaunchDate(o) === date;
@@ -4159,7 +4165,7 @@ function renderCalTableView(days) {
 
   function millTd(date) {
     const items = [];
-    orders.forEach(o => {
+    viewOrders.forEach(o => {
       if (!o.materials) return;
       o.materials.forEach(m => {
         if (m.type === 'mill' && m.mill_date === date) {
@@ -4178,7 +4184,7 @@ function renderCalTableView(days) {
   }
 
   function gluingTd(date) {
-    const items = orders.filter(o => {
+    const items = viewOrders.filter(o => {
       if (!o.has_gluing) return false;
       return getGluingDate(o) === date;
     });
@@ -4190,7 +4196,7 @@ function renderCalTableView(days) {
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#0d9488;font-weight:700">${items.length}</div><div class="cal-chips">${chips}</div></div></td>`;
   }
   function curvilinearTd(date) {
-    const items = orders.filter(o => {
+    const items = viewOrders.filter(o => {
       if (!o.has_curvilinear) return false;
       return getCurviDate(o) === date;
     });
@@ -4205,7 +4211,7 @@ function renderCalTableView(days) {
   function redzoneTd(date) {
     const STAGE_LABELS = { cutting:'Распил', edging:'Кромка', drilling:'Присадка', packing:'Упаковка' };
     const items = [];
-    orders.forEach(o => {
+    viewOrders.forEach(o => {
       if (!o.materials) return;
       o.materials.forEach(m => {
         // Старый формат: mat.stages.redzone.marked + date
@@ -4245,7 +4251,7 @@ function renderCalTableView(days) {
 
     // Заказы на эту дату — только те, у кого calOrderQty > 0
     // Включает выполненные (status=done) чтобы правильно считать нагрузку
-    const ordersHere = orders.filter(o => calOrderQty(o, op, date) > 0);
+    const ordersHere = viewOrders.filter(o => calOrderQty(o, op, date) > 0);
     // Реальная суммарная нагрузка = всё что запланировано, включая выполненные
     const totalUsed = isPast ? used : ordersHere.reduce((s, o) => s + calOrderQty(o, op, date), 0);
     const free = cap - totalUsed;
@@ -4253,7 +4259,7 @@ function renderCalTableView(days) {
     const cls  = free===0?'cnt-full':pct>60?'cnt-half':'cnt-ok';
 
     // Для прошедших дат также показываем выполненные заказы по факт-дате
-    const doneChips = isPast ? orders.filter(o => {
+    const doneChips = isPast ? viewOrders.filter(o => {
       if (ordersHere.includes(o)) return false; // уже есть в ordersHere
       if (o.materials && o.materials.length) {
         return o.materials.some(m => m.stages?.[op]?.done && m.stages?.[op]?.fact_date === date);
