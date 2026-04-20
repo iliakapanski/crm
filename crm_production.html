@@ -3621,18 +3621,23 @@ let calShowHistory = false;
 let calView = 'week'; // 'day' | '3day' | 'week' | 'month'
 let calViewOffset = 0; // смещение в днях для режимов день/3дня
 let calSearchQuery = '';
-const _CAL_DETAIL_ALL_STAGES = ['design','launch','mill','cutting','edging','drilling','gluing','curvilinear','packing'];
+const _CAL_DETAIL_ALL_STAGES = ['design','launch','mill','cutting','edging','drilling','gluing','curvilinear','packing','redzone'];
 let calDetailStageFlt = new Set(_CAL_DETAIL_ALL_STAGES);
 function toggleCalDetailStage(key) {
   if (calDetailStageFlt.has(key)) {
-    if (calDetailStageFlt.size > 1) calDetailStageFlt.delete(key);
+    calDetailStageFlt.delete(key); // разрешаем убирать любую стадию, включая последнюю
   } else {
     calDetailStageFlt.add(key);
   }
   renderCalendar();
 }
 function calDetailStageAll() {
-  calDetailStageFlt = new Set(_CAL_DETAIL_ALL_STAGES);
+  // Toggle: если все включены → выключить все; если не все → включить все
+  if (calDetailStageFlt.size === _CAL_DETAIL_ALL_STAGES.length) {
+    calDetailStageFlt = new Set(); // скрыть всё
+  } else {
+    calDetailStageFlt = new Set(_CAL_DETAIL_ALL_STAGES); // показать всё
+  }
   renderCalendar();
 }
 const _CAL_TABLE_ALL_COLS = ['design','launch','cutting','edging','drilling','gluing','curvilinear','mill','packing','redzone'];
@@ -4468,6 +4473,8 @@ function renderCalTableView(days) {
 // ── DETAIL VIEW (день / 3 дня) ─────────────────────────────────
 function renderCalDetailView(days) {
   const dk = isDarkTheme();
+  // Фильтр брака: если скрыт — убираем из отображения
+  const viewOrders = showDefectOrders ? orders : orders.filter(o => o.type !== 'defect');
   const OPS = dk ? [
     {key:'cutting',  icon:'',  label:'Распил',            cls:'cc-cut', border:'rgba(79,142,247,.3)',  bg:'rgba(79,142,247,.1)',  hdr:'#93c5fd'},
     {key:'edging',   icon:'', label:'Кромка',             cls:'cc-edg', border:'rgba(139,92,246,.3)',  bg:'rgba(139,92,246,.1)',  hdr:'#c4b5fd'},
@@ -4505,7 +4512,7 @@ function renderCalDetailView(days) {
 
     // ── Фрезеровка МДФ block for detail view ──
     const millItems = [];
-    orders.forEach(o => {
+    viewOrders.forEach(o => {
       if (!o.materials) return;
       o.materials.forEach(m => {
         if (m.type === 'mill' && m.mill_date === date) millItems.push({ o, m });
@@ -4649,7 +4656,7 @@ function renderCalDetailView(days) {
     }).filter(Boolean).join('');
 
     // ── Проект (Конструктор) ──
-    const designOrders = calDetailStageFlt.has('design') ? orders.filter(o => {
+    const designOrders = calDetailStageFlt.has('design') ? viewOrders.filter(o => {
       if (o.no_project || !o.design_end) return false;
       if (o.launch_only) return o.design_end === date;
       const dsStart = subWorkDays(o.design_end, 2);
@@ -4684,7 +4691,7 @@ function renderCalDetailView(days) {
     })() : '';
 
     // ── Запуск ──
-    const launchOrders = calDetailStageFlt.has('launch') ? orders.filter(o => {
+    const launchOrders = calDetailStageFlt.has('launch') ? viewOrders.filter(o => {
       if (o.no_launch) return false;
       return getLaunchDate(o) === date;
     }) : [];
@@ -4717,7 +4724,7 @@ function renderCalDetailView(days) {
     })() : '';
 
     // ── Склейка ──
-    const gluingOrders = calDetailStageFlt.has('gluing') ? orders.filter(o => o.has_gluing && getGluingDate(o) === date) : [];
+    const gluingOrders = calDetailStageFlt.has('gluing') ? viewOrders.filter(o => o.has_gluing && getGluingDate(o) === date) : [];
     const gluingSectionHtml = gluingOrders.length ? (() => {
       const bdr = dk ? 'rgba(45,212,191,.3)' : '#99f6e4';
       const bg  = dk ? 'rgba(45,212,191,.07)' : '#f0fdfa';
@@ -4747,7 +4754,7 @@ function renderCalDetailView(days) {
     })() : '';
 
     // ── Криволинейка ──
-    const curviOrders = calDetailStageFlt.has('curvilinear') ? orders.filter(o => o.has_curvilinear && getCurviDate(o) === date) : [];
+    const curviOrders = calDetailStageFlt.has('curvilinear') ? viewOrders.filter(o => o.has_curvilinear && getCurviDate(o) === date) : [];
     const curviSectionHtml = curviOrders.length ? (() => {
       const bdr = dk ? 'rgba(244,114,182,.3)' : '#fbcfe8';
       const bg  = dk ? 'rgba(244,114,182,.07)' : '#fdf2f8';
@@ -4776,7 +4783,50 @@ function renderCalDetailView(days) {
       </div>`;
     })() : '';
 
-    const allColSections = designSectionHtml + launchSectionHtml + millSectionHtml + opsHtml + gluingSectionHtml + curviSectionHtml;
+    // ── Красная зона ──
+    const STAGE_LABELS_RZ = { cutting:'Распил', edging:'Кромка', drilling:'Присадка', packing:'Упаковка' };
+    const rzItems = [];
+    if (calDetailStageFlt.has('redzone')) {
+      viewOrders.forEach(o => {
+        if (!o.materials) return;
+        o.materials.forEach(m => {
+          if (m.stages?.redzone?.marked && m.stages.redzone.date === date) {
+            rzItems.push({ o, m, reason: m.stages.redzone.reason || '', stageLabel: STAGE_LABELS_RZ[m.stages.redzone.stageKey] || '' });
+            return;
+          }
+          [{ k:'cutting', planDate: m.stages?.cutting?.reschedule_date || o.cutting_date },
+           { k:'edging',  planDate: m.stages?.edging?.reschedule_date  || o.edging_date  },
+           { k:'drilling',planDate: o.drilling_date },
+           { k:'packing', planDate: o.packing_date  }
+          ].forEach(({ k, planDate }) => {
+            if (planDate === date && m.stages?.[k]?.is_redzone)
+              rzItems.push({ o, m, reason: m.stages[k].redzone_reason || '', stageLabel: STAGE_LABELS_RZ[k] });
+          });
+        });
+      });
+    }
+    const redzoneSectionHtml = rzItems.length ? (() => {
+      const bdr = dk ? 'rgba(220,38,38,.35)' : '#fca5a5';
+      const bg  = dk ? 'rgba(220,38,38,.08)' : '#fff1f2';
+      const hdr = dk ? '#f87171' : '#991b1b';
+      const cards = rzItems.map(({ o, m, reason, stageLabel }) =>
+        `<div class="cal-dcard" data-oid="${o.id}" data-client="${escHtml(o.client)}" data-desc="${escHtml(o.desc)}" data-mats="" style="background:${dk?'var(--card)':bg};border:1.5px solid ${bdr};border-radius:10px;padding:9px 12px;margin-bottom:6px;cursor:pointer" onclick="openStages('${o.id}')">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+            <div style="min-width:0">
+              <div style="font-size:13px;font-weight:900;color:${hdr}">${o.urgent?'🔥 ':''}ID ${escHtml(o.id)}</div>
+              <div style="font-size:12px;color:var(--text)">${escHtml(o.client)} · ${escHtml(m.desc||'—')}</div>
+              ${reason?`<div style="font-size:11px;color:${hdr};margin-top:2px">${escHtml(reason)}</div>`:''}
+            </div>
+            ${stageLabel?`<span style="font-size:10px;font-weight:700;color:${hdr};white-space:nowrap;padding:2px 7px;border-radius:6px;border:1px solid ${bdr}">${stageLabel}</span>`:''}
+          </div>
+        </div>`).join('');
+      return `<div class="cal-dsec" style="border:1px solid ${bdr};border-radius:9px;padding:12px;margin-bottom:10px;background:${dk?'var(--card)':'#fff'}">
+        <div style="font-size:12px;font-weight:800;color:${hdr};text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">🔴 Красная зона · ${rzItems.length} поз.</div>
+        ${cards}
+      </div>`;
+    })() : '';
+
+    const allColSections = designSectionHtml + launchSectionHtml + millSectionHtml + opsHtml + gluingSectionHtml + curviSectionHtml + redzoneSectionHtml;
     return `<div style="flex:1;min-width:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:${dk?'#1c1c1e':'#fff'}">
       ${dateHeader}
       <div style="padding:10px 12px;overflow-y:auto;max-height:72vh">${allColSections || '<div style="text-align:center;padding:30px 16px;color:var(--muted);font-size:13px">Нет заказов</div>'}</div>
@@ -4794,10 +4844,11 @@ function renderCalDetailView(days) {
     { key:'gluing',      label:'Склейка',        color: dk?'#2dd4bf':'#0f766e', bg: dk?'rgba(45,212,191,.18)':'#f0fdfa' },
     { key:'curvilinear', label:'Криволинейка',   color: dk?'#f472b6':'#9d174d', bg: dk?'rgba(244,114,182,.18)':'#fdf2f8' },
     { key:'packing',     label:'Упаковка',       color: dk?'#6ee7b7':'#065f46', bg: dk?'rgba(52,211,153,.18)':'#f0fdf4' },
+    { key:'redzone',     label:'🔴 Красная зона', color: dk?'#f87171':'#991b1b', bg: dk?'rgba(220,38,38,.18)':'#fff1f2' },
   ];
   const isAll = calDetailStageFlt.size === _CAL_DETAIL_ALL_STAGES.length;
   const filterBar = `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-    <button onclick="calDetailStageAll()" style="border:none;cursor:pointer;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;transition:all .15s;background:${isAll?(dk?'rgba(255,255,255,.18)':'#1e293b'):(dk?'rgba(255,255,255,.07)':'#f1f5f9')};color:${isAll?(dk?'#fff':'#fff'):'var(--muted)'};outline:${isAll?'2px solid '+(dk?'rgba(255,255,255,.4)':'#475569'):'none'}">Все</button>
+    <button onclick="calDetailStageAll()" title="${isAll?'Скрыть все стадии':'Показать все стадии'}" style="border:none;cursor:pointer;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;transition:all .15s;background:${isAll?(dk?'rgba(255,255,255,.18)':'#1e293b'):(dk?'rgba(255,255,255,.07)':'#f1f5f9')};color:${isAll?(dk?'#fff':'#fff'):'var(--muted)'};outline:${isAll?'2px solid '+(dk?'rgba(255,255,255,.4)':'#475569'):'none'}">${isAll?'Все ✓':'Все'}</button>
     ${STAGE_BTNS.map(s => {
       const on = calDetailStageFlt.has(s.key);
       return `<button onclick="toggleCalDetailStage('${s.key}')" style="border:none;cursor:pointer;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;transition:all .15s;background:${on?s.bg:(dk?'rgba(255,255,255,.05)':'#f1f5f9')};color:${on?s.color:'var(--muted)'};outline:${on?'2px solid '+s.color:'none'}">${s.label}</button>`;
