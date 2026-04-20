@@ -6380,7 +6380,7 @@ function renderStagesBody(o) {
   }
 
   // Materials table
-  const stageKeys = ['cutting','edging','drilling','packing'];
+  const stageKeys = ['cutting','edging','drilling','packing'].filter(k => k !== 'packing' || !o.no_packing);
   const stageIco = { cutting:'', edging:'', drilling:'', packing:'' };
   const stageLbl = { cutting:'Распил', edging:'Кромка', drilling:'Присадка', packing:'Упаковка' };
 
@@ -6401,7 +6401,7 @@ function renderStagesBody(o) {
       if (k === 'cutting')  return isSheetMat(mat);   // только листовые пилим
       if (k === 'edging')   return isSheetMat(mat) && matHasEdging(mat) && !o.no_edging;
       if (k === 'drilling') return isSheetMat(mat) && matHasDrilling(mat) && !o.no_drilling;
-      if (k === 'packing')  return isSheetMat(mat) || isEdging;   // листовое + кромка → упаковываем
+      if (k === 'packing')  return (isSheetMat(mat) || isEdging) && !o.no_packing;   // листовое + кромка → упаковываем
       return false;
     });
 
