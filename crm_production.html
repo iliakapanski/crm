@@ -708,14 +708,14 @@ table{max-width:100%}
           <label class="checkbox-row" style="color:#dc2626;font-weight:700;margin-left:auto"><input type="checkbox" id="f-is-defect" onchange="onDefectToggle(this.checked)"> 🔴 Брак/Переделка</label>
         </div>
         <div id="f-defect-ref-wrap" style="display:none"><label class="fl">Исходный заказ (необязательно)</label><input id="f-defect-ref" class="fc" type="text" placeholder="Номер исходного заказа, например 1333"></div>
-        <div id="f-defect-comment-wrap" style="display:none;flex-direction:column;gap:6px;background:#fff5f5;border:1.5px dashed #fca5a5;border-radius:9px;padding:12px">
+        <div id="f-defect-comment-wrap" style="display:none;flex-direction:column;gap:6px;background:var(--danger-l,#fee2e2);border:1.5px dashed #fca5a5;border-radius:9px;padding:12px">
           <label class="fl" style="margin-bottom:0;color:#dc2626">Описание брака</label>
-          <textarea id="f-defect-comment" class="fc" rows="2" placeholder="Опишите дефект, причину переделки..." style="resize:vertical;font-size:13px;padding:8px 10px"></textarea>
+          <textarea id="f-defect-comment" rows="2" placeholder="Опишите дефект, причину переделки..." style="resize:vertical;font-size:13px;padding:8px 10px;border-radius:7px;border:1px solid #fca5a5;background:var(--card,#fff);color:var(--text,#1e293b);width:100%;outline:none;font-family:inherit"></textarea>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <label class="btn btn-sm btn-secondary" style="cursor:pointer;padding:5px 12px;border:1px solid #fca5a5;background:#fee2e2;color:#dc2626">
+            <button type="button" onclick="document.getElementById('f-defect-files').click()" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;border:1px solid #fca5a5;background:#fee2e2;color:#dc2626;font-size:12px;font-weight:600">
               📎 Прикрепить фото / файл
-              <input type="file" id="f-defect-files" multiple accept="image/*,application/pdf,.doc,.docx" style="display:none" onchange="onFormDefectFileSelect(this)">
-            </label>
+            </button>
+            <input type="file" id="f-defect-files" multiple accept="image/*,application/pdf,.doc,.docx" style="position:absolute;opacity:0;width:0;height:0" onchange="onFormDefectFileSelect(this)">
             <span id="f-defect-files-label" style="font-size:11px;color:var(--muted)"></span>
           </div>
         </div>
@@ -5004,10 +5004,10 @@ function openOrderModal(id) {
       <div style="display:flex;flex-direction:column;gap:6px;background:#f8fafc;border-radius:9px;padding:12px;border:1px solid var(--border)">
         <textarea id="om-comment-text" placeholder="Написать комментарий..." rows="2" class="fc" style="resize:vertical;font-size:13px;padding:8px 10px"></textarea>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <label class="btn btn-sm btn-secondary" style="cursor:pointer;padding:5px 12px">
+          <input type="file" id="om-file-input-${o.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCommentFileSelect(event,'${o.id}')">
+          <button class="btn btn-sm btn-secondary" style="cursor:pointer;padding:5px 12px" type="button" onclick="document.getElementById('om-file-input-${o.id}').click()">
             📎 Прикрепить файл
-            <input type="file" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="display:none" onchange="onCommentFileSelect(event,'${o.id}')">
-          </label>
+          </button>
           <div id="om-comment-files" style="font-size:11px;color:var(--muted)"></div>
           <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="submitComment('${o.id}')">Отправить</button>
         </div>
