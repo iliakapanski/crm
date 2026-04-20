@@ -3827,7 +3827,8 @@ function renderCalendar() {
       const ord = orders.find(o => String(o.id) === chip.dataset.oid);
       const cli  = ord ? (ord.client||'').toLowerCase() : '';
       const mats = ord ? (ord.materials||[]).map(m=>m.desc||'').join(' ').toLowerCase() : '';
-      chip.style.display = (oid.includes(calSearchQuery)||cli.includes(calSearchQuery)||tip.includes(calSearchQuery)||mats.includes(calSearchQuery)) ? '' : 'none';
+      const dref = ord ? (ord.defect_ref||'').toLowerCase() : '';
+      chip.style.display = (oid.includes(calSearchQuery)||cli.includes(calSearchQuery)||tip.includes(calSearchQuery)||mats.includes(calSearchQuery)||dref.includes(calSearchQuery)) ? '' : 'none';
     });
     // Детальный вид (день/3 дня): фильтруем карточки .cal-dcard
     container.querySelectorAll('.cal-dcard').forEach(card => {
@@ -3835,7 +3836,9 @@ function renderCalendar() {
       const cli  = (card.dataset.client||'').toLowerCase();
       const desc = (card.dataset.desc  ||'').toLowerCase();
       const mats = (card.dataset.mats  ||'').toLowerCase();
-      const matches = oid.includes(calSearchQuery)||cli.includes(calSearchQuery)||desc.includes(calSearchQuery)||mats.includes(calSearchQuery);
+      const ord  = orders.find(o => String(o.id) === card.dataset.oid);
+      const dref = ord ? (ord.defect_ref||'').toLowerCase() : '';
+      const matches = oid.includes(calSearchQuery)||cli.includes(calSearchQuery)||desc.includes(calSearchQuery)||mats.includes(calSearchQuery)||dref.includes(calSearchQuery);
       card.style.display = matches ? '' : 'none';
     });
     // Скрываем пустые секции в детальном виде
@@ -3857,6 +3860,8 @@ function renderCalendar() {
       if (w) w.scrollLeft = _calScrollLeft;
     });
   }
+  // Синхронизируем кнопки брака с текущим состоянием
+  _syncDefectBtns();
 }
 
 // ── CAL HOVER CARD ────────────────────────────────────────────
@@ -4908,41 +4913,25 @@ function filterOrders(f) {
   renderAllOrders(f);
 }
 
+function _syncDefectBtns() {
+  const on = showDefectOrders;
+  ['filter-defect-btn','cal-defect-btn'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.textContent = on ? '🔴 Брак виден' : '🔴 Брак скрыт';
+    b.style.background = on ? '#dc2626' : '#fee2e2';
+    b.style.color      = on ? '#fff'    : '#dc2626';
+    b.style.borderColor = on ? '#dc2626' : '#fca5a5';
+  });
+}
 function toggleDefectFilter() {
   showDefectOrders = !showDefectOrders;
-  // Кнопка в списке заказов
-  const btn = document.getElementById('filter-defect-btn');
-  if (btn) {
-    btn.textContent = showDefectOrders ? '🔴 Брак виден' : '🔴 Брак скрыт';
-    btn.style.background = showDefectOrders ? '#dc2626' : '#fee2e2';
-    btn.style.color = showDefectOrders ? '#fff' : '#dc2626';
-  }
-  // Кнопка в календаре (синхронизируем)
-  const calBtn = document.getElementById('cal-defect-btn');
-  if (calBtn) {
-    calBtn.textContent = showDefectOrders ? '🔴 Брак виден' : '🔴 Брак скрыт';
-    calBtn.style.background = showDefectOrders ? '#dc2626' : '#fee2e2';
-    calBtn.style.color = showDefectOrders ? '#fff' : '#dc2626';
-  }
+  _syncDefectBtns();
   renderAllOrders(currentFilter);
 }
-
 function toggleCalDefect() {
   showDefectOrders = !showDefectOrders;
-  // Кнопка в календаре
-  const calBtn = document.getElementById('cal-defect-btn');
-  if (calBtn) {
-    calBtn.textContent = showDefectOrders ? '🔴 Брак виден' : '🔴 Брак скрыт';
-    calBtn.style.background = showDefectOrders ? '#dc2626' : '#fee2e2';
-    calBtn.style.color = showDefectOrders ? '#fff' : '#dc2626';
-  }
-  // Кнопка в списке заказов (синхронизируем)
-  const listBtn = document.getElementById('filter-defect-btn');
-  if (listBtn) {
-    listBtn.textContent = showDefectOrders ? '🔴 Брак виден' : '🔴 Брак скрыт';
-    listBtn.style.background = showDefectOrders ? '#dc2626' : '#fee2e2';
-    listBtn.style.color = showDefectOrders ? '#fff' : '#dc2626';
-  }
+  _syncDefectBtns();
   renderCalendar();
 }
 function setSortOrders(s) {
@@ -5006,6 +4995,8 @@ function renderAllOrders(filter) {
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="8"><div class="empty-state"><div class="es-title">Заказов не найдено</div><div class="es-sub">Попробуйте изменить фильтр или создайте первый заказ</div><button class="btn btn-primary" onclick="showPage('new-order')">Создать заказ</button></div></td></tr>`;
+  // Синхронизируем кнопки брака с текущим состоянием
+  _syncDefectBtns();
 }
 
 // ============================================================
