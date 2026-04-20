@@ -780,9 +780,12 @@ table{max-width:100%}
     <div style="font-size:14px;font-weight:700;color:var(--text)" id="cal-period-label"></div>
     <button class="btn btn-secondary" onclick="calNav(1)" style="padding:6px 18px;font-size:13px;font-weight:700;">Вперёд →</button>
   </div>
-  <div style="margin-bottom:10px;position:relative;max-width:280px">
-    <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted);pointer-events:none">🔍</span>
-    <input id="cal-search" type="text" class="fc" placeholder="Фильтр: заказ, клиент..." style="padding:7px 10px 7px 30px;font-size:13px;border-radius:8px" oninput="calSearchQuery=this.value.toLowerCase().trim();renderCalendar()">
+  <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <div style="position:relative">
+      <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted);pointer-events:none">🔍</span>
+      <input id="cal-search" type="text" class="fc" placeholder="Фильтр: заказ, клиент..." style="padding:7px 10px 7px 30px;font-size:13px;border-radius:8px;width:230px" oninput="calSearchQuery=this.value.toLowerCase().trim();renderCalendar()">
+    </div>
+    <button id="cal-defect-btn" onclick="toggleCalDefect()" style="padding:6px 14px;border-radius:8px;border:1.5px solid #fca5a5;background:#fee2e2;color:#dc2626;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">🔴 Брак скрыт</button>
   </div>
   <div id="cal-container"></div>
 </div>
@@ -4832,13 +4835,40 @@ function filterOrders(f) {
 
 function toggleDefectFilter() {
   showDefectOrders = !showDefectOrders;
+  // Кнопка в списке заказов
   const btn = document.getElementById('filter-defect-btn');
   if (btn) {
     btn.textContent = showDefectOrders ? '🔴 Брак виден' : '🔴 Брак скрыт';
     btn.style.background = showDefectOrders ? '#dc2626' : '#fee2e2';
     btn.style.color = showDefectOrders ? '#fff' : '#dc2626';
   }
+  // Кнопка в календаре (синхронизируем)
+  const calBtn = document.getElementById('cal-defect-btn');
+  if (calBtn) {
+    calBtn.textContent = showDefectOrders ? '🔴 Брак виден' : '🔴 Брак скрыт';
+    calBtn.style.background = showDefectOrders ? '#dc2626' : '#fee2e2';
+    calBtn.style.color = showDefectOrders ? '#fff' : '#dc2626';
+  }
   renderAllOrders(currentFilter);
+}
+
+function toggleCalDefect() {
+  showDefectOrders = !showDefectOrders;
+  // Кнопка в календаре
+  const calBtn = document.getElementById('cal-defect-btn');
+  if (calBtn) {
+    calBtn.textContent = showDefectOrders ? '🔴 Брак виден' : '🔴 Брак скрыт';
+    calBtn.style.background = showDefectOrders ? '#dc2626' : '#fee2e2';
+    calBtn.style.color = showDefectOrders ? '#fff' : '#dc2626';
+  }
+  // Кнопка в списке заказов (синхронизируем)
+  const listBtn = document.getElementById('filter-defect-btn');
+  if (listBtn) {
+    listBtn.textContent = showDefectOrders ? '🔴 Брак виден' : '🔴 Брак скрыт';
+    listBtn.style.background = showDefectOrders ? '#dc2626' : '#fee2e2';
+    listBtn.style.color = showDefectOrders ? '#fff' : '#dc2626';
+  }
+  renderCalendar();
 }
 function setSortOrders(s) {
   currentSort = s;
@@ -5027,16 +5057,18 @@ function renderComments(o) {
   const comments = o.comments || [];
   if (!comments.length) return '<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px">Комментариев пока нет</div>';
   return comments.slice().reverse().map(c => `
-    <div style="background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 12px">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 12px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div style="font-size:11px;font-weight:700;color:var(--primary)">${escHtml(c.user||'—')}</div>
         <div style="font-size:10px;color:var(--muted)">${c.date||''} ${c.time||''}</div>
       </div>
-      ${c.text ? `<div style="font-size:13px;margin-bottom:6px;white-space:pre-wrap">${escHtml(c.text)}</div>` : ''}
-      ${(c.files||[]).length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${c.files.map(f=>
-        `<a href="${escHtml(f.url)}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;text-decoration:none;color:var(--text)">
-          ${f.type&&f.type.startsWith('image/')?'🖼':'📎'} ${escHtml(f.name)}
-        </a>`).join('')}</div>` : ''}
+      ${c.text ? `<div style="font-size:13px;margin-bottom:8px;white-space:pre-wrap;color:var(--text)">${escHtml(c.text)}</div>` : ''}
+      ${(c.files||[]).length ? `<div style="display:flex;flex-direction:column;gap:6px">${c.files.map(f => {
+        const isImg = f.type && f.type.startsWith('image/');
+        return isImg
+          ? `<div><img src="${escHtml(f.url)}" alt="${escHtml(f.name)}" style="max-width:100%;max-height:240px;border-radius:8px;cursor:zoom-in;object-fit:contain;display:block" onclick="window.open('${escHtml(f.url)}','_blank')" onerror="this.style.display='none';this.nextSibling.style.display='inline-flex'"><a href="${escHtml(f.url)}" target="_blank" style="display:none;align-items:center;gap:4px;background:var(--gray-l);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;text-decoration:none;color:var(--text)">🖼 ${escHtml(f.name)}</a></div>`
+          : `<a href="${escHtml(f.url)}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;background:var(--gray-l);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;text-decoration:none;color:var(--text);font-weight:600">📎 ${escHtml(f.name)}</a>`;
+      }).join('')}</div>` : ''}
     </div>`).join('');
 }
 
@@ -5051,8 +5083,12 @@ async function submitComment(orderId) {
   const o = orders.find(x => x.id === orderId);
   if (!o) return;
   const textEl = document.getElementById('om-comment-text');
+  const sendBtn = document.querySelector(`[onclick="submitComment('${orderId}')"]`);
   const text = textEl ? textEl.value.trim() : '';
   if (!text && !_commentFiles.length) return;
+
+  // Блокируем кнопку на время загрузки
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '⏳ Загрузка...'; }
 
   const comment = {
     id: Date.now(),
@@ -5068,15 +5104,22 @@ async function submitComment(orderId) {
     for (const file of _commentFiles) {
       try {
         const path = `orders/${orderId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
-        const { data, error } = await _sb.storage.from('crm-files').upload(path, file, { upsert: true });
+        const { error } = await _sb.storage.from('crm-files').upload(path, file, { upsert: true });
         if (!error) {
           const { data: urlData } = _sb.storage.from('crm-files').getPublicUrl(path);
           comment.files.push({ name: file.name, url: urlData.publicUrl, type: file.type, path });
         } else {
           console.warn('File upload error:', error.message);
+          alert('Ошибка загрузки файла: ' + error.message + '\n\nПроверьте политику доступа в Supabase Storage.');
         }
       } catch(e) { console.warn('Upload error:', e); }
     }
+  }
+
+  // Не сохраняем пустой комментарий (текст пустой и файлы не загрузились)
+  if (!comment.text && !comment.files.length) {
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Отправить'; }
+    return;
   }
 
   if (!o.comments) o.comments = [];
@@ -5089,6 +5132,7 @@ async function submitComment(orderId) {
   _commentFiles = [];
   const filesEl = document.getElementById('om-comment-files');
   if (filesEl) filesEl.textContent = '';
+  if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Отправить'; }
 
   // Re-render comments
   const commentsEl = document.getElementById('om-comments');
