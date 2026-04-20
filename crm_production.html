@@ -1102,6 +1102,11 @@ table{max-width:100%}
         <label class="checkbox-row"><input type="checkbox" id="e-no-drilling" onchange="updateEditDateFields()"> Без присадки</label>
         <label class="checkbox-row"><input type="checkbox" id="e-no-packing" onchange="updateEditDateFields()"> Без упаковки</label>
         <label class="checkbox-row" style="color:#dc2626"><input type="checkbox" id="e-urgent"> &#128293; Срочно</label>
+        <label class="checkbox-row" style="color:#dc2626;font-weight:700"><input type="checkbox" id="e-is-defect" onchange="onEditDefectToggle(this.checked)"> 🔴 Брак/Переделка</label>
+      </div>
+      <div id="e-defect-ref-wrap" style="display:none;margin-top:8px;padding:10px 12px;background:var(--danger-l,#fee2e2);border:1.5px dashed #fca5a5;border-radius:9px">
+        <label class="fl" style="color:#dc2626;margin-bottom:5px">Исходный заказ (необязательно)</label>
+        <input id="e-defect-ref" class="fc" type="text" placeholder="Номер исходного заказа, например 1333">
       </div>
       <div class="fs2" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">
         <label class="checkbox-row"><input type="checkbox" id="e-has-milling" onchange="onEditMillingToggle(this.checked)"> Есть фрезеровка</label>
@@ -3072,6 +3077,11 @@ function onDefectToggle(checked) {
   }
 }
 
+function onEditDefectToggle(checked) {
+  const wrap = document.getElementById('e-defect-ref-wrap');
+  if (wrap) wrap.style.display = checked ? '' : 'none';
+}
+
 let _formDefectFiles = [];
 function onFormDefectFileSelect(input) {
   _formDefectFiles = Array.from(input.files || []);
@@ -3573,6 +3583,12 @@ function getNextDefectNum() {
 
 function defectBadge() {
   return '<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:.05em">БРАК</span>';
+}
+// Форматирует ID заказа-брака: Б-003 → Б-003(1245) если есть исходный заказ
+function defectId(o) {
+  if (o.type !== 'defect') return escHtml(o.id);
+  const ref = o.defect_ref ? `(${escHtml(o.defect_ref)})` : '';
+  return `${escHtml(o.id)}${ref}`;
 }
 
 function resetForm() {
@@ -4107,8 +4123,8 @@ function renderCalTableView(days) {
     const total = inProgress.length + designDone.length;
     if (!total) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = [
-      ...inProgress.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}">${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.id}/${o.sheets}л.</span>`),
-      ...designDone.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.id}/${o.sheets}л.</span>`)
+      ...inProgress.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}">${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.type==='defect'&&o.defect_ref?o.id+'('+o.defect_ref+')':o.id}/${o.sheets}л.</span>`),
+      ...designDone.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.type==='defect'&&o.defect_ref?o.id+'('+o.defect_ref+')':o.id}/${o.sheets}л.</span>`)
     ].join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#3730a3;font-weight:700">${total} зак.</div><div class="cal-chips">${chips}</div></div></td>`;
   }
@@ -4264,7 +4280,8 @@ function renderCalTableView(days) {
         stgDone = !!(o.stages_done?.[op]);
       }
       const nestBadge = o.nesting ? (o.nesting===3?' [ФРС]':` [N${o.nesting}]`) : '';
-      let label = `${stgDone ? '✓ ' : ''}${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.id}/${qty}${unit}${nestBadge}`;
+      const chipId = o.type==='defect'&&o.defect_ref ? `${o.id}(${o.defect_ref})` : o.id;
+      let label = `${stgDone ? '✓ ' : ''}${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${chipId}/${qty}${unit}${nestBadge}`;
       if (o.materials && o.materials.length) {
         const allSheetMats = o.materials.filter(m => isSheetMat(m));
         if (allSheetMats.length > 1) {
@@ -4964,7 +4981,7 @@ function renderAllOrders(filter) {
   });
   document.getElementById('all-tbody').innerHTML = list.map(o=>{
     return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer;${o.type==='defect'?'background:#fff5f5;border-left:3px solid #fca5a5':o.urgent?'background:#fff1f2':''}">
-      <td><div class="on" style="cursor:pointer;color:${o.type==='defect'?'#dc2626':'var(--primary)'};font-weight:800;font-size:13px" onclick="event.stopPropagation();openOrderModal('${o.id}')">${o.urgent?'&#128293; ':''}${o.id}</div>${o.type==='defect'?defectBadge():''}<div style="font-size:10px;color:var(--muted)">${fmt(o.created)}</div></td>
+      <td><div class="on" style="cursor:pointer;color:${o.type==='defect'?'#dc2626':'var(--primary)'};font-weight:800;font-size:13px" onclick="event.stopPropagation();openOrderModal('${o.id}')">${o.urgent?'&#128293; ':''}${defectId(o)}</div>${o.type==='defect'?defectBadge():''}<div style="font-size:10px;color:var(--muted)">${fmt(o.created)}</div></td>
       <td><div class="od">${o.desc}</div><div class="oc">${o.client}</div></td>
       <td><span class="sv">${o.sheets}</span> л.
         ${o.no_edging?'<span class="tag" style="font-size:9px;margin-left:3px">без кромки</span>':''}
@@ -4993,7 +5010,8 @@ function openOrderModal(id) {
   const o = orders.find(x=>x.id===id);
   if (!o) return;
   viewingId = id;
-  document.getElementById('om-title').textContent = id + ' — ' + o.desc;
+  const displayId = o.type === 'defect' ? (o.defect_ref ? `${o.id}(${o.defect_ref})` : o.id) : o.id;
+  document.getElementById('om-title').textContent = displayId + ' — ' + o.desc;
   document.getElementById('om-sub').textContent   = o.client + ' · ' + o.sheets + ' л.';
   document.getElementById('om-edit-btn').onclick  = () => { closeOrderModal(); openEdit(id); };
 
@@ -5358,6 +5376,13 @@ function openEdit(id) {
   document.getElementById('e-curvilinear-wrap').style.display = o.has_curvilinear ? '' : 'none';
   document.getElementById('e-urgent').checked = o.urgent||false;
   document.getElementById('e-has-milling').checked = o.has_milling||false;
+  // Брак/Переделка
+  const eIsDefect = document.getElementById('e-is-defect');
+  const eDefRef   = document.getElementById('e-defect-ref');
+  const eDefWrap  = document.getElementById('e-defect-ref-wrap');
+  if (eIsDefect) eIsDefect.checked = o.type === 'defect';
+  if (eDefRef)   eDefRef.value     = o.defect_ref || '';
+  if (eDefWrap)  eDefWrap.style.display = o.type === 'defect' ? '' : 'none';
   editNesting = o.nesting || 0;
   setEditNesting(editNesting);
   document.getElementById('e-cap-warn').classList.add('hidden');
@@ -5708,6 +5733,18 @@ function saveEdit() {
   o.curvilinear_meters = parseFloat(document.getElementById('e-curvilinear-meters').value)||0;
   o.urgent = document.getElementById('e-urgent').checked;
   o.has_milling = document.getElementById('e-has-milling').checked;
+  // Брак/Переделка
+  const wasDefect = o.type === 'defect';
+  const nowDefect = document.getElementById('e-is-defect')?.checked || false;
+  if (nowDefect) {
+    o.type = 'defect';
+    o.defect_ref = document.getElementById('e-defect-ref')?.value?.trim() || null;
+    if (!o.defect_num) o.defect_num = o.id; // если не было — используем ID
+  } else {
+    o.type = 'order';
+    o.defect_ref = null;
+    o.defect_num = null;
+  }
 
   // Обрабатываем сплит/ночную смену из диалога ПЕРЕД пересчётом присадки,
   // чтобы новые даты (cut2, newEdg) были учтены в drillBase
