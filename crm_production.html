@@ -5252,7 +5252,7 @@ function openOrderModal(id) {
       <button class="btn btn-primary btn-sm" onclick="closeOrderModal();openStages('${o.id}')">☑ Отметить стадии</button>
       <button class="btn btn-secondary btn-sm" onclick="openOrderHistory('${o.id}')">История</button>
     </div>
-    ${((_fvHtml = renderFieldValues(o)) => _fvHtml ? `<div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:16px"><div id="om-field-values">${_fvHtml}</div></div>` : `<div id="om-field-values"></div>`)()}
+    ${(fvh => fvh ? `<div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:16px"><div id="om-field-values">${fvh}</div></div>` : `<div id="om-field-values"></div>`)(renderFieldValues(o))}
     <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">📎 Вложения</div>
