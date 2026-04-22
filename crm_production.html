@@ -1671,6 +1671,7 @@ function exportBackup() {
     non_working: [...nonWorkingDays],
     worker_rates: workerRates,
     permissions: rolePermissions,
+    order_field_template: orderFieldTemplate,
     settings_versions: settingsVersions,
     last_order_num: localStorage.getItem('crm_last_order_num') || '0'
   };
@@ -1713,6 +1714,7 @@ function importBackup(inputEl) {
       if (Array.isArray(data.non_working)) { nonWorkingDays = new Set(data.non_working); localStorage.setItem('crm_non_working', JSON.stringify([...nonWorkingDays])); }
       if (data.worker_rates) { workerRates = { ...workerRates, ...data.worker_rates }; localStorage.setItem('crm_worker_rates', JSON.stringify(workerRates)); }
       if (data.permissions) { rolePermissions = data.permissions; localStorage.setItem('crm_permissions', JSON.stringify(rolePermissions)); }
+      if (Array.isArray(data.order_field_template)) { orderFieldTemplate = data.order_field_template; localStorage.setItem('crm_order_field_template', JSON.stringify(orderFieldTemplate)); }
       if (data.last_order_num) localStorage.setItem('crm_last_order_num', String(data.last_order_num));
       // Обновляем версии — бампаем на текущее время, чтобы импорт перезаписал облако при следующей отправке
       bumpSettingVersion('cap');
@@ -1720,6 +1722,7 @@ function importBackup(inputEl) {
       bumpSettingVersion('non_working');
       bumpSettingVersion('worker_rates');
       bumpSettingVersion('permissions');
+      bumpSettingVersion('order_field_template');
       rebuildDesigners();
       rebuildProdCal();
       rebuildProdCalFact();
@@ -8169,6 +8172,8 @@ function refreshAll() {
   if (ap('production'))  renderProduction();
   if (ap('payroll'))     setPayPeriod(payPeriod);
   if (ap('constructor-tasks')) renderConstructorTasks();
+  if (ap('settings'))    { renderFieldTemplateEditor(); }
+  renderCreateFormFields(); // обновляем шаблон полей в форме создания (он может прийти из облака)
 
   // ── Восстанавливаем позиции скролла после перерисовки ──
   // Двойной rAF: первый — после обновления DOM, второй — после layout/reflow
