@@ -707,16 +707,21 @@ table{max-width:100%}
           <div id="f-curvilinear-wrap" style="display:none"><input id="f-curvilinear-meters" class="fc" type="number" step="0.1" min="0" placeholder="м криволинейки" style="width:140px;padding:4px 8px;font-size:12px"></div>
           <label class="checkbox-row" style="color:#dc2626;font-weight:700;margin-left:auto"><input type="checkbox" id="f-is-defect" onchange="onDefectToggle(this.checked)"> 🔴 Брак/Переделка</label>
         </div>
-        <div id="f-defect-ref-wrap" style="display:none"><label class="fl">Исходный заказ (необязательно)</label><input id="f-defect-ref" class="fc" type="text" placeholder="Номер исходного заказа, например 1333"></div>
-        <div id="f-defect-comment-wrap" style="display:none;flex-direction:column;gap:6px;background:var(--danger-l,#fee2e2);border:1.5px dashed #fca5a5;border-radius:9px;padding:12px">
+        <div id="f-defect-ref-wrap" class="fs2" style="display:none"><label class="fl">Исходный заказ (необязательно)</label><input id="f-defect-ref" class="fc" type="text" placeholder="Номер исходного заказа, например 1333"></div>
+        <div id="f-defect-comment-wrap" class="fs2" style="display:none;flex-direction:column;gap:8px;background:var(--danger-l,#fee2e2);border:1.5px dashed #fca5a5;border-radius:9px;padding:12px">
           <label class="fl" style="margin-bottom:0;color:#dc2626">Описание брака</label>
-          <textarea id="f-defect-comment" rows="2" placeholder="Опишите дефект, причину переделки..." style="resize:vertical;font-size:13px;padding:8px 10px;border-radius:7px;border:1px solid #fca5a5;background:var(--card,#fff);color:var(--text,#1e293b);width:100%;outline:none;font-family:inherit"></textarea>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <button type="button" onclick="document.getElementById('f-defect-files').click()" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;border:1px solid #fca5a5;background:#fee2e2;color:#dc2626;font-size:12px;font-weight:600">
-              📎 Прикрепить фото / файл
-            </button>
-            <input type="file" id="f-defect-files" multiple accept="image/*,application/pdf,.doc,.docx" style="position:absolute;opacity:0;width:0;height:0" onchange="onFormDefectFileSelect(this)">
-            <span id="f-defect-files-label" style="font-size:11px;color:var(--muted)"></span>
+          <textarea id="f-defect-comment" rows="3" placeholder="Опишите дефект, причину переделки..." oninput="autoResizeTA(this)"
+            style="resize:none;overflow:hidden;font-size:13px;padding:8px 10px;border-radius:7px;border:1px solid #fca5a5;background:var(--card,#fff);color:var(--text,#1e293b);width:100%;outline:none;font-family:inherit;box-sizing:border-box;min-height:64px"></textarea>
+          <div id="f-defect-drop-zone"
+            ondragover="onDefectDragOver(event)" ondragleave="onDefectDragLeave(event)" ondrop="onDefectDrop(event)"
+            style="display:flex;flex-direction:column;gap:6px;background:#fef2f2;border-radius:8px;padding:8px 12px;border:2px dashed #fca5a5;transition:border-color .15s,background .15s">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <input type="file" id="f-defect-files" multiple accept="image/*,application/pdf,.doc,.docx" style="position:absolute;opacity:0;width:0;height:0" onchange="onFormDefectFileSelect(this)">
+              <button type="button" onclick="document.getElementById('f-defect-files').click()" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;border:1px solid #fca5a5;background:#fee2e2;color:#dc2626;font-size:12px;font-weight:600">
+                📎 Прикрепить фото / файл
+              </button>
+              <span id="f-defect-files-label" style="font-size:11px;color:var(--muted)">или перетащите сюда</span>
+            </div>
           </div>
         </div>
         <div><label class="fl">Станок</label>
@@ -3108,10 +3113,37 @@ function onEditDefectToggle(checked) {
 }
 
 let _formDefectFiles = [];
-function onFormDefectFileSelect(input) {
-  _formDefectFiles = Array.from(input.files || []);
+
+function autoResizeTA(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.max(el.scrollHeight, parseInt(el.style.minHeight)||64) + 'px';
+}
+
+function _updateDefectFilesLabel() {
   const lbl = document.getElementById('f-defect-files-label');
-  if (lbl) lbl.textContent = _formDefectFiles.length ? _formDefectFiles.map(f => f.name).join(', ') : '';
+  if (lbl) lbl.textContent = _formDefectFiles.length ? _formDefectFiles.map(f => f.name).join(', ') : 'или перетащите сюда';
+}
+function onFormDefectFileSelect(input) {
+  _formDefectFiles = [..._formDefectFiles, ...Array.from(input.files || [])];
+  input.value = '';
+  _updateDefectFilesLabel();
+}
+function onDefectDragOver(event) {
+  event.preventDefault();
+  const dz = document.getElementById('f-defect-drop-zone');
+  if (dz) { dz.style.borderColor = '#ef4444'; dz.style.background = 'rgba(239,68,68,.08)'; }
+}
+function onDefectDragLeave(event) {
+  event.preventDefault();
+  const dz = document.getElementById('f-defect-drop-zone');
+  if (dz && !dz.contains(event.relatedTarget)) { dz.style.borderColor = '#fca5a5'; dz.style.background = '#fef2f2'; }
+}
+function onDefectDrop(event) {
+  event.preventDefault();
+  const dz = document.getElementById('f-defect-drop-zone');
+  if (dz) { dz.style.borderColor = '#fca5a5'; dz.style.background = '#fef2f2'; }
+  _formDefectFiles = [..._formDefectFiles, ...Array.from(event.dataTransfer.files || [])];
+  _updateDefectFilesLabel();
 }
 
 function onMillingToggle(checked) {
@@ -5268,7 +5300,7 @@ function openOrderModal(id) {
       <div id="om-comments" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${renderComments(o)}</div>
       <div id="om-drop-zone" ondragover="onCommentDragOver(event)" ondragleave="onCommentDragLeave(event)" ondrop="onCommentDrop(event,'${o.id}')"
         style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:12px;border:2px dashed var(--border);transition:border-color .15s,background .15s">
-        <textarea id="om-comment-text" placeholder="Написать комментарий..." rows="2" class="fc" style="resize:vertical;font-size:13px;padding:8px 10px"></textarea>
+        <textarea id="om-comment-text" placeholder="Написать комментарий..." rows="3" class="fc" oninput="autoResizeTA(this)" style="resize:none;overflow:hidden;font-size:13px;padding:8px 10px;min-height:64px;box-sizing:border-box"></textarea>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <input type="file" id="om-file-input-${o.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCommentFileSelect(event,'${o.id}')">
           <button class="btn btn-sm btn-secondary" style="cursor:pointer;padding:5px 12px" type="button" onclick="document.getElementById('om-file-input-${o.id}').click()">
