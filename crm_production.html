@@ -94,8 +94,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ot tr:last-child td{border-bottom:none}
 .ot tr:hover td{background:#fafbfc}
 .on{font-family:monospace;font-size:11px;color:var(--muted);font-weight:600}
-.od{font-weight:700;font-size:13px}
-.oc{font-size:11.5px;color:var(--muted)}
+.od{font-weight:800;font-size:14px}
+.oc{font-size:11px;color:var(--muted)}
 .sv{font-weight:800;font-size:14px}
 .pc{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
 .pr1{background:#fee2e2;color:#dc2626}.pr2{background:#ffedd5;color:#c2410c}.pr3{background:#fef9c3;color:#a16207}.pr4{background:#dcfce7;color:#15803d}.pr5{background:#f1f5f9;color:#475569}
@@ -2823,7 +2823,7 @@ function renderTodayOrders() {
     const opBadgesHtml = badges.join(' ');
     return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer">
       <td><span class="pc pr${Math.min(i+1,5)}">${i+1}</span></td>
-      <td><div class="od">${o.desc}</div><div class="oc"><span style="color:var(--primary);font-weight:800;font-size:12px">${o.id}</span> · ${o.client}</div></td>
+      <td><div class="od">${escHtml(o.client)}</div><div class="oc"><span style="color:var(--primary);font-weight:700;font-size:11px">${o.id}</span> · ${escHtml(o.desc)}</div></td>
       <td><span class="sv">${o.sheets}</span> л.${o.materials&&o.materials.length>1?`<div style="font-size:10px;color:var(--muted)">${o.materials.filter(m=>isSheetMat(m)).length} видов</div>`:''}</td>
       <td>${opBadgesHtml}</td>
       <td>${sBadge(o.status)}</td>
@@ -4978,7 +4978,7 @@ function renderAllOrders(filter) {
   document.getElementById('all-tbody').innerHTML = list.map(o=>{
     return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer;${o.type==='defect'?'background:#fff5f5;border-left:3px solid #fca5a5':o.urgent?'background:#fff1f2':''}">
       <td><div class="on" style="cursor:pointer;color:${o.type==='defect'?'#dc2626':'var(--primary)'};font-weight:800;font-size:13px" onclick="event.stopPropagation();openOrderModal('${o.id}')">${o.urgent?'&#128293; ':''}${defectId(o)}</div>${o.type==='defect'?defectBadge():''}<div style="font-size:10px;color:var(--muted)">${fmt(o.created)}</div></td>
-      <td><div class="od">${o.desc}</div><div class="oc">${o.client}</div></td>
+      <td><div class="od">${escHtml(o.client)}</div><div class="oc">${escHtml(o.desc)}</div></td>
       <td><span class="sv">${o.sheets}</span> л.
         ${o.no_edging?'<span class="tag" style="font-size:9px;margin-left:3px">без кромки</span>':''}
         ${o.no_drilling?'<span class="tag" style="font-size:9px;margin-left:3px">без присадки</span>':''}
