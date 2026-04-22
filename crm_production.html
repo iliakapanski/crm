@@ -727,18 +727,7 @@ table{max-width:100%}
             <button type="button" id="f-nest-3"    onclick="setFormNesting(3)" class="btn btn-sm btn-secondary" style="flex:1">ФРС</button>
           </div>
         </div>
-        <div><label class="fl">Комментарий</label><input id="f-comment" class="fc" type="text" placeholder="Необязательно"></div>
-        <div id="f-create-attach-wrap">
-          <label class="fl">📎 Вложения</label>
-          <div id="f-create-drop-zone" ondragover="onCreateDragOver(event)" ondragleave="onCreateDragLeave(event)" ondrop="onCreateDrop(event)"
-            style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:10px 12px;border:2px dashed var(--border);transition:border-color .15s">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <input type="file" id="f-create-files" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCreateFileSelect(this)">
-              <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('f-create-files').click()">📎 Прикрепить файлы</button>
-              <div id="f-create-files-label" style="font-size:11px;color:var(--muted)">или перетащите сюда</div>
-            </div>
-          </div>
-        </div>
+        <div id="f-template-fields-wrap"></div>
       </div>
       <div id="schedule-preview" class="sp hidden" style="margin-top:16px">
         <div class="sp-title">Предварительное планирование</div>
@@ -928,6 +917,16 @@ table{max-width:100%}
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Отметьте, какие разделы доступны каждой роли. Руководитель всегда имеет полный доступ.</div>
     <div id="perm-grid" style="overflow-x:auto"></div>
+  </div>
+
+  <div class="settings-section" id="field-template-section">
+    <div class="settings-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>Шаблон карточки заказа</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+      Создайте разделы и поля — они будут автоматически появляться в форме создания заказа и в карточке каждого заказа.<br>
+      Тип <b>Текст</b> — однострочное/многострочное текстовое поле. Тип <b>Файл</b> — загрузка файлов с заметкой.
+    </div>
+    <div id="field-template-editor"></div>
+    <button class="btn btn-sm btn-primary" onclick="addTemplateSection()" style="margin-top:8px">+ Добавить раздел</button>
   </div>
 
   <div class="settings-section" style="background:#f0f7ff;border:1px solid #bfdbfe">
@@ -1244,8 +1243,10 @@ const TODAY = (function() {
 let CAP = { cutting: 50, edging: 800, drilling: 25, packing: 999 };
 let workingWeekends = new Set(); // Set of 'YYYY-MM-DD' strings
 let nonWorkingDays  = new Set(); // Weekdays marked as holidays/non-working
+// Шаблон полей карточки заказа: [{id,title,fields:[{id,type:'text'|'file',label}]}]
+let orderFieldTemplate = [];
 // Timestamps последних изменений настроек — для разрешения конфликтов multi-PC
-let settingsVersions = { non_working: 0, work_weekends: 0, cap: 0, worker_rates: 0, permissions: 0 };
+let settingsVersions = { non_working: 0, work_weekends: 0, cap: 0, worker_rates: 0, permissions: 0, order_field_template: 0 };
 function bumpSettingVersion(key) {
   const now = Date.now();
   settingsVersions[key] = now;
@@ -1298,8 +1299,11 @@ function loadSettings() {
       work_weekends: parseInt(localStorage.getItem('crm_work_weekends_v')||'0'),
       cap: parseInt(localStorage.getItem('crm_cap_v')||'0'),
       worker_rates: parseInt(localStorage.getItem('crm_worker_rates_v')||'0'),
-      permissions: parseInt(localStorage.getItem('crm_permissions_v')||'0')
+      permissions: parseInt(localStorage.getItem('crm_permissions_v')||'0'),
+      order_field_template: parseInt(localStorage.getItem('crm_order_field_template_v')||'0')
     };
+    const oft = localStorage.getItem('crm_order_field_template');
+    if (oft) try { orderFieldTemplate = JSON.parse(oft); } catch(e) {}
     loadPermissions();
     // Перестраиваем массив конструкторов из USERS
     rebuildDesigners();
@@ -1477,6 +1481,7 @@ async function cloudSaveAll() {
       non_working: [...nonWorkingDays],
       worker_rates: workerRates,
       permissions: rolePermissions,
+      order_field_template: orderFieldTemplate,
       settings_versions: settingsVersions,
       last_order_num: localStorage.getItem('crm_last_order_num') || '0'
     };
@@ -1562,6 +1567,12 @@ async function cloudLoadAll() {
       localStorage.setItem('crm_permissions', JSON.stringify(rolePermissions));
       settingsVersions.permissions = parseInt(cloudVers.permissions);
       localStorage.setItem('crm_permissions_v', String(settingsVersions.permissions));
+    }
+    if (data.order_field_template && Array.isArray(data.order_field_template) && cloudIsNewer('order_field_template')) {
+      orderFieldTemplate = data.order_field_template;
+      localStorage.setItem('crm_order_field_template', JSON.stringify(orderFieldTemplate));
+      settingsVersions.order_field_template = parseInt(cloudVers.order_field_template);
+      localStorage.setItem('crm_order_field_template_v', String(settingsVersions.order_field_template));
     }
     // Legacy fallback: если облако без settings_versions — однократно подхватываем (миграция)
     if (!cloudVers.non_working && data.non_working && !settingsVersions.non_working) {
@@ -3452,6 +3463,7 @@ function createOrder() {
     defect_ref: document.getElementById('f-is-defect')?.checked ? (document.getElementById('f-defect-ref')?.value?.trim() || null) : null,
     comments: [],
     attachments: [],
+    fieldValues: {},
     created: TODAY,
     history: [],
     stages_done: {},
@@ -3485,6 +3497,17 @@ function createOrder() {
     newO.launch_only = false;
     newO.launch_stage_data = { done: true, skipped: true };
     newO.launch_worker_ids = [];
+  }
+  // Заполняем fieldValues из шаблона (текстовые поля — сразу, файлы — асинхронно после)
+  for (const sec of orderFieldTemplate) {
+    for (const f of sec.fields) {
+      if (f.type === 'text') {
+        const el = document.getElementById('ftf-text-' + f.id);
+        newO.fieldValues[f.id] = { text: el ? el.value : '' };
+      } else {
+        newO.fieldValues[f.id] = { note: '', files: [] };
+      }
+    }
   }
   orders.push(newO);
   addHistory(num, 'Создание заказа', `${desc} — ${client}, ${sheets} л.`);
@@ -3529,6 +3552,36 @@ function createOrder() {
           if (!o2.attachments) o2.attachments = [];
           o2.attachments.push(slot);
           markDirty(num); saveOrders();
+        }
+      }
+    })();
+  }
+
+  // Загружаем файлы из полей шаблона асинхронно
+  const _fieldFilesSnapshot = { ..._formFieldFiles };
+  _formFieldFiles = {};
+  if (Object.keys(_fieldFilesSnapshot).some(k => (_fieldFilesSnapshot[k]||[]).length > 0)) {
+    (async () => {
+      for (const [fieldId, files] of Object.entries(_fieldFilesSnapshot)) {
+        if (!files || !files.length) continue;
+        for (const file of files) {
+          try {
+            const safeOrderId = String(num).replace(/[^a-zA-Z0-9_-]/g, '_');
+            const path = `orders/${safeOrderId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            if (_sb) {
+              const { error } = await _sb.storage.from('crm-files').upload(path, file, { upsert: true });
+              if (!error) {
+                const { data: urlData } = _sb.storage.from('crm-files').getPublicUrl(path);
+                const o2 = orders.find(x => x.id === num);
+                if (o2) {
+                  if (!o2.fieldValues) o2.fieldValues = {};
+                  if (!o2.fieldValues[fieldId]) o2.fieldValues[fieldId] = { note: '', files: [] };
+                  o2.fieldValues[fieldId].files.push({ name: file.name, url: urlData.publicUrl, type: file.type, path });
+                  markDirty(num); saveOrders();
+                }
+              }
+            }
+          } catch(e) { console.warn('Upload field file:', e); }
         }
       }
     })();
@@ -3641,7 +3694,7 @@ function resetForm() {
   document.getElementById('f-desc').value   = '';
   document.getElementById('f-sheets').value = '';
   document.getElementById('f-date').value   = '';
-  document.getElementById('f-comment').value= '';
+  const fcomment = document.getElementById('f-comment'); if (fcomment) fcomment.value = '';
   document.getElementById('f-no-project').checked  = false;
   const flo = document.getElementById('f-launch-only'); if(flo) flo.checked = true;
   document.getElementById('f-no-edging').checked   = false;
@@ -3668,10 +3721,12 @@ function resetForm() {
   const fdfi = document.getElementById('f-defect-files'); if(fdfi) fdfi.value = '';
   _formDefectFiles = [];
   _formCreateFiles = []; _updateCreateFilesList();
+  _formFieldFiles = {};
   formMaterials = [];
   formNesting = 1;
   setFormNesting(1);
   renderFormMatList();
+  renderCreateFormFields();
 }
 
 // ============================================================
@@ -5197,6 +5252,7 @@ function openOrderModal(id) {
       <button class="btn btn-primary btn-sm" onclick="closeOrderModal();openStages('${o.id}')">☑ Отметить стадии</button>
       <button class="btn btn-secondary btn-sm" onclick="openOrderHistory('${o.id}')">История</button>
     </div>
+    ${((_fvHtml = renderFieldValues(o)) => _fvHtml ? `<div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:16px"><div id="om-field-values">${_fvHtml}</div></div>` : `<div id="om-field-values"></div>`)()}
     <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">📎 Вложения</div>
@@ -6411,6 +6467,7 @@ function renderSettings() {
   holidayViewMonth = new Date().getMonth();
   renderHolidayGrid();
   renderPermissionsGrid();
+  renderFieldTemplateEditor();
   // Статус Supabase
   updateSyncIndicator(_sb ? 'ok' : 'error', _sb ? '' : 'Supabase не инициализирован');
 
@@ -6424,6 +6481,290 @@ function renderSettings() {
       </div>
       <button class="btn btn-sm btn-danger" style="padding:5px 9px" onclick="deleteEmployee('${u.id}')" title="Удалить сотрудника"></button>
     </div>`).join('');
+}
+
+// ============================================================
+// ШАБЛОН ПОЛЕЙ КАРТОЧКИ ЗАКАЗА
+// ============================================================
+
+function renderFieldTemplateEditor() {
+  const el = document.getElementById('field-template-editor');
+  if (!el) return;
+  if (!orderFieldTemplate.length) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:8px 0">Разделов нет. Нажмите «+ Добавить раздел» чтобы создать первый.</div>`;
+    return;
+  }
+  el.innerHTML = orderFieldTemplate.map((sec) => `
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--card)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <input class="fc" style="flex:1;font-weight:700;font-size:14px;padding:5px 9px"
+          value="${escHtml(sec.title)}"
+          onblur="renameTemplateSection('${sec.id}',this.value)"
+          placeholder="Название раздела">
+        <button class="btn btn-sm btn-danger" onclick="deleteTemplateSection('${sec.id}')" title="Удалить раздел">✕</button>
+      </div>
+      ${sec.fields.length ? sec.fields.map((f) => `
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:13px;width:18px;text-align:center;flex-shrink:0">${f.type==='text'?'🔤':'📎'}</span>
+          <input class="fc" style="flex:1;font-size:13px;padding:4px 8px"
+            value="${escHtml(f.label)}"
+            onblur="renameTemplateField('${sec.id}','${f.id}',this.value)"
+            placeholder="Название поля">
+          <span style="font-size:10px;color:var(--muted);white-space:nowrap;background:var(--gray-l,#f1f5f9);border-radius:5px;padding:2px 7px">${f.type==='text'?'Текст':'Файл'}</span>
+          <button onclick="deleteTemplateField('${sec.id}','${f.id}')" style="flex-shrink:0;background:none;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:11px;padding:2px 7px">✕</button>
+        </div>
+      `).join('') : `<div style="font-size:12px;color:var(--muted);padding:4px 0">Нет полей.</div>`}
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-secondary" onclick="addTemplateField('${sec.id}','text')">+ Текст</button>
+        <button class="btn btn-sm btn-secondary" onclick="addTemplateField('${sec.id}','file')">+ Файл</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function _saveFieldTemplate() {
+  bumpSettingVersion('order_field_template');
+  localStorage.setItem('crm_order_field_template', JSON.stringify(orderFieldTemplate));
+  cloudSaveAll();
+  renderCreateFormFields(); // обновляем форму создания заказа если открыта
+}
+
+function addTemplateSection() {
+  const title = prompt('Название раздела (например: Документы, Замеры, Конструктор):', '');
+  if (!title || !title.trim()) return;
+  orderFieldTemplate.push({ id: 'sec_' + Date.now(), title: title.trim(), fields: [] });
+  _saveFieldTemplate();
+  renderFieldTemplateEditor();
+}
+
+function deleteTemplateSection(secId) {
+  const sec = orderFieldTemplate.find(s => s.id === secId);
+  if (!confirm('Удалить раздел «' + (sec ? sec.title : '') + '» со всеми полями?')) return;
+  orderFieldTemplate = orderFieldTemplate.filter(s => s.id !== secId);
+  _saveFieldTemplate();
+  renderFieldTemplateEditor();
+}
+
+function renameTemplateSection(secId, title) {
+  const sec = orderFieldTemplate.find(s => s.id === secId);
+  if (sec && title.trim()) { sec.title = title.trim(); _saveFieldTemplate(); }
+}
+
+function addTemplateField(secId, type) {
+  const defaultLabel = type === 'text' ? 'Текстовое поле' : 'Вложение';
+  const label = prompt((type === 'text' ? 'Название текстового поля' : 'Название поля файла') + ' (например: Чертёж, Договор, Примечание):', defaultLabel);
+  if (!label || !label.trim()) return;
+  const sec = orderFieldTemplate.find(s => s.id === secId);
+  if (!sec) return;
+  sec.fields.push({ id: 'fld_' + Date.now(), type, label: label.trim() });
+  _saveFieldTemplate();
+  renderFieldTemplateEditor();
+}
+
+function deleteTemplateField(secId, fieldId) {
+  const sec = orderFieldTemplate.find(s => s.id === secId);
+  if (!sec) return;
+  const f = sec.fields.find(x => x.id === fieldId);
+  if (!confirm('Удалить поле «' + (f ? f.label : '') + '»?')) return;
+  sec.fields = sec.fields.filter(x => x.id !== fieldId);
+  _saveFieldTemplate();
+  renderFieldTemplateEditor();
+}
+
+function renameTemplateField(secId, fieldId, label) {
+  const sec = orderFieldTemplate.find(s => s.id === secId);
+  if (!sec) return;
+  const f = sec.fields.find(x => x.id === fieldId);
+  if (f && label.trim()) { f.label = label.trim(); _saveFieldTemplate(); }
+}
+
+// ── Рендер полей в форме создания заказа ──
+let _formFieldFiles = {}; // fieldId -> File[]
+
+function renderCreateFormFields() {
+  const wrap = document.getElementById('f-template-fields-wrap');
+  if (!wrap) return;
+  if (!orderFieldTemplate.length) {
+    // Нет шаблона — показываем стандартное поле комментария + вложения
+    wrap.innerHTML = `
+      <div><label class="fl">Комментарий</label><input id="f-comment" class="fc" type="text" placeholder="Необязательно"></div>
+      <div id="f-create-attach-wrap">
+        <label class="fl">📎 Вложения</label>
+        <div id="f-create-drop-zone" ondragover="onCreateDragOver(event)" ondragleave="onCreateDragLeave(event)" ondrop="onCreateDrop(event)"
+          style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:10px 12px;border:2px dashed var(--border);transition:border-color .15s">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <input type="file" id="f-create-files" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCreateFileSelect(this)">
+            <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('f-create-files').click()">📎 Прикрепить файлы</button>
+            <div id="f-create-files-label" style="font-size:11px;color:var(--muted)">или перетащите сюда</div>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+  // Есть шаблон — рендерим разделы
+  wrap.innerHTML = orderFieldTemplate.map(sec => {
+    if (!sec.fields.length) return '';
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;background:var(--card)">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text)">${escHtml(sec.title)}</div>
+      ${sec.fields.map(f => {
+        if (f.type === 'text') {
+          return `<div style="margin-bottom:8px">
+            <label class="fl" style="margin-bottom:4px">${escHtml(f.label)}</label>
+            <textarea id="ftf-text-${f.id}" rows="2" class="fc" style="resize:vertical;font-size:13px;padding:8px 10px;width:100%;box-sizing:border-box" placeholder="${escHtml(f.label)}..."></textarea>
+          </div>`;
+        } else {
+          return `<div style="margin-bottom:8px">
+            <label class="fl" style="margin-bottom:4px">${escHtml(f.label)}</label>
+            <div id="ftf-drop-${f.id}" ondragover="onFtfDragOver(event,'${f.id}')" ondragleave="onFtfDragLeave(event,'${f.id}')" ondrop="onFtfDrop(event,'${f.id}')"
+              style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:8px 12px;border:2px dashed var(--border);transition:border-color .15s">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <input type="file" id="ftf-file-${f.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onFtfFileSelect(event,'${f.id}')">
+                <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('ftf-file-${f.id}').click()">📎 Прикрепить файлы</button>
+                <span id="ftf-label-${f.id}" style="font-size:11px;color:var(--muted)">или перетащите сюда</span>
+              </div>
+            </div>
+          </div>`;
+        }
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function onFtfFileSelect(event, fieldId) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = '';
+  _formFieldFiles[fieldId] = (_formFieldFiles[fieldId] || []).concat(files);
+  _updateFtfLabel(fieldId);
+}
+function onFtfDragOver(event, fieldId) {
+  event.preventDefault();
+  const dz = document.getElementById('ftf-drop-' + fieldId);
+  if (dz) { dz.style.borderColor = 'var(--primary)'; dz.style.background = 'rgba(59,130,246,.06)'; }
+}
+function onFtfDragLeave(event, fieldId) {
+  event.preventDefault();
+  const dz = document.getElementById('ftf-drop-' + fieldId);
+  if (dz && !dz.contains(event.relatedTarget)) { dz.style.borderColor = 'var(--border)'; dz.style.background = 'var(--gray-l,#f8fafc)'; }
+}
+function onFtfDrop(event, fieldId) {
+  event.preventDefault();
+  const dz = document.getElementById('ftf-drop-' + fieldId);
+  if (dz) { dz.style.borderColor = 'var(--border)'; dz.style.background = 'var(--gray-l,#f8fafc)'; }
+  _formFieldFiles[fieldId] = (_formFieldFiles[fieldId] || []).concat(Array.from(event.dataTransfer.files || []));
+  _updateFtfLabel(fieldId);
+}
+function _updateFtfLabel(fieldId) {
+  const el = document.getElementById('ftf-label-' + fieldId);
+  const files = _formFieldFiles[fieldId] || [];
+  if (el) el.textContent = files.length ? files.map(f => f.name).join(', ') : 'или перетащите сюда';
+}
+
+// ── Рендер значений полей в карточке заказа ──
+function renderFieldValues(o) {
+  if (!orderFieldTemplate.length) return '';
+  const fv = o.fieldValues || {};
+  return orderFieldTemplate.map(sec => {
+    if (!sec.fields.length) return '';
+    return `<div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">${escHtml(sec.title)}</div>
+      ${sec.fields.map(f => {
+        const val = fv[f.id] || (f.type === 'text' ? { text: '' } : { note: '', files: [] });
+        if (f.type === 'text') {
+          return `<div style="margin-bottom:8px">
+            <label style="font-size:12px;font-weight:600;color:var(--text);display:block;margin-bottom:3px">${escHtml(f.label)}</label>
+            <textarea rows="2" class="fc" style="resize:vertical;font-size:13px;padding:8px 10px;width:100%;box-sizing:border-box"
+              onblur="saveFieldText('${escHtml(o.id)}','${f.id}',this.value)"
+              placeholder="${escHtml(f.label)}...">${escHtml(val.text || '')}</textarea>
+          </div>`;
+        } else {
+          const filesHtml = (val.files || []).map((file, fi) => {
+            const isImg = file.type && file.type.startsWith('image/');
+            const delBtn = `<button onclick="deleteFieldFile('${escHtml(o.id)}','${f.id}',${fi})" title="Удалить" style="flex-shrink:0;background:none;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:11px;padding:1px 6px">✕</button>`;
+            return isImg
+              ? `<div style="display:flex;align-items:flex-start;gap:6px;margin-top:6px">
+                   <div style="flex:1;min-width:0"><img src="${escHtml(file.url)}" alt="${escHtml(file.name)}" style="max-width:100%;max-height:180px;border-radius:7px;cursor:zoom-in;display:block" onclick="window.open('${escHtml(file.url)}','_blank')"></div>
+                   ${delBtn}</div>`
+              : `<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                   <button onclick="downloadFile('${escHtml(file.path||'')}','${escHtml(file.name)}','${escHtml(file.url)}')" style="flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;background:var(--gray-l,#f1f5f9);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--text);font-weight:600;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📎 ${escHtml(file.name)}</button>
+                   ${delBtn}</div>`;
+          }).join('');
+          return `<div style="margin-bottom:8px">
+            <label style="font-size:12px;font-weight:600;color:var(--text);display:block;margin-bottom:3px">${escHtml(f.label)}</label>
+            <textarea rows="2" class="fc" style="resize:vertical;font-size:12px;padding:7px 9px;width:100%;box-sizing:border-box"
+              onblur="saveFieldNote('${escHtml(o.id)}','${f.id}',this.value)"
+              placeholder="Заметка к файлу...">${escHtml(val.note || '')}</textarea>
+            ${filesHtml}
+            <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
+              <input type="file" id="fv-inp-${escHtml(o.id)}-${f.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="uploadFieldFile(event,'${escHtml(o.id)}','${f.id}')">
+              <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('fv-inp-${escHtml(o.id)}-${f.id}').click()">📎 Прикрепить файл</button>
+              <span id="fv-status-${escHtml(o.id)}-${f.id}" style="font-size:11px;color:var(--muted)"></span>
+            </div>
+          </div>`;
+        }
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function saveFieldText(orderId, fieldId, text) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  if (!o.fieldValues) o.fieldValues = {};
+  if (!o.fieldValues[fieldId]) o.fieldValues[fieldId] = { text: '' };
+  o.fieldValues[fieldId].text = text;
+  markDirty(orderId); saveOrders();
+}
+
+function saveFieldNote(orderId, fieldId, note) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  if (!o.fieldValues) o.fieldValues = {};
+  if (!o.fieldValues[fieldId]) o.fieldValues[fieldId] = { note: '', files: [] };
+  o.fieldValues[fieldId].note = note;
+  markDirty(orderId); saveOrders();
+}
+
+async function uploadFieldFile(event, orderId, fieldId) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = '';
+  if (!files.length) return;
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  if (!o.fieldValues) o.fieldValues = {};
+  if (!o.fieldValues[fieldId]) o.fieldValues[fieldId] = { note: '', files: [] };
+  const statusEl = document.getElementById(`fv-status-${orderId}-${fieldId}`);
+  if (statusEl) statusEl.textContent = '⏳ Загрузка...';
+  for (const file of files) {
+    try {
+      const safeOrderId = String(orderId).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const path = `orders/${safeOrderId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      if (_sb) {
+        const { error } = await _sb.storage.from('crm-files').upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = _sb.storage.from('crm-files').getPublicUrl(path);
+          o.fieldValues[fieldId].files.push({ name: file.name, url: urlData.publicUrl, type: file.type, path });
+        } else { console.warn('uploadFieldFile error:', error.message); }
+      }
+    } catch(e) { console.warn('uploadFieldFile:', e); }
+  }
+  markDirty(orderId); saveOrders();
+  const fvEl = document.getElementById('om-field-values');
+  if (fvEl) fvEl.innerHTML = renderFieldValues(o);
+  if (statusEl) statusEl.textContent = '';
+}
+
+async function deleteFieldFile(orderId, fieldId, fileIdx) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o || !o.fieldValues || !o.fieldValues[fieldId]) return;
+  const files = o.fieldValues[fieldId].files || [];
+  const f = files[fileIdx];
+  if (!f) return;
+  if (!confirm(`Удалить файл «${f.name}»?`)) return;
+  if (_sb && f.path) { try { await _sb.storage.from('crm-files').remove([f.path]); } catch(e) {} }
+  files.splice(fileIdx, 1);
+  markDirty(orderId); saveOrders();
+  const fvEl = document.getElementById('om-field-values');
+  if (fvEl) fvEl.innerHTML = renderFieldValues(o);
 }
 
 function liveUpdateUserInitials(i, name) {
