@@ -5099,14 +5099,15 @@ function openOrderModal(id) {
     <div style="border-top:1px solid var(--border);padding-top:14px">
       <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">💬 Комментарии и вложения</div>
       <div id="om-comments" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${renderComments(o)}</div>
-      <div style="display:flex;flex-direction:column;gap:6px;background:#f8fafc;border-radius:9px;padding:12px;border:1px solid var(--border)">
+      <div id="om-drop-zone" ondragover="onCommentDragOver(event)" ondragleave="onCommentDragLeave(event)" ondrop="onCommentDrop(event,'${o.id}')"
+        style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:12px;border:2px dashed var(--border);transition:border-color .15s,background .15s">
         <textarea id="om-comment-text" placeholder="Написать комментарий..." rows="2" class="fc" style="resize:vertical;font-size:13px;padding:8px 10px"></textarea>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <input type="file" id="om-file-input-${o.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCommentFileSelect(event,'${o.id}')">
           <button class="btn btn-sm btn-secondary" style="cursor:pointer;padding:5px 12px" type="button" onclick="document.getElementById('om-file-input-${o.id}').click()">
             📎 Прикрепить файл
           </button>
-          <div id="om-comment-files" style="font-size:11px;color:var(--muted)"></div>
+          <div id="om-comment-files" style="font-size:11px;color:var(--muted)">или перетащите файл сюда</div>
           <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="submitComment('${o.id}')">Отправить</button>
         </div>
       </div>
@@ -5124,27 +5125,105 @@ let _commentFiles = []; // pending files for current comment
 function renderComments(o) {
   const comments = o.comments || [];
   if (!comments.length) return '<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px">Комментариев пока нет</div>';
-  return comments.slice().reverse().map(c => `
+  // Используем исходный индекс (не reversed) для удаления
+  return comments.map((c, ci) => `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 12px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div style="font-size:11px;font-weight:700;color:var(--primary)">${escHtml(c.user||'—')}</div>
         <div style="font-size:10px;color:var(--muted)">${c.date||''} ${c.time||''}</div>
       </div>
       ${c.text ? `<div style="font-size:13px;margin-bottom:8px;white-space:pre-wrap;color:var(--text)">${escHtml(c.text)}</div>` : ''}
-      ${(c.files||[]).length ? `<div style="display:flex;flex-direction:column;gap:6px">${c.files.map(f => {
+      ${(c.files||[]).length ? `<div style="display:flex;flex-direction:column;gap:6px">${c.files.map((f, fi) => {
         const isImg = f.type && f.type.startsWith('image/');
+        const delBtn = `<button onclick="deleteCommentFile('${escHtml(o.id)}',${ci},${fi})" title="Удалить файл"
+          style="flex-shrink:0;background:none;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:11px;padding:1px 6px;line-height:1.5">✕</button>`;
         return isImg
-          ? `<div><img src="${escHtml(f.url)}" alt="${escHtml(f.name)}" style="max-width:100%;max-height:240px;border-radius:8px;cursor:zoom-in;object-fit:contain;display:block" onclick="window.open('${escHtml(f.url)}','_blank')" onerror="this.style.display='none';this.nextSibling.style.display='inline-flex'"><a href="${escHtml(f.url)}" target="_blank" style="display:none;align-items:center;gap:4px;background:var(--gray-l);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;text-decoration:none;color:var(--text)">🖼 ${escHtml(f.name)}</a></div>`
-          : `<a href="${escHtml(f.url)}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;background:var(--gray-l);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;text-decoration:none;color:var(--text);font-weight:600">📎 ${escHtml(f.name)}</a>`;
+          ? `<div style="display:flex;align-items:flex-start;gap:6px">
+               <div style="flex:1;min-width:0">
+                 <img src="${escHtml(f.url)}" alt="${escHtml(f.name)}" style="max-width:100%;max-height:240px;border-radius:8px;cursor:zoom-in;object-fit:contain;display:block" onclick="window.open('${escHtml(f.url)}','_blank')" onerror="this.style.display='none';this.nextSibling.style.display='inline-flex'">
+                 <a href="${escHtml(f.url)}" target="_blank" style="display:none;align-items:center;gap:4px;background:var(--gray-l);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;text-decoration:none;color:var(--text)">🖼 ${escHtml(f.name)}</a>
+               </div>
+               ${delBtn}
+             </div>`
+          : `<div style="display:flex;align-items:center;gap:6px">
+               <a href="${escHtml(f.url)}" target="_blank" style="flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;background:var(--gray-l);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;text-decoration:none;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📎 ${escHtml(f.name)}</a>
+               ${delBtn}
+             </div>`;
       }).join('')}</div>` : ''}
-    </div>`).join('');
+    </div>`).reverse().join('');
+}
+
+async function deleteCommentFile(orderId, commentIdx, fileIdx) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o || !o.comments) return;
+  const c = o.comments[commentIdx];
+  if (!c || !c.files) return;
+  const f = c.files[fileIdx];
+  if (!f) return;
+  if (!confirm(`Удалить файл «${f.name}»?`)) return;
+  // Удаляем из Supabase Storage если есть путь
+  if (_sb && f.path) {
+    try { await _sb.storage.from('crm-files').remove([f.path]); } catch(e) { console.warn('Storage delete:', e); }
+  }
+  c.files.splice(fileIdx, 1);
+  // Если комментарий стал пустым — удаляем его
+  if (!c.text && !c.files.length) o.comments.splice(commentIdx, 1);
+  markDirty(orderId);
+  saveOrders();
+  const commentsEl = document.getElementById('om-comments');
+  if (commentsEl) commentsEl.innerHTML = renderComments(o);
 }
 
 function onCommentFileSelect(event, orderId) {
   const files = Array.from(event.target.files || []);
   _commentFiles = files;
+  _updateCommentFilesList();
+}
+
+function _updateCommentFilesList() {
   const el = document.getElementById('om-comment-files');
-  if (el) el.textContent = files.length ? files.map(f=>f.name).join(', ') : '';
+  if (!el) return;
+  if (_commentFiles.length) {
+    el.innerHTML = _commentFiles.map((f, i) =>
+      `<span style="display:inline-flex;align-items:center;gap:3px;background:var(--border);border-radius:5px;padding:2px 6px;font-size:11px">
+        ${escHtml(f.name)}
+        <button onclick="_removeCommentFile(${i})" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:12px;padding:0;line-height:1">✕</button>
+      </span>`
+    ).join(' ');
+  } else {
+    el.textContent = 'или перетащите файл сюда';
+  }
+}
+
+function _removeCommentFile(idx) {
+  _commentFiles.splice(idx, 1);
+  _updateCommentFilesList();
+}
+
+function onCommentDragOver(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const dz = document.getElementById('om-drop-zone');
+  if (dz) { dz.style.borderColor = 'var(--primary)'; dz.style.background = 'rgba(59,130,246,.06)'; }
+}
+
+function onCommentDragLeave(event) {
+  event.preventDefault();
+  const dz = document.getElementById('om-drop-zone');
+  if (dz && !dz.contains(event.relatedTarget)) {
+    dz.style.borderColor = 'var(--border)'; dz.style.background = 'var(--gray-l,#f8fafc)';
+  }
+}
+
+function onCommentDrop(event, orderId) {
+  event.preventDefault();
+  event.stopPropagation();
+  const dz = document.getElementById('om-drop-zone');
+  if (dz) { dz.style.borderColor = 'var(--border)'; dz.style.background = 'var(--gray-l,#f8fafc)'; }
+  const dropped = Array.from(event.dataTransfer.files || []);
+  if (!dropped.length) return;
+  _commentFiles = [..._commentFiles, ...dropped];
+  _updateCommentFilesList();
 }
 
 async function submitComment(orderId) {
@@ -5199,8 +5278,7 @@ async function submitComment(orderId) {
   // Reset input
   if (textEl) textEl.value = '';
   _commentFiles = [];
-  const filesEl = document.getElementById('om-comment-files');
-  if (filesEl) filesEl.textContent = '';
+  _updateCommentFilesList();
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Отправить'; }
 
   // Re-render comments
