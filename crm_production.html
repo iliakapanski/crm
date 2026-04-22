@@ -727,8 +727,8 @@ table{max-width:100%}
             <button type="button" id="f-nest-3"    onclick="setFormNesting(3)" class="btn btn-sm btn-secondary" style="flex:1">ФРС</button>
           </div>
         </div>
-        <div id="f-template-fields-wrap"></div>
       </div>
+      <div id="f-template-fields-wrap"></div>
       <div id="schedule-preview" class="sp hidden" style="margin-top:16px">
         <div class="sp-title">Предварительное планирование</div>
         <div class="sp-row" id="sp-timeline"></div>
@@ -6580,6 +6580,18 @@ function renameTemplateField(secId, fieldId, label) {
 
 // ── Рендер полей в форме создания заказа ──
 let _formFieldFiles = {}; // fieldId -> File[]
+let _collapsedCreateSections = new Set(); // IDs свёрнутых разделов в форме создания
+
+function toggleCreateSection(secId) {
+  const body  = document.getElementById('ftf-body-' + secId);
+  const arrow = document.getElementById('ftf-arr-' + secId);
+  if (!body) return;
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? '' : 'none';
+  if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
+  if (isHidden) _collapsedCreateSections.delete(secId);
+  else          _collapsedCreateSections.add(secId);
+}
 
 function renderCreateFormFields() {
   const wrap = document.getElementById('f-template-fields-wrap');
@@ -6587,8 +6599,10 @@ function renderCreateFormFields() {
   if (!orderFieldTemplate.length) {
     // Нет шаблона — показываем стандартное поле комментария + вложения
     wrap.innerHTML = `
-      <div><label class="fl">Комментарий</label><input id="f-comment" class="fc" type="text" placeholder="Необязательно"></div>
-      <div id="f-create-attach-wrap">
+      <div style="margin-top:12px">
+        <label class="fl">Комментарий</label><input id="f-comment" class="fc" type="text" placeholder="Необязательно">
+      </div>
+      <div style="margin-top:12px">
         <label class="fl">📎 Вложения</label>
         <div id="f-create-drop-zone" ondragover="onCreateDragOver(event)" ondragleave="onCreateDragLeave(event)" ondrop="onCreateDrop(event)"
           style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:10px 12px;border:2px dashed var(--border);transition:border-color .15s">
@@ -6601,22 +6615,23 @@ function renderCreateFormFields() {
       </div>`;
     return;
   }
-  // Есть шаблон — рендерим разделы
-  wrap.innerHTML = orderFieldTemplate.map(sec => {
-    if (!sec.fields.length) return '';
-    return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;background:var(--card)">
-      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text)">${escHtml(sec.title)}</div>
-      ${sec.fields.map(f => {
+  // Есть шаблон — рендерим аккордеон-разделы
+  const hasSecs = orderFieldTemplate.some(s => s.fields.length > 0);
+  wrap.innerHTML = (hasSecs ? `<div style="margin-top:14px;display:flex;flex-direction:column;gap:6px">` : '') +
+    orderFieldTemplate.map(sec => {
+      if (!sec.fields.length) return '';
+      const collapsed = _collapsedCreateSections.has(sec.id);
+      const fieldsHtml = sec.fields.map(f => {
         if (f.type === 'text') {
           return `<div style="margin-bottom:8px">
-            <label class="fl" style="margin-bottom:4px">${escHtml(f.label)}</label>
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">${escHtml(f.label)}</label>
             <textarea id="ftf-text-${f.id}" rows="2" class="fc" style="resize:vertical;font-size:13px;padding:8px 10px;width:100%;box-sizing:border-box" placeholder="${escHtml(f.label)}..."></textarea>
           </div>`;
         } else {
           return `<div style="margin-bottom:8px">
-            <label class="fl" style="margin-bottom:4px">${escHtml(f.label)}</label>
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">${escHtml(f.label)}</label>
             <div id="ftf-drop-${f.id}" ondragover="onFtfDragOver(event,'${f.id}')" ondragleave="onFtfDragLeave(event,'${f.id}')" ondrop="onFtfDrop(event,'${f.id}')"
-              style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:8px 12px;border:2px dashed var(--border);transition:border-color .15s">
+              style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:8px;padding:8px 12px;border:2px dashed var(--border);transition:border-color .15s">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <input type="file" id="ftf-file-${f.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onFtfFileSelect(event,'${f.id}')">
                 <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('ftf-file-${f.id}').click()">📎 Прикрепить файлы</button>
@@ -6625,9 +6640,17 @@ function renderCreateFormFields() {
             </div>
           </div>`;
         }
-      }).join('')}
-    </div>`;
-  }).join('');
+      }).join('');
+      return `<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <div onclick="toggleCreateSection('${sec.id}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gray-l,#f1f5f9);user-select:none">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(sec.title)}</span>
+          <span id="ftf-arr-${sec.id}" style="font-size:11px;color:var(--muted);margin-left:8px">${collapsed ? '▶' : '▼'}</span>
+        </div>
+        <div id="ftf-body-${sec.id}" style="padding:12px 14px;${collapsed ? 'display:none' : ''}">
+          ${fieldsHtml}
+        </div>
+      </div>`;
+    }).join('') + (hasSecs ? '</div>' : '');
 }
 
 function onFtfFileSelect(event, fieldId) {
@@ -6663,23 +6686,26 @@ function _updateFtfLabel(fieldId) {
 function renderFieldValues(o) {
   if (!orderFieldTemplate.length) return '';
   const fv = o.fieldValues || {};
-  return orderFieldTemplate.map(sec => {
-    if (!sec.fields.length) return '';
-    return `<div style="margin-bottom:14px">
-      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">${escHtml(sec.title)}</div>
-      ${sec.fields.map(f => {
+  const hasSecs = orderFieldTemplate.some(s => s.fields.length > 0);
+  if (!hasSecs) return '';
+  return `<div style="display:flex;flex-direction:column;gap:6px">` +
+    orderFieldTemplate.map(sec => {
+      if (!sec.fields.length) return '';
+      const oid = escHtml(o.id);
+      const sid = escHtml(sec.id);
+      const fieldsHtml = sec.fields.map(f => {
         const val = fv[f.id] || (f.type === 'text' ? { text: '' } : { note: '', files: [] });
         if (f.type === 'text') {
           return `<div style="margin-bottom:8px">
-            <label style="font-size:12px;font-weight:600;color:var(--text);display:block;margin-bottom:3px">${escHtml(f.label)}</label>
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">${escHtml(f.label)}</label>
             <textarea rows="2" class="fc" style="resize:vertical;font-size:13px;padding:8px 10px;width:100%;box-sizing:border-box"
-              onblur="saveFieldText('${escHtml(o.id)}','${f.id}',this.value)"
+              onblur="saveFieldText('${oid}','${f.id}',this.value)"
               placeholder="${escHtml(f.label)}...">${escHtml(val.text || '')}</textarea>
           </div>`;
         } else {
           const filesHtml = (val.files || []).map((file, fi) => {
             const isImg = file.type && file.type.startsWith('image/');
-            const delBtn = `<button onclick="deleteFieldFile('${escHtml(o.id)}','${f.id}',${fi})" title="Удалить" style="flex-shrink:0;background:none;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:11px;padding:1px 6px">✕</button>`;
+            const delBtn = `<button onclick="deleteFieldFile('${oid}','${f.id}',${fi})" title="Удалить" style="flex-shrink:0;background:none;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:11px;padding:1px 6px">✕</button>`;
             return isImg
               ? `<div style="display:flex;align-items:flex-start;gap:6px;margin-top:6px">
                    <div style="flex:1;min-width:0"><img src="${escHtml(file.url)}" alt="${escHtml(file.name)}" style="max-width:100%;max-height:180px;border-radius:7px;cursor:zoom-in;display:block" onclick="window.open('${escHtml(file.url)}','_blank')"></div>
@@ -6689,21 +6715,38 @@ function renderFieldValues(o) {
                    ${delBtn}</div>`;
           }).join('');
           return `<div style="margin-bottom:8px">
-            <label style="font-size:12px;font-weight:600;color:var(--text);display:block;margin-bottom:3px">${escHtml(f.label)}</label>
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">${escHtml(f.label)}</label>
             <textarea rows="2" class="fc" style="resize:vertical;font-size:12px;padding:7px 9px;width:100%;box-sizing:border-box"
-              onblur="saveFieldNote('${escHtml(o.id)}','${f.id}',this.value)"
+              onblur="saveFieldNote('${oid}','${f.id}',this.value)"
               placeholder="Заметка к файлу...">${escHtml(val.note || '')}</textarea>
             ${filesHtml}
             <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
-              <input type="file" id="fv-inp-${escHtml(o.id)}-${f.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="uploadFieldFile(event,'${escHtml(o.id)}','${f.id}')">
-              <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('fv-inp-${escHtml(o.id)}-${f.id}').click()">📎 Прикрепить файл</button>
-              <span id="fv-status-${escHtml(o.id)}-${f.id}" style="font-size:11px;color:var(--muted)"></span>
+              <input type="file" id="fv-inp-${oid}-${f.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="uploadFieldFile(event,'${oid}','${f.id}')">
+              <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('fv-inp-${oid}-${f.id}').click()">📎 Прикрепить файл</button>
+              <span id="fv-status-${oid}-${f.id}" style="font-size:11px;color:var(--muted)"></span>
             </div>
           </div>`;
         }
-      }).join('')}
-    </div>`;
-  }).join('');
+      }).join('');
+      return `<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <div onclick="toggleModalSection('${sid}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--gray-l,#f1f5f9);user-select:none">
+          <span style="font-size:12px;font-weight:700;color:var(--text)">${escHtml(sec.title)}</span>
+          <span id="fvs-arr-${sid}" style="font-size:11px;color:var(--muted)">▼</span>
+        </div>
+        <div id="fvs-body-${sid}" style="padding:12px 13px">
+          ${fieldsHtml}
+        </div>
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+function toggleModalSection(secId) {
+  const body  = document.getElementById('fvs-body-' + secId);
+  const arrow = document.getElementById('fvs-arr-' + secId);
+  if (!body) return;
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? '' : 'none';
+  if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
 }
 
 function saveFieldText(orderId, fieldId, text) {
