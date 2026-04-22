@@ -4332,8 +4332,9 @@ function renderCalTableView(days) {
     if (isPast) {
       const factColor = used > 0 ? '#16a34a' : '#9ca3af';
       const pastTdBg = _dk ? 'rgba(255,255,255,.03)' : '#fafafa';
+      const dispUsedFact = Number.isInteger(used) ? used : +used.toFixed(1);
       return `<td style="background:${pastTdBg}"><div class="cal-op" style="opacity:0.85">
-        <div class="cal-op-lbl" style="color:${factColor};font-weight:700">${used>0?'✓ ':''}${used} ${unit}.</div>
+        <div class="cal-op-lbl" style="color:${factColor};font-weight:700">${used>0?'✓ ':''}${dispUsedFact} ${unit}.</div>
         <div class="cal-bw"><div class="cal-bf ${fillCls}" style="width:${op==='packing'?Math.min(100,used*2):pct}%;opacity:0.6"></div></div>
         <div style="font-size:10px;color:var(--muted)">${used>0?'выполнено':'—'}</div>
         ${chips?`<div class="cal-chips">${chips}</div>`:''}
@@ -4410,10 +4411,12 @@ function renderCalTableView(days) {
       barHtml = `<div class="cal-bw"><div class="cal-bf ${fillCls}" style="width:${op==='packing'?Math.min(100,totalUsed*2):pct}%"></div></div>`;
     }
 
+    const dispUsed = Number.isInteger(totalUsed) ? totalUsed : +totalUsed.toFixed(1);
+    const dispFree = Math.round(free);
     return `<td><div class="cal-op">
-      <div class="cal-op-lbl">${totalUsed}/${op==='packing'?'∞':cap} ${unit}.</div>
+      <div class="cal-op-lbl">${dispUsed}/${op==='packing'?'∞':cap} ${unit}.</div>
       ${barHtml}
-      <div class="cal-cnt ${cls}">${free<=0?'🔴 Занято':free<=cap*.3?'🟡 '+free+' св.':'🟢 '+free+' св.'}</div>
+      <div class="cal-cnt ${cls}">${free<=0?'🔴 Занято':free<=cap*.3?'🟡 '+dispFree+' св.':'🟢 '+dispFree+' св.'}</div>
       ${chips?`<div class="cal-chips">${chips}</div>`:''}
     </div></td>`;
   }
