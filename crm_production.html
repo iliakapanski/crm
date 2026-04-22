@@ -4321,7 +4321,8 @@ function renderCalTableView(days) {
 
     if (isPast) {
       const factColor = used > 0 ? '#16a34a' : '#9ca3af';
-      return `<td style="background:#fafafa"><div class="cal-op" style="opacity:0.85">
+      const pastTdBg = _dk ? 'rgba(255,255,255,.03)' : '#fafafa';
+      return `<td style="background:${pastTdBg}"><div class="cal-op" style="opacity:0.85">
         <div class="cal-op-lbl" style="color:${factColor};font-weight:700">${used>0?'✓ ':''}${used} ${unit}.</div>
         <div class="cal-bw"><div class="cal-bf ${fillCls}" style="width:${op==='packing'?Math.min(100,used*2):pct}%;opacity:0.6"></div></div>
         <div style="font-size:10px;color:var(--muted)">${used>0?'выполнено':'—'}</div>
@@ -4465,7 +4466,7 @@ function renderCalTableView(days) {
     const wkndBtn = (!isPast && isWorkWknd)
       ? `<td style="padding:6px 10px;vertical-align:middle"><button class="btn btn-sm btn-danger" style="padding:3px 9px;font-size:11px;white-space:nowrap" onclick="toggleWorkWeekend('${date}')">✖ Снять вых.</button></td>`
       : '';
-    const rowStyle = isPast ? 'background:#fafafa;' : '';
+    const rowStyle = isPast ? (_dk ? 'background:rgba(255,255,255,.03);' : 'background:#fafafa;') : '';
     const visibleTds = TABLE_COLS.filter(col => calTableColFlt.has(col.key)).map(col => col.td(date)).join('');
     return `<tr style="${rowStyle}">${dateTd}${visibleTds}${wkndBtn}</tr>`;
   }).join('');
