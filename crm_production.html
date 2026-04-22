@@ -4103,7 +4103,7 @@ function renderCalTableView(days) {
   const MAT_PALETTE = ['#60a5fa','#a78bfa','#34d399','#fbbf24','#fb923c','#f472b6','#38bdf8','#4ade80','#c084fc','#f87171'];
   const _dk = isDarkTheme();
   // Фильтр брака: все внутренние функции используют viewOrders вместо orders
-  const viewOrders = showDefectOrders ? orders : orders.filter(o => o.type !== 'defect');
+  const viewOrders = showOnlyDefect ? orders.filter(o => o.type === 'defect') : showDefectOrders ? orders : orders.filter(o => o.type !== 'defect');
   // Определение всех колонок с функциями рендера и стилями для фильтр-бара
   const TABLE_COLS = [
     { key:'design',      label:'Проект',            color:'#3730a3', btnBg: _dk?'rgba(99,102,241,.18)':'#eef2ff',  td: d => designTd(d) },
@@ -4239,10 +4239,20 @@ function renderCalTableView(days) {
         });
       });
     });
+    // Авто-добавляем брак-заказы в Красную зону по их основной дате
+    const _defectAdded = new Set(items.map(i => i.o.id));
+    viewOrders.forEach(o => {
+      if (o.type !== 'defect' || _defectAdded.has(o.id)) return;
+      if (getDefectPrimaryDate(o) === date) {
+        const refLabel = o.defect_ref ? `Брак #${o.defect_ref}` : 'Брак/Переделка';
+        items.push({ o, m: { desc: refLabel }, reason: o.desc || '', stageLabel: 'БРАК' });
+      }
+    });
+
     if (!items.length) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = items.map(({o, m, reason, stageLabel}) => {
-      const tip = [escHtml(o.desc), escHtml(m.desc||'—'), stageLabel, reason].filter(Boolean).join(' — ');
-      return `<span class="cc cc-red" data-oid="${o.id}" onclick="openStages('${o.id}')" title="${tip}">${o.urgent?'🔥':''}${o.id} ${escHtml(m.desc||'—')}${stageLabel?' ('+stageLabel+')':''} ${reason?'· '+escHtml(reason.length>25?reason.slice(0,25)+'…':reason):''}</span>`;
+      const tip = [escHtml(o.desc), escHtml((m||{}).desc||'—'), stageLabel, reason].filter(Boolean).join(' — ');
+      return `<span class="cc cc-red" data-oid="${o.id}" onclick="openStages('${o.id}')" title="${tip}">${o.urgent?'🔥':''}${o.id} ${escHtml((m||{}).desc||'—')}${stageLabel?' ('+stageLabel+')':''} ${reason?'· '+escHtml(reason.length>25?reason.slice(0,25)+'…':reason):''}</span>`;
     }).join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#991b1b;font-weight:700">🔴 ${items.length} поз.</div><div class="cal-chips">${chips}</div></div></td>`;
   }
@@ -4503,7 +4513,7 @@ function renderCalTableView(days) {
 function renderCalDetailView(days) {
   const dk = isDarkTheme();
   // Фильтр брака: если скрыт — убираем из отображения
-  const viewOrders = showDefectOrders ? orders : orders.filter(o => o.type !== 'defect');
+  const viewOrders = showOnlyDefect ? orders.filter(o => o.type === 'defect') : showDefectOrders ? orders : orders.filter(o => o.type !== 'defect');
   const OPS = dk ? [
     {key:'cutting',  icon:'',  label:'Распил',            cls:'cc-cut', border:'rgba(79,142,247,.3)',  bg:'rgba(79,142,247,.1)',  hdr:'#93c5fd'},
     {key:'edging',   icon:'', label:'Кромка',             cls:'cc-edg', border:'rgba(139,92,246,.3)',  bg:'rgba(139,92,246,.1)',  hdr:'#c4b5fd'},
@@ -4833,6 +4843,15 @@ function renderCalDetailView(days) {
           });
         });
       });
+      // Авто-добавляем брак-заказы по их основной дате
+      const _rzAdded = new Set(rzItems.map(i => i.o.id));
+      viewOrders.forEach(o => {
+        if (o.type !== 'defect' || _rzAdded.has(o.id)) return;
+        if (getDefectPrimaryDate(o) === date) {
+          const refLabel = o.defect_ref ? `Брак #${o.defect_ref}` : 'Брак/Переделка';
+          rzItems.push({ o, m: { desc: refLabel }, reason: o.desc || '', stageLabel: 'БРАК' });
+        }
+      });
     }
     const redzoneSectionHtml = rzItems.length ? (() => {
       const bdr = dk ? 'rgba(220,38,38,.35)' : '#fca5a5';
@@ -4900,6 +4919,16 @@ let currentFilter = 'all';
 let currentSort = 'created';
 let currentSearch = '';
 let showDefectOrders = false; // по умолчанию брак скрыт
+let showOnlyDefect   = false; // режим «только брак»
+
+// Основная дата брак-заказа для показа в Красной зоне
+function getDefectPrimaryDate(o) {
+  if (!o.no_cutting  && o.cutting_date)  return o.cutting_date;
+  if (!o.no_edging   && o.edging_date)   return o.edging_date;
+  if (!o.no_drilling && o.drilling_date) return o.drilling_date;
+  if (!o.no_packing  && o.packing_date)  return o.packing_date;
+  return o.packing_date || o.cutting_date || null;
+}
 function onOrdersSearch(val) {
   currentSearch = (val || '').trim().toLowerCase();
   renderAllOrders(currentFilter);
@@ -4915,23 +4944,47 @@ function filterOrders(f) {
 }
 
 function _syncDefectBtns() {
-  const on = showDefectOrders;
+  // 3 состояния: скрыт / виден (смешано) / только брак
+  const only = showOnlyDefect;
+  const on   = showDefectOrders && !only;
   ['filter-defect-btn','cal-defect-btn'].forEach(id => {
     const b = document.getElementById(id);
     if (!b) return;
-    b.textContent = on ? '🔴 Брак виден' : '🔴 Брак скрыт';
-    b.style.background = on ? '#dc2626' : '#fee2e2';
-    b.style.color      = on ? '#fff'    : '#dc2626';
-    b.style.borderColor = on ? '#dc2626' : '#fca5a5';
+    if (only) {
+      b.textContent = '🔴 Только брак';
+      b.style.background  = '#7f1d1d';
+      b.style.color       = '#fecaca';
+      b.style.borderColor = '#b91c1c';
+    } else if (on) {
+      b.textContent = '🔴 Брак виден';
+      b.style.background  = '#dc2626';
+      b.style.color       = '#fff';
+      b.style.borderColor = '#dc2626';
+    } else {
+      b.textContent = '🔴 Брак скрыт';
+      b.style.background  = '#fee2e2';
+      b.style.color       = '#dc2626';
+      b.style.borderColor = '#fca5a5';
+    }
   });
 }
+// Цикл: скрыт → виден → только брак → скрыт
+function _cycleDefectState() {
+  if (!showDefectOrders && !showOnlyDefect) {
+    showDefectOrders = true;  showOnlyDefect = false; // скрыт → виден
+  } else if (showDefectOrders && !showOnlyDefect) {
+    showOnlyDefect = true;                            // виден → только брак
+  } else {
+    showDefectOrders = false; showOnlyDefect = false; // только брак → скрыт
+  }
+}
 function toggleDefectFilter() {
-  showDefectOrders = !showDefectOrders;
+  _cycleDefectState();
   _syncDefectBtns();
   renderAllOrders(currentFilter);
 }
 function toggleCalDefect() {
-  showDefectOrders = !showDefectOrders;
+  _cycleDefectState();
   _syncDefectBtns();
   renderCalendar();
 }
@@ -4964,8 +5017,9 @@ function renderAllOrders(filter) {
     btn.style.cssText = 'padding:4px 10px;font-size:11px;border-radius:5px' + (k!==currentSort?';background:transparent;color:var(--muted)':'');
   });
   let list = filter==='all' ? [...orders] : orders.filter(o=>o.status===filter);
-  // Скрываем/показываем брак
-  if (!showDefectOrders) list = list.filter(o => o.type !== 'defect');
+  // Фильтр брака: скрыт / виден / только брак
+  if (showOnlyDefect)       list = list.filter(o => o.type === 'defect');
+  else if (!showDefectOrders) list = list.filter(o => o.type !== 'defect');
   if (currentSearch) list = list.filter(o => orderMatchesSearch(o, currentSearch));
   list.sort((a,b) => {
     // Urgent orders always first
