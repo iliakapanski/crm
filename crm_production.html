@@ -728,6 +728,17 @@ table{max-width:100%}
           </div>
         </div>
         <div><label class="fl">Комментарий</label><input id="f-comment" class="fc" type="text" placeholder="Необязательно"></div>
+        <div id="f-create-attach-wrap">
+          <label class="fl">📎 Вложения</label>
+          <div id="f-create-drop-zone" ondragover="onCreateDragOver(event)" ondragleave="onCreateDragLeave(event)" ondrop="onCreateDrop(event)"
+            style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:10px 12px;border:2px dashed var(--border);transition:border-color .15s">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <input type="file" id="f-create-files" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCreateFileSelect(this)">
+              <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('f-create-files').click()">📎 Прикрепить файлы</button>
+              <div id="f-create-files-label" style="font-size:11px;color:var(--muted)">или перетащите сюда</div>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="schedule-preview" class="sp hidden" style="margin-top:16px">
         <div class="sp-title">Предварительное планирование</div>
@@ -3440,6 +3451,7 @@ function createOrder() {
     defect_num: document.getElementById('f-is-defect')?.checked ? document.getElementById('f-num').value : null,
     defect_ref: document.getElementById('f-is-defect')?.checked ? (document.getElementById('f-defect-ref')?.value?.trim() || null) : null,
     comments: [],
+    attachments: [],
     created: TODAY,
     history: [],
     stages_done: {},
@@ -3489,6 +3501,37 @@ function createOrder() {
       const storedD = parseInt(localStorage.getItem('crm_last_defect_num') || '0');
       localStorage.setItem('crm_last_defect_num', String(Math.max(storedD, defN)));
     }
+  }
+
+  // Если есть вложения при создании — загружаем асинхронно
+  if (_formCreateFiles.length) {
+    const _filesToUpload = [..._formCreateFiles];
+    _formCreateFiles = [];
+    _updateCreateFilesList();
+    (async () => {
+      const slot = { id: 'att_' + Date.now(), title: 'Вложения', note: '', files: [] };
+      if (_sb) {
+        for (const file of _filesToUpload) {
+          try {
+            const safeOrderId = String(num).replace(/[^a-zA-Z0-9_-]/g, '_');
+            const path = `orders/${safeOrderId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+            const { error } = await _sb.storage.from('crm-files').upload(path, file, { upsert: true });
+            if (!error) {
+              const { data: urlData } = _sb.storage.from('crm-files').getPublicUrl(path);
+              slot.files.push({ name: file.name, url: urlData.publicUrl, type: file.type, path });
+            }
+          } catch(e) { console.warn('Upload:', e); }
+        }
+      }
+      if (slot.files.length) {
+        const o2 = orders.find(x => x.id === num);
+        if (o2) {
+          if (!o2.attachments) o2.attachments = [];
+          o2.attachments.push(slot);
+          markDirty(num); saveOrders();
+        }
+      }
+    })();
   }
 
   // Если заказ — брак и есть описание/файлы — добавляем первый комментарий
@@ -3624,6 +3667,7 @@ function resetForm() {
   const fdfl = document.getElementById('f-defect-files-label'); if(fdfl) fdfl.textContent = '';
   const fdfi = document.getElementById('f-defect-files'); if(fdfi) fdfi.value = '';
   _formDefectFiles = [];
+  _formCreateFiles = []; _updateCreateFilesList();
   formMaterials = [];
   formNesting = 1;
   setFormNesting(1);
@@ -5153,8 +5197,15 @@ function openOrderModal(id) {
       <button class="btn btn-primary btn-sm" onclick="closeOrderModal();openStages('${o.id}')">☑ Отметить стадии</button>
       <button class="btn btn-secondary btn-sm" onclick="openOrderHistory('${o.id}')">История</button>
     </div>
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">📎 Вложения</div>
+        <button class="btn btn-sm btn-secondary" onclick="openAddAttachmentSlot('${o.id}')">+ Добавить поле</button>
+      </div>
+      <div id="om-attachments">${renderAttachments(o)}</div>
+    </div>
     <div style="border-top:1px solid var(--border);padding-top:14px">
-      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">💬 Комментарии и вложения</div>
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">💬 Переписка</div>
       <div id="om-comments" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${renderComments(o)}</div>
       <div id="om-drop-zone" ondragover="onCommentDragOver(event)" ondragleave="onCommentDragLeave(event)" ondrop="onCommentDrop(event,'${o.id}')"
         style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:12px;border:2px dashed var(--border);transition:border-color .15s,background .15s">
@@ -5177,7 +5228,63 @@ function closeOrderModal() { document.getElementById('order-overlay').classList.
 // ============================================================
 // КОММЕНТАРИИ И ВЛОЖЕНИЯ
 // ============================================================
+let _formCreateFiles = []; // pending files for new order creation
+
+function onCreateFileSelect(input) {
+  _formCreateFiles = [..._formCreateFiles, ...Array.from(input.files||[])];
+  _updateCreateFilesList();
+  input.value = '';
+}
+function onCreateDragOver(event) {
+  event.preventDefault();
+  const dz = document.getElementById('f-create-drop-zone');
+  if (dz) { dz.style.borderColor='var(--primary)'; dz.style.background='rgba(59,130,246,.06)'; }
+}
+function onCreateDragLeave(event) {
+  event.preventDefault();
+  const dz = document.getElementById('f-create-drop-zone');
+  if (dz && !dz.contains(event.relatedTarget)) { dz.style.borderColor='var(--border)'; dz.style.background='var(--gray-l,#f8fafc)'; }
+}
+function onCreateDrop(event) {
+  event.preventDefault();
+  const dz = document.getElementById('f-create-drop-zone');
+  if (dz) { dz.style.borderColor='var(--border)'; dz.style.background='var(--gray-l,#f8fafc)'; }
+  _formCreateFiles = [..._formCreateFiles, ...Array.from(event.dataTransfer.files||[])];
+  _updateCreateFilesList();
+}
+function _updateCreateFilesList() {
+  const el = document.getElementById('f-create-files-label');
+  if (!el) return;
+  if (_formCreateFiles.length) {
+    el.innerHTML = _formCreateFiles.map((f,i) =>
+      `<span style="display:inline-flex;align-items:center;gap:3px;background:var(--border);border-radius:5px;padding:2px 6px;font-size:11px">${escHtml(f.name)}<button onclick="_removeCreateFile(${i})" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:12px;padding:0;line-height:1">✕</button></span>`
+    ).join(' ');
+  } else {
+    el.textContent = 'или перетащите сюда';
+  }
+}
+function _removeCreateFile(idx) {
+  _formCreateFiles.splice(idx,1);
+  _updateCreateFilesList();
+}
+
 let _commentFiles = []; // pending files for current comment
+
+async function downloadFile(path, name, url) {
+  try {
+    if (_sb && path) {
+      const { data, error } = await _sb.storage.from('crm-files').download(path);
+      if (!error && data) {
+        const blobUrl = URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = blobUrl; a.download = name; a.click();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+        return;
+      }
+    }
+  } catch(e) { console.warn('Download:', e); }
+  window.open(url, '_blank');
+}
 
 function renderComments(o) {
   const comments = o.comments || [];
@@ -5185,9 +5292,9 @@ function renderComments(o) {
   // Используем исходный индекс (не reversed) для удаления
   return comments.map((c, ci) => `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 12px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="font-size:11px;font-weight:700;color:var(--primary)">${escHtml(c.user||'—')}</div>
-        <div style="font-size:10px;color:var(--muted)">${c.date||''} ${c.time||''}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:800;color:var(--primary)">👤 ${escHtml(c.user||'—')}</div>
+        <div style="font-size:10px;color:var(--muted);white-space:nowrap">${c.date||''} ${c.time?'в '+c.time:''}</div>
       </div>
       ${c.text ? `<div style="font-size:13px;margin-bottom:8px;white-space:pre-wrap;color:var(--text)">${escHtml(c.text)}</div>` : ''}
       ${(c.files||[]).length ? `<div style="display:flex;flex-direction:column;gap:6px">${c.files.map((f, fi) => {
@@ -5203,7 +5310,7 @@ function renderComments(o) {
                ${delBtn}
              </div>`
           : `<div style="display:flex;align-items:center;gap:6px">
-               <a href="${escHtml(f.url)}" target="_blank" style="flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;background:var(--gray-l);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;text-decoration:none;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📎 ${escHtml(f.name)}</a>
+               <button onclick="downloadFile('${escHtml(f.path||'')}','${escHtml(f.name)}','${escHtml(f.url)}')" style="flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;background:var(--gray-l,#f1f5f9);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left">📎 ${escHtml(f.name)}</button>
                ${delBtn}
              </div>`;
       }).join('')}</div>` : ''}
@@ -5229,6 +5336,123 @@ async function deleteCommentFile(orderId, commentIdx, fileIdx) {
   saveOrders();
   const commentsEl = document.getElementById('om-comments');
   if (commentsEl) commentsEl.innerHTML = renderComments(o);
+}
+
+// ============================================================
+// ВЛОЖЕНИЯ (NAMED ATTACHMENT SLOTS)
+// ============================================================
+function renderAttachments(o) {
+  const slots = o.attachments || [];
+  const dk = isDarkTheme();
+  if (!slots.length) return `<div style="text-align:center;padding:10px;color:var(--muted);font-size:12px">Нет вложений. Нажмите «+ Добавить поле».</div>`;
+  return slots.map((slot) => {
+    const filesHtml = (slot.files||[]).map((f, fi) => {
+      const isImg = f.type && f.type.startsWith('image/');
+      const delBtn = `<button onclick="deleteSlotFile('${escHtml(o.id)}','${escHtml(slot.id)}',${fi})" title="Удалить" style="flex-shrink:0;background:none;border:1px solid #fca5a5;border-radius:5px;cursor:pointer;color:#dc2626;font-size:11px;padding:1px 6px">✕</button>`;
+      return isImg
+        ? `<div style="display:flex;align-items:flex-start;gap:6px;margin-top:6px">
+             <div style="flex:1;min-width:0">
+               <img src="${escHtml(f.url)}" alt="${escHtml(f.name)}" style="max-width:100%;max-height:200px;border-radius:7px;cursor:zoom-in;display:block" onclick="window.open('${escHtml(f.url)}','_blank')" onerror="this.style.display='none'">
+             </div>${delBtn}</div>`
+        : `<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+             <button onclick="downloadFile('${escHtml(f.path||'')}','${escHtml(f.name)}','${escHtml(f.url)}')" style="flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;background:var(--gray-l,#f1f5f9);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--text);font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📎 ${escHtml(f.name)}</button>
+             ${delBtn}</div>`;
+    }).join('');
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-weight:800;font-size:13px;flex:1;color:var(--text)">📁 ${escHtml(slot.title)}</div>
+        <button onclick="deleteAttachmentSlot('${escHtml(o.id)}','${escHtml(slot.id)}')" title="Удалить поле" style="background:none;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;color:#dc2626;font-size:11px;padding:2px 8px">✕ Удалить поле</button>
+      </div>
+      <textarea placeholder="Заметка к вложению..." rows="2"
+        style="width:100%;resize:vertical;font-size:12px;padding:7px 9px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;outline:none;box-sizing:border-box"
+        onblur="updateSlotNote('${escHtml(o.id)}','${escHtml(slot.id)}',this.value)">${escHtml(slot.note||'')}</textarea>
+      ${filesHtml}
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <input type="file" id="slot-inp-${escHtml(slot.id)}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onSlotFileSelect(event,'${escHtml(o.id)}','${escHtml(slot.id)}')">
+        <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('slot-inp-${escHtml(slot.id)}').click()">📎 Прикрепить файл</button>
+        <span id="slot-status-${escHtml(slot.id)}" style="font-size:11px;color:var(--muted)"></span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAddAttachmentSlot(orderId) {
+  const title = prompt('Название поля (например: Чертёж, Договор, Замеры):', '');
+  if (!title || !title.trim()) return;
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  if (!o.attachments) o.attachments = [];
+  o.attachments.push({ id: 'att_' + Date.now(), title: title.trim(), note: '', files: [] });
+  markDirty(orderId); saveOrders();
+  const el = document.getElementById('om-attachments');
+  if (el) el.innerHTML = renderAttachments(o);
+}
+
+function deleteAttachmentSlot(orderId, slotId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o || !o.attachments) return;
+  if (!confirm('Удалить поле «' + (o.attachments.find(s=>s.id===slotId)?.title||'') + '» со всеми файлами?')) return;
+  // Delete files from storage
+  const slot = o.attachments.find(s => s.id === slotId);
+  if (slot && slot.files && _sb) {
+    const paths = slot.files.filter(f=>f.path).map(f=>f.path);
+    if (paths.length) _sb.storage.from('crm-files').remove(paths).catch(()=>{});
+  }
+  o.attachments = o.attachments.filter(s => s.id !== slotId);
+  markDirty(orderId); saveOrders();
+  const el = document.getElementById('om-attachments');
+  if (el) el.innerHTML = renderAttachments(o);
+}
+
+function updateSlotNote(orderId, slotId, note) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o || !o.attachments) return;
+  const slot = o.attachments.find(s => s.id === slotId);
+  if (slot) { slot.note = note; markDirty(orderId); saveOrders(); }
+}
+
+async function deleteSlotFile(orderId, slotId, fileIdx) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o || !o.attachments) return;
+  const slot = o.attachments.find(s => s.id === slotId);
+  if (!slot || !slot.files) return;
+  const f = slot.files[fileIdx];
+  if (!f) return;
+  if (!confirm(`Удалить файл «${f.name}»?`)) return;
+  if (_sb && f.path) { try { await _sb.storage.from('crm-files').remove([f.path]); } catch(e){} }
+  slot.files.splice(fileIdx, 1);
+  markDirty(orderId); saveOrders();
+  const el = document.getElementById('om-attachments');
+  if (el) el.innerHTML = renderAttachments(o);
+}
+
+async function onSlotFileSelect(event, orderId, slotId) {
+  const files = Array.from(event.target.files||[]);
+  if (!files.length) return;
+  event.target.value = '';
+  const o = orders.find(x => x.id === orderId);
+  if (!o || !o.attachments) return;
+  const slot = o.attachments.find(s => s.id === slotId);
+  if (!slot) return;
+  const statusEl = document.getElementById('slot-status-' + slotId);
+  if (statusEl) statusEl.textContent = '⏳ Загрузка...';
+  for (const file of files) {
+    try {
+      const safeOrderId = String(orderId).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const path = `orders/${safeOrderId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+      if (_sb) {
+        const { error } = await _sb.storage.from('crm-files').upload(path, file, { upsert: true });
+        if (!error) {
+          const { data: urlData } = _sb.storage.from('crm-files').getPublicUrl(path);
+          slot.files.push({ name: file.name, url: urlData.publicUrl, type: file.type, path });
+        } else { console.warn('Upload error:', error.message); }
+      }
+    } catch(e) { console.warn('Upload error:', e); }
+  }
+  markDirty(orderId); saveOrders();
+  const el = document.getElementById('om-attachments');
+  if (el) el.innerHTML = renderAttachments(o);
+  if (statusEl) statusEl.textContent = '';
 }
 
 function onCommentFileSelect(event, orderId) {
