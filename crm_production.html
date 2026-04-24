@@ -720,8 +720,13 @@ table{max-width:100%}
           <div id="f-curvilinear-wrap" style="display:none"><input id="f-curvilinear-meters" class="fc" type="number" step="0.1" min="0" placeholder="м криволинейки" style="width:140px;padding:4px 8px;font-size:12px"></div>
           <label class="checkbox-row" style="color:#dc2626;font-weight:700;margin-left:auto"><input type="checkbox" id="f-is-defect" onchange="onDefectToggle(this.checked)"> 🔴 Брак/Переделка</label>
         </div>
-        <div id="f-defect-ref-wrap" class="fs2" style="display:none"><label class="fl">Исходный заказ (необязательно)</label><input id="f-defect-ref" class="fc" type="text" placeholder="Номер исходного заказа, например 1333"></div>
         <div id="f-defect-comment-wrap" class="fs2" style="display:none;flex-direction:column;gap:8px;background:var(--danger-l,#fee2e2);border:1.5px dashed #fca5a5;border-radius:9px;padding:12px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div style="flex:1;min-width:180px">
+              <label class="fl" style="margin-bottom:4px;color:#dc2626">Исходный заказ (необязательно)</label>
+              <input id="f-defect-ref" class="fc" type="text" placeholder="Номер исходного заказа, например 1333">
+            </div>
+          </div>
           <label class="fl" style="margin-bottom:0;color:#dc2626">Описание брака</label>
           <textarea id="f-defect-comment" rows="3" placeholder="Опишите дефект, причину переделки..." oninput="autoResizeTA(this)"
             style="resize:none;overflow:hidden;font-size:13px;padding:8px 10px;border-radius:7px;border:1px solid #fca5a5;background:var(--card,#fff);color:var(--text,#1e293b);width:100%;outline:none;font-family:inherit;box-sizing:border-box;min-height:64px"></textarea>
@@ -1956,7 +1961,14 @@ function orderDesignerInfo(o) {
 function recalcDesignerBusy(desId) {
   const d = designers.find(x => x.id === desId);
   if (!d) return;
-  const myOrders = orders.filter(o => o.designer_id === desId && o.status !== 'done' && o.design_end);
+  // Считаем только заказы где проект ещё не выполнен
+  const myOrders = orders.filter(o =>
+    o.designer_id === desId &&
+    o.status !== 'done' &&
+    o.design_end &&
+    !o.stages_done?.design &&
+    !o.design_stage_data?.done
+  );
   if (!myOrders.length) {
     d.busy_until = TODAY;
     d.current_order_id = null;
@@ -3216,8 +3228,6 @@ function recalcFormSheets() {
 }
 
 function onDefectToggle(checked) {
-  const refWrap = document.getElementById('f-defect-ref-wrap');
-  if (refWrap) refWrap.style.display = checked ? '' : 'none';
   const commentWrap = document.getElementById('f-defect-comment-wrap');
   if (commentWrap) commentWrap.style.display = checked ? 'flex' : 'none';
   if (checked) {
@@ -4041,7 +4051,6 @@ function resetForm() {
   pendingSched = null;
   const fid = document.getElementById('f-is-defect'); if(fid) fid.checked = false;
   const fdr = document.getElementById('f-defect-ref'); if(fdr) fdr.value = '';
-  const fdrw = document.getElementById('f-defect-ref-wrap'); if(fdrw) fdrw.style.display = 'none';
   const fdcw = document.getElementById('f-defect-comment-wrap'); if(fdcw) fdcw.style.display = 'none';
   const fdct = document.getElementById('f-defect-comment'); if(fdct) fdct.value = '';
   const fdfl = document.getElementById('f-defect-files-label'); if(fdfl) fdfl.textContent = '';
@@ -4621,6 +4630,7 @@ function renderCalTableView(days) {
       return getLaunchDate(o) === date;
     });
     const launchDone = viewOrders.filter(o => {
+      if (o.no_launch) return false;
       if (!o.launch_stage_data?.done) return false;
       // Показываем выполненный запуск на плановой дате
       return getLaunchDate(o) === date;
@@ -6148,6 +6158,42 @@ function recalcEditSheets() {
   document.getElementById('e-sheets').value = sheets;
 }
 
+function ematSearchCatalog(matId, val) {
+  const dd = document.getElementById('emat-dd-' + matId);
+  if (!dd) return;
+  const q = (val||'').toLowerCase().trim();
+  if (q.length < 2) { dd.style.display = 'none'; return; }
+  const list = (_catalog||[]).filter(c =>
+    c.name.toLowerCase().includes(q) || c.manufacturer.toLowerCase().includes(q) || (c.sku||'').toLowerCase().includes(q)
+  ).slice(0, 10);
+  if (!list.length) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = list.map(c =>
+    `<div onclick="ematSelectCatalog('${matId}','${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}','${escHtml(c.manufacturer.replace(/'/g,"\\'"))}')"
+      style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        ${c.sku ? `<span style="font-size:10px;font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(c.sku)}</span>` : ''}
+        <strong>${escHtml(c.name)}</strong>
+        ${c.thickness != null ? `<span style="font-size:10px;color:var(--muted)">${c.thickness} мм</span>` : ''}
+        ${c.sheet_size ? `<span style="font-size:10px;color:var(--muted)">${escHtml(c.sheet_size)}</span>` : ''}
+        <span style="margin-left:auto;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:1px">${escHtml(c.manufacturer)}</div>
+    </div>`).join('');
+}
+function ematSelectCatalog(matId, catalogId, name, mfr) {
+  const m = editMaterials.find(x => x.id === matId);
+  if (!m) return;
+  m.catalog_item_id = catalogId;
+  m.desc = name + ' · ' + mfr;
+  const inp = document.getElementById('emat-desc-' + matId);
+  if (inp) inp.value = m.desc;
+  const dd = document.getElementById('emat-dd-' + matId);
+  if (dd) dd.style.display = 'none';
+  renderEditMatList();
+}
+
 function renderEditMatList() {
   const el = document.getElementById('edit-mat-list');
   if (!el) return;
@@ -6170,15 +6216,34 @@ function renderEditMatList() {
       </select>
       <input type="date" class="fc" style="flex:0 0 120px;padding:5px 6px;font-size:12px" value="${m.mill_date||''}" oninput="updateEditMat('${m.id}','mill_date',this.value)" title="Дата готовности фрезеровки">` : '';
     const isMill = m.type === 'mill';
-    return `<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+    // Каталожная подсказка (как в форме создания)
+    const catItem = m.catalog_item_id && _catalog ? _catalog.find(c => c.id === m.catalog_item_id) : null;
+    const catalogHint = catItem ? (() => {
+      const parts = [
+        catItem.sku ? `<span style="font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(catItem.sku)}</span>` : null,
+        `<span style="font-weight:600">${escHtml(catItem.name)}</span>`,
+        catItem.sheet_size ? `<span style="color:var(--muted)">${escHtml(catItem.sheet_size)}</span>` : null,
+        catItem.thickness != null ? `<span style="color:var(--muted)">${catItem.thickness} мм</span>` : null,
+        `<span style="color:var(--muted)">${escHtml(catItem.manufacturer)}</span>`,
+      ].filter(Boolean).join(' · ');
+      return `<div style="font-size:10px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${parts}</div>`;
+    })() : '';
+    return `<div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;margin-bottom:4px">
       <select class="fc" style="flex:0 0 110px;padding:5px 6px;font-size:12px" onchange="updateEditMat('${m.id}','type',this.value)">
         ${matSelectOpts(m.type)}
       </select>
-      <input class="fc" style="flex:1;min-width:80px;padding:5px 8px;font-size:12px" type="text" placeholder="${isMill?'Описание детали':'Цвет / описание'}" value="${escHtml(m.desc||'')}" oninput="updateEditMat('${m.id}','desc',this.value)">
+      <div style="flex:1;min-width:80px;position:relative">
+        <input id="emat-desc-${m.id}" class="fc" style="width:100%;box-sizing:border-box;padding:5px 8px;font-size:12px" type="text" placeholder="${isMill?'Описание детали':'Цвет / описание'}" value="${escHtml(m.desc||'')}"
+          oninput="updateEditMat('${m.id}','desc',this.value);ematSearchCatalog('${m.id}',this.value)"
+          onfocus="ematSearchCatalog('${m.id}',this.value)"
+          onblur="setTimeout(()=>{const d=document.getElementById('emat-dd-${m.id}');if(d)d.style.display='none'},200)">
+        ${catalogHint}
+        <div id="emat-dd-${m.id}" style="display:none;position:absolute;left:0;top:100%;z-index:500;width:320px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:240px;overflow-y:auto"></div>
+      </div>
       ${!isMill ? `<input class="fc" style="flex:0 0 55px;padding:5px 8px;font-size:12px;text-align:center" type="number" min="0" max="9999" step="any" placeholder="0" value="${m.qty||''}" oninput="updateEditMat('${m.id}','qty',this.value)">
-      <span style="font-size:12px;color:var(--muted);min-width:14px">${matTypeUnit(m.type)}</span>` : ''}
+      <span style="font-size:12px;color:var(--muted);min-width:14px;padding-top:6px">${matTypeUnit(m.type)}</span>` : ''}
       ${edgingInput}${editMillInput}
-      <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;margin-left:auto" onclick="removeEditMaterial('${m.id}')">×</button>
+      <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0" onclick="removeEditMaterial('${m.id}')">×</button>
     </div>`;
   }).join('');
 }
