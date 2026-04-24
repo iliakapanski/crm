@@ -9463,7 +9463,8 @@ function renderPayroll() {
           ${d.tasks.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead><tr style="background:#f8fafc">
               <th style="padding:7px 14px;text-align:left">Заказ</th>
-              <th style="padding:7px 8px;text-align:left">Материал</th>
+              <th style="padding:7px 8px;text-align:left">Клиент</th>
+              <th style="padding:7px 8px;text-align:left">Описание</th>
               <th style="padding:7px 8px;text-align:left">Стадия</th>
               <th style="padding:7px 8px;text-align:right">Кол-во</th>
               <th style="padding:7px 8px;text-align:right">Ставка</th>
@@ -9472,7 +9473,8 @@ function renderPayroll() {
             </tr></thead>
             <tbody>${d.tasks.map(t=>`<tr style="border-top:1px solid var(--border)">
               <td style="padding:6px 14px"><span style="cursor:pointer;color:var(--primary);font-weight:800;font-size:15px;font-family:monospace" onclick="openOrderModal('${t.o.id}')">${escHtml(t.o.id)}</span></td>
-              <td style="padding:6px 8px">${t.m ? escHtml(t.m.desc||'—') : escHtml(t.o.desc||'—')}</td>
+              <td style="padding:6px 8px;white-space:nowrap">${escHtml(t.o.client||'—')}</td>
+              <td style="padding:6px 8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(t.o.desc||'')}">${escHtml(t.o.desc||'—')}</td>
               <td style="padding:6px 8px">${t.stg.icon} ${t.stg.label}</td>
               <td style="padding:6px 8px;text-align:right">${t.qty} ${t.stg.key==='edging'?'м':t.stg.key==='gluing'?'м²':t.stg.key==='curvilinear'?'м':'л'}</td>
               <td style="padding:6px 8px;text-align:right;color:var(--muted)">${workerRates[t.stg.key]||0} ₸</td>
