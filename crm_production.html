@@ -716,7 +716,7 @@ table{max-width:100%}
             ondragover="onDefectDragOver(event)" ondragleave="onDefectDragLeave(event)" ondrop="onDefectDrop(event)"
             style="display:flex;flex-direction:column;gap:6px;background:#fef2f2;border-radius:8px;padding:8px 12px;border:2px dashed #fca5a5;transition:border-color .15s,background .15s">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <input type="file" id="f-defect-files" multiple accept="image/*,application/pdf,.doc,.docx" style="position:absolute;opacity:0;width:0;height:0" onchange="onFormDefectFileSelect(this)">
+              <input type="file" id="f-defect-files" multiple accept="*/*" style="position:absolute;opacity:0;width:0;height:0" onchange="onFormDefectFileSelect(this)">
               <button type="button" onclick="document.getElementById('f-defect-files').click()" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:7px;border:1px solid #fca5a5;background:#fee2e2;color:#dc2626;font-size:12px;font-weight:600">
                 📎 Прикрепить фото / файл
               </button>
@@ -5304,7 +5304,7 @@ function openOrderModal(id) {
           style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:12px;border:2px dashed var(--border);transition:border-color .15s,background .15s">
           <textarea id="om-comment-text" placeholder="Написать комментарий..." rows="3" class="fc" oninput="autoResizeTA(this)" style="resize:none;overflow:hidden;font-size:13px;padding:8px 10px;min-height:64px;box-sizing:border-box"></textarea>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <input type="file" id="om-file-input-${o.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCommentFileSelect(event,'${o.id}')">
+            <input type="file" id="om-file-input-${o.id}" multiple accept="*/*" style="position:absolute;opacity:0;width:0;height:0" onchange="onCommentFileSelect(event,'${o.id}')">
             <button class="btn btn-sm btn-secondary" style="cursor:pointer;padding:5px 12px" type="button" onclick="document.getElementById('om-file-input-${o.id}').click()">
               📎 Прикрепить файл
             </button>
@@ -5462,7 +5462,7 @@ function renderAttachments(o) {
         onblur="updateSlotNote('${escHtml(o.id)}','${escHtml(slot.id)}',this.value)">${escHtml(slot.note||'')}</textarea>
       ${filesHtml}
       <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <input type="file" id="slot-inp-${escHtml(slot.id)}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onSlotFileSelect(event,'${escHtml(o.id)}','${escHtml(slot.id)}')">
+        <input type="file" id="slot-inp-${escHtml(slot.id)}" multiple accept="*/*" style="position:absolute;opacity:0;width:0;height:0" onchange="onSlotFileSelect(event,'${escHtml(o.id)}','${escHtml(slot.id)}')">
         <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('slot-inp-${escHtml(slot.id)}').click()">📎 Прикрепить файл</button>
         <span id="slot-status-${escHtml(slot.id)}" style="font-size:11px;color:var(--muted)"></span>
       </div>
@@ -6696,7 +6696,7 @@ function renderCreateFormFields() {
         <div id="f-create-drop-zone" ondragover="onCreateDragOver(event)" ondragleave="onCreateDragLeave(event)" ondrop="onCreateDrop(event)"
           style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:10px 12px;border:2px dashed var(--border);transition:border-color .15s">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <input type="file" id="f-create-files" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCreateFileSelect(this)">
+            <input type="file" id="f-create-files" multiple accept="*/*" style="position:absolute;opacity:0;width:0;height:0" onchange="onCreateFileSelect(this)">
             <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('f-create-files').click()">📎 Прикрепить файлы</button>
             <div id="f-create-files-label" style="font-size:11px;color:var(--muted)">или перетащите сюда</div>
           </div>
@@ -6722,7 +6722,7 @@ function renderCreateFormFields() {
             <div id="ftf-drop-${f.id}" ondragover="onFtfDragOver(event,'${f.id}')" ondragleave="onFtfDragLeave(event,'${f.id}')" ondrop="onFtfDrop(event,'${f.id}')"
               style="background:var(--gray-l,#f8fafc);border-radius:8px;padding:8px 12px;border:2px dashed var(--border);transition:border-color .15s">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <input type="file" id="ftf-file-${f.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onFtfFileSelect(event,'${f.id}')">
+                <input type="file" id="ftf-file-${f.id}" multiple accept="*/*" style="position:absolute;opacity:0;width:0;height:0" onchange="onFtfFileSelect(event,'${f.id}')">
                 <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('ftf-file-${f.id}').click()">📎 Прикрепить файлы</button>
                 <span id="ftf-label-${f.id}" style="font-size:11px;color:var(--muted)">или перетащите сюда</span>
               </div>
@@ -6857,7 +6857,7 @@ function renderFieldValues(o) {
               placeholder="Заметка к файлу...">${escHtml(val.note || '')}</textarea>
             ${filesHtml}
             <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
-              <input type="file" id="fv-inp-${oid}-${f.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="uploadFieldFile(event,'${oid}','${f.id}')">
+              <input type="file" id="fv-inp-${oid}-${f.id}" multiple accept="*/*" style="position:absolute;opacity:0;width:0;height:0" onchange="uploadFieldFile(event,'${oid}','${f.id}')">
               <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('fv-inp-${oid}-${f.id}').click()">📎 Прикрепить файл</button>
               <span id="fv-status-${oid}-${f.id}" style="font-size:11px;color:var(--muted)"></span>
             </div>
