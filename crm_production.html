@@ -3425,13 +3425,16 @@ function renderFormMatList() {
     const isMill = m.type === 'mill';
     const st = m.supply_type || 'own';
     const catItem = m.catalog_item_id ? _catalog.find(x => x.id === m.catalog_item_id) : null;
-    const catMeta = catItem ? [
-      catItem.sku ? catItem.sku : null,
-      catItem.thickness != null ? `⬛ ${catItem.thickness} мм` : null,
-      catItem.sheet_size ? `📐 ${catItem.sheet_size}` : null,
-    ].filter(Boolean).join(' · ') : '';
-    const catalogHint = catItem
-      ? `<div style="font-size:10px;color:var(--primary);margin-top:3px">📋 ${escHtml(catItem.manufacturer)} · ${escHtml(catItem.name)}${catMeta ? `<span style="color:var(--muted);margin-left:6px">${catMeta}</span>` : ''}</div>` : '';
+    const catalogHint = catItem ? (() => {
+      const parts = [
+        catItem.sku ? `<span style="font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(catItem.sku)}</span>` : null,
+        `<span style="font-weight:600">${escHtml(catItem.name)}</span>`,
+        catItem.thickness != null ? `<span style="color:var(--muted)">⬛ ${catItem.thickness} мм</span>` : null,
+        catItem.sheet_size ? `<span style="color:var(--muted)">📐 ${escHtml(catItem.sheet_size)}</span>` : null,
+        `<span style="color:var(--muted)">${escHtml(catItem.manufacturer)}</span>`,
+      ].filter(Boolean).join(' · ');
+      return `<div style="font-size:10px;margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">📋 ${parts}</div>`;
+    })() : '';
     let clientBalanceHtml = '';
     if (st === 'client' && clientId && m.catalog_item_id) {
       const bal = _calcClientBalance(clientId, m.catalog_item_id);
@@ -3810,6 +3813,7 @@ function createOrder() {
   }
   orders.push(newO);
   addHistory(num, 'Создание заказа', `${desc} — ${client}, ${sheets} л.`);
+  saveOrders(); // ← сразу пишем в localStorage и запускаем cloud sync
   // Сохраняем последний номер заказа — берём максимум (если пользователь ввёл задним числом, не понижаем)
   const numParsed = parseInt(num);
   if (!isNaN(numParsed)) {
