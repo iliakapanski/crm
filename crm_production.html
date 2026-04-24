@@ -706,7 +706,6 @@ table{max-width:100%}
         <div class="fs2" style="display:flex;gap:20px;flex-wrap:wrap">
           <label class="checkbox-row"><input type="checkbox" id="f-no-project" onchange="recalcFormSheets()"> Без конструктора</label>
           <label class="checkbox-row"><input type="checkbox" id="f-launch-only" checked onchange="recalcFormSheets()"> Запуск заказа</label>
-          <label class="checkbox-row"><input type="checkbox" id="f-no-launch" onchange="recalcFormSheets()"> Без запуска</label>
           <label class="checkbox-row"><input type="checkbox" id="f-no-cutting" onchange="recalcFormSheets()"> Без распила</label>
           <label class="checkbox-row"><input type="checkbox" id="f-no-edging" onchange="recalcFormSheets()"> Без кромки</label>
           <label class="checkbox-row"><input type="checkbox" id="f-no-drilling" onchange="recalcFormSheets()"> Без присадки</label>
@@ -1193,8 +1192,7 @@ table{max-width:100%}
       </div>
       <div style="margin-top:10px;display:flex;gap:12px 16px;flex-wrap:wrap">
         <label class="checkbox-row"><input type="checkbox" id="e-no-project" onchange="updateEditDateFields()"> Без конструктора</label>
-        <label class="checkbox-row"><input type="checkbox" id="e-launch-only"> Запуск заказа</label>
-        <label class="checkbox-row"><input type="checkbox" id="e-no-launch" onchange="updateEditDateFields()"> Без запуска</label>
+        <label class="checkbox-row"><input type="checkbox" id="e-launch-only" onchange="updateEditDateFields()"> Запуск заказа</label>
         <label class="checkbox-row"><input type="checkbox" id="e-no-cutting" onchange="updateEditDateFields()"> Без распила</label>
         <label class="checkbox-row"><input type="checkbox" id="e-no-edging" onchange="updateEditDateFields()"> Без кромки</label>
         <label class="checkbox-row"><input type="checkbox" id="e-no-drilling" onchange="updateEditDateFields()"> Без присадки</label>
@@ -3733,7 +3731,7 @@ function createOrder() {
     no_edging: p.noEdging||false, no_drilling: p.noDrilling||false, no_project: p.noProject||false,
     no_packing: document.getElementById('f-no-packing')?.checked||false,
     no_cutting: document.getElementById('f-no-cutting')?.checked||false,
-    no_launch: document.getElementById('f-no-launch')?.checked||false,
+    no_launch: !(document.getElementById('f-launch-only')?.checked ?? true),
     has_gluing: document.getElementById('f-has-gluing')?.checked||false,
     gluing_sqm: parseFloat(document.getElementById('f-gluing-sqm')?.value)||0,
     gluing_worker_ids: [],
@@ -6221,10 +6219,9 @@ function openEdit(id) {
   document.getElementById('e-no-edging').checked  = o.no_edging||false;
   document.getElementById('e-no-drilling').checked= o.no_drilling||false;
   document.getElementById('e-no-project').checked = o.no_project||false;
-  document.getElementById('e-launch-only').checked= o.launch_only||false;
+  document.getElementById('e-launch-only').checked= !o.no_launch;
   document.getElementById('e-no-packing').checked = o.no_packing||false;
   const encb = document.getElementById('e-no-cutting'); if (encb) encb.checked = !!o.no_cutting;
-  const enlb = document.getElementById('e-no-launch'); if (enlb) enlb.checked = !!o.no_launch;
   document.getElementById('e-has-gluing').checked = o.has_gluing||false;
   document.getElementById('e-gluing-sqm').value = o.gluing_sqm||'';
   document.getElementById('e-gluing-wrap').style.display = o.has_gluing ? '' : 'none';
@@ -6569,9 +6566,9 @@ function saveEdit() {
   o.no_drilling = document.getElementById('e-no-drilling').checked;
   o.no_project  = document.getElementById('e-no-project').checked;
   o.launch_only = document.getElementById('e-launch-only').checked;
+  o.no_launch   = !document.getElementById('e-launch-only').checked;
   o.no_packing  = document.getElementById('e-no-packing').checked;
   o.no_cutting  = document.getElementById('e-no-cutting')?.checked || false;
-  o.no_launch   = document.getElementById('e-no-launch')?.checked || false;
   // Если no_cutting — обнуляем ТОЛЬКО поля распила
   if (o.no_cutting) {
     o.cutting_date = null; o.cutting_date2 = null;
