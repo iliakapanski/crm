@@ -641,7 +641,7 @@ table{max-width:100%}
     <div class="nav-it" data-page="payroll" title="Начисления" onclick="showPage('payroll')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span><span class="nav-txt">Начисления</span></div>
     <div class="nav-lbl">Закупки и склад</div>
     <div class="nav-it" data-page="warehouse" title="Склад" onclick="showPage('warehouse')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><span class="nav-txt">Склад</span></div>
-    <div class="nav-it" data-page="purchases" title="Закупки" onclick="showPage('purchases')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span><span class="nav-txt">Закупки</span></div>
+    <div class="nav-it" data-page="purchases" title="Закупки" onclick="showPage('purchases')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span><span class="nav-txt">Закупки</span><span class="nav-badge" id="badge-purchases" style="display:none">0</span></div>
     <div class="nav-lbl">Система</div>
     <div class="nav-it" data-page="settings" title="Настройки" onclick="showPage('settings')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="nav-txt">Настройки</span></div>
   </nav>
@@ -1032,7 +1032,6 @@ table{max-width:100%}
     <div><div class="ptitle">Закупки</div><div class="psub">Материалы к выкупу по заказам</div></div>
   </div>
   <div id="purchases-body" style="padding:0 16px 24px">
-    <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Функция будет доступна после привязки материалов заказов к каталогу</div>
   </div>
 </div>
 
@@ -8569,7 +8568,10 @@ function refreshAll() {
   if (ap('payroll'))     setPayPeriod(payPeriod);
   if (ap('constructor-tasks')) renderConstructorTasks();
   if (ap('settings'))    { renderFieldTemplateEditor(); }
+  if (ap('purchases'))   renderPurchasesPage();
+  if (ap('warehouse'))   _renderWarehouseUI();
   renderCreateFormFields(); // обновляем шаблон полей в форме создания (он может прийти из облака)
+  updatePurchasesBadge();
 
   // ── Восстанавливаем позиции скролла после перерисовки ──
   // Двойной rAF: первый — после обновления DOM, второй — после layout/reflow
@@ -10335,14 +10337,178 @@ function _renderWhByClient() {
   }).join('');
 }
 
+// ══════════════════════════════════════════════
+// СТРАНИЦА ЗАКУПОК
+// ══════════════════════════════════════════════
+
+// Статусы закупки хранятся в заказе: o.purchase_statuses = { [matId]: 'pending'|'ordered'|'received' }
+const _PUR_STATUS_LABELS = { pending:'Ожидает', ordered:'Заказано', received:'Получено' };
+const _PUR_STATUS_COLORS = { pending:'#d97706', ordered:'#2563eb', received:'#16a34a' };
+
 function renderPurchasesPage() {
-  // Будет реализована в Этапе 3
   const el = document.getElementById('purchases-body');
-  if (el) el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">
-    <div style="font-size:32px;margin-bottom:10px">🛒</div>
-    <div style="font-weight:700;margin-bottom:6px">Страница закупок</div>
-    <div>Будет доступна после привязки материалов заказов к каталогу (Этап 3)</div>
-  </div>`;
+  if (!el) return;
+
+  // Собрать все строки материалов с supply_type === 'purchase' из активных заказов
+  const rows = [];
+  for (const o of orders) {
+    if (o.status === 'done') continue;
+    for (const m of (o.materials || [])) {
+      if (m.supply_type !== 'purchase') continue;
+      const status = (o.purchase_statuses || {})[m.id] || 'pending';
+      rows.push({ o, m, status });
+    }
+  }
+
+  // Фильтр по статусу
+  const _pf = window._purFilter || 'all';
+  const filtered = _pf === 'all' ? rows : rows.filter(r => r.status === _pf);
+
+  // Статистика
+  const total    = rows.length;
+  const pending  = rows.filter(r => r.status === 'pending').length;
+  const ordered  = rows.filter(r => r.status === 'ordered').length;
+  const received = rows.filter(r => r.status === 'received').length;
+
+  const filterBtns = [
+    { id:'all',      label:`Все (${total})` },
+    { id:'pending',  label:`⏳ Ожидает (${pending})` },
+    { id:'ordered',  label:`📦 Заказано (${ordered})` },
+    { id:'received', label:`✅ Получено (${received})` },
+  ].map(f => `<button onclick="setPurFilter('${f.id}')"
+    style="padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;
+    border:1.5px solid ${_pf===f.id?'var(--primary)':'var(--border)'};
+    background:${_pf===f.id?'var(--primary)':'var(--card)'};
+    color:${_pf===f.id?'#fff':'var(--text)'}">${f.label}</button>`).join('');
+
+  if (!filtered.length) {
+    el.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">${filterBtns}</div>
+      <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">
+        ${total ? 'Нет закупок с таким статусом' : 'Нет материалов с типом «Закуп». Отметьте «🛒 Закуп» при создании заказа.'}
+      </div>`;
+    return;
+  }
+
+  // Группировка по поставщику (catalog_item → supplier через _suppliers)
+  // Поскольку поставщик пока не привязан к конкретной строке материала — группируем по каталогу/категории
+  // Позже добавим supplier_id на уровне строки материала
+  const byCat = {};
+  for (const r of filtered) {
+    const catItem = r.m.catalog_item_id ? _catalog.find(x => x.id === r.m.catalog_item_id) : null;
+    const catKey  = catItem?.category || 'other';
+    const catLabel = { sheet:'🪵 Листовые', edging:'📏 Кромка', hardware:'🔩 Фурнитура', services:'⚙️ Услуги', other:'📦 Прочее' }[catKey] || catKey;
+    if (!byCat[catKey]) byCat[catKey] = { label: catLabel, rows: [] };
+    byCat[catKey].rows.push({ ...r, catItem });
+  }
+
+  const tableHtml = Object.values(byCat).map(({ label, rows: crows }) => `
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">${label}</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:var(--gray-l,#f8fafc)">
+            <th style="padding:7px 12px;text-align:left;border:1px solid var(--border)">Материал</th>
+            <th style="padding:7px 10px;text-align:left;border:1px solid var(--border)">Заказ</th>
+            <th style="padding:7px 10px;text-align:left;border:1px solid var(--border)">Клиент</th>
+            <th style="padding:7px 10px;text-align:right;border:1px solid var(--border)">Кол-во</th>
+            <th style="padding:7px 10px;text-align:left;border:1px solid var(--border)">Дата распила</th>
+            <th style="padding:7px 10px;text-align:center;border:1px solid var(--border)">Статус</th>
+            <th style="padding:7px 10px;text-align:center;border:1px solid var(--border)">Действие</th>
+          </tr></thead>
+          <tbody>${crows.map(r => {
+            const sc = _PUR_STATUS_COLORS[r.status];
+            const sl = _PUR_STATUS_LABELS[r.status];
+            const cuttingDate = r.o.cutting_date ? fmt(r.o.cutting_date, true) : '—';
+            const urgentMark = r.o.urgent ? '🔥 ' : '';
+            // Кнопки смены статуса
+            const actionBtn = r.status === 'pending'
+              ? `<button onclick="setPurStatus('${r.o.id}','${r.m.id}','ordered')"
+                  style="font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;font-weight:600">
+                  Заказать →</button>`
+              : r.status === 'ordered'
+              ? `<button onclick="setPurStatus('${r.o.id}','${r.m.id}','received')"
+                  style="font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;background:#dcfce7;color:#166534;border:1px solid #86efac;font-weight:600">
+                  Получено ✓</button>`
+              : `<span style="font-size:11px;color:var(--muted)">Завершено</span>`;
+            return `<tr style="border-top:1px solid var(--border);${r.status==='pending'&&r.o.urgent?'background:#fff5f5':''}">
+              <td style="padding:7px 12px;border:1px solid var(--border)">
+                <div style="font-weight:600">${escHtml(r.catItem?.name || r.m.desc || '—')}</div>
+                ${r.catItem ? `<div style="font-size:11px;color:var(--muted)">${escHtml(r.catItem.manufacturer)}</div>` : ''}
+                ${!r.catItem && r.m.desc ? `<div style="font-size:11px;color:var(--muted)">${escHtml(r.m.desc)}</div>` : ''}
+              </td>
+              <td style="padding:7px 10px;border:1px solid var(--border)">
+                <span style="font-weight:800;color:var(--primary);cursor:pointer;font-family:monospace" onclick="openOrderModal('${r.o.id}')">${urgentMark}${escHtml(r.o.id)}</span>
+                <div style="font-size:11px;color:var(--muted)">${escHtml(r.o.desc||'')}</div>
+              </td>
+              <td style="padding:7px 10px;border:1px solid var(--border);font-size:12px">${escHtml(r.o.client||'—')}</td>
+              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);font-weight:700">${r.m.qty} ${escHtml(r.catItem?.unit||'шт')}</td>
+              <td style="padding:7px 10px;border:1px solid var(--border);font-size:12px;white-space:nowrap">${cuttingDate}</td>
+              <td style="padding:7px 10px;text-align:center;border:1px solid var(--border)">
+                <span style="font-size:11px;font-weight:700;color:${sc};background:${sc}18;border-radius:5px;padding:2px 8px">${sl}</span>
+              </td>
+              <td style="padding:7px 10px;text-align:center;border:1px solid var(--border)">${actionBtn}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">${filterBtns}</div>
+    ${tableHtml}`;
+}
+
+function setPurFilter(f) {
+  window._purFilter = f;
+  renderPurchasesPage();
+}
+
+function updatePurchasesBadge() {
+  const badge = document.getElementById('badge-purchases');
+  if (!badge) return;
+  let count = 0;
+  for (const o of orders) {
+    if (o.status === 'done') continue;
+    for (const m of (o.materials||[])) {
+      if (m.supply_type !== 'purchase') continue;
+      const st = (o.purchase_statuses||{})[m.id] || 'pending';
+      if (st === 'pending' || st === 'ordered') count++;
+    }
+  }
+  badge.textContent = count;
+  badge.style.display = count > 0 ? '' : 'none';
+}
+
+function setPurStatus(orderId, matId, newStatus) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  if (!o.purchase_statuses) o.purchase_statuses = {};
+  o.purchase_statuses[matId] = newStatus;
+
+  // При получении — оформить приход на склад (наш)
+  if (newStatus === 'received') {
+    const m = (o.materials||[]).find(x => x.id === matId);
+    if (m && m.catalog_item_id && _sb) {
+      _sb.from('warehouse_movements').insert({
+        date: TODAY,
+        type: 'in_purchase',
+        catalog_item_id: m.catalog_item_id,
+        qty: m.qty || 1,
+        order_id: orderId,
+        notes: 'Авто: получено по заказу ' + orderId,
+        created_by: currentUser?.name || 'Система'
+      }).then(({ data, error }) => {
+        if (!error && data) {
+          if (!_warehouseMovements) _warehouseMovements = [];
+          _warehouseMovements.unshift(Array.isArray(data) ? data[0] : data);
+        }
+      });
+    }
+  }
+
+  markDirty(orderId);
+  saveOrders();
+  renderPurchasesPage();
 }
 
 // ── Приход: открыть модалку ──
