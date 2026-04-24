@@ -1011,8 +1011,11 @@ table{max-width:100%}
 <!-- ── WAREHOUSE ── -->
 <div id="page-warehouse" class="page">
   <div class="ph">
-    <div><div class="ptitle">Склад</div><div class="psub">Движения материалов, остатки по клиентам</div></div>
-    <button class="btn btn-primary" onclick="openWarehouseIn()">+ Приход</button>
+    <div><div class="ptitle">Склад</div><div class="psub">Остатки и движения материалов</div></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" onclick="openWarehouseIn('purchase')">+ Приход (закуп)</button>
+      <button class="btn btn-primary" onclick="openWarehouseIn('client')">+ Приход от клиента</button>
+    </div>
   </div>
   <div id="warehouse-body" style="padding:0 16px 24px"></div>
 </div>
@@ -9980,22 +9983,360 @@ async function deleteSupplier(id) {
 }
 
 // ── Страницы склада и закупок (заглушки — будут расширены) ──
-function renderWarehousePage() {
+// ── Склад: кэш движений ──
+let _warehouseMovements = [];
+let _whTab = 'balances'; // 'balances' | 'history' | 'client'
+
+async function loadWarehouseMovements() {
+  if (!_sb) return;
+  try {
+    const { data, error } = await _sb
+      .from('warehouse_movements')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (!error) _warehouseMovements = data || [];
+  } catch(e) { console.warn('loadWarehouseMovements:', e); }
+}
+
+async function renderWarehousePage() {
   const el = document.getElementById('warehouse-body');
   if (!el) return;
-  el.innerHTML = `<div style="text-align:center;padding:60px;color:var(--muted)">
-    <div style="font-size:40px;margin-bottom:12px">🏗️</div>
-    <div style="font-size:16px;font-weight:700;margin-bottom:6px">Склад в разработке</div>
-    <div style="font-size:13px">Сначала заполните справочники в Настройках:<br>Клиенты → Каталог → Поставщики</div>
-  </div>`;
+  el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">⏳ Загрузка...</div>`;
+  await loadReferenceData();
+  await loadWarehouseMovements();
+  _renderWarehouseUI();
+}
+
+function _renderWarehouseUI() {
+  const el = document.getElementById('warehouse-body');
+  if (!el) return;
+
+  const tabs = [
+    { id:'balances', label:'📦 Остатки' },
+    { id:'history',  label:'📋 История движений' },
+    { id:'client',   label:'👤 По клиентам' },
+  ];
+
+  el.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+      ${tabs.map(t => `<button onclick="_setWhTab('${t.id}')" id="wh-tab-${t.id}"
+        style="padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid ${_whTab===t.id?'var(--primary)':'var(--border)'};background:${_whTab===t.id?'var(--primary)':'var(--card)'};color:${_whTab===t.id?'#fff':'var(--text)'}">
+        ${t.label}</button>`).join('')}
+    </div>
+    <div id="wh-content"></div>`;
+
+  _renderWhContent();
+}
+
+function _setWhTab(tab) {
+  _whTab = tab;
+  _renderWarehouseUI();
+}
+
+function _renderWhContent() {
+  const el = document.getElementById('wh-content');
+  if (!el) return;
+  if (_whTab === 'balances')  el.innerHTML = _renderWhBalances();
+  if (_whTab === 'history')   el.innerHTML = _renderWhHistory();
+  if (_whTab === 'client')    el.innerHTML = _renderWhByClient();
+}
+
+// ── Остатки (сводная таблица по позициям каталога) ──
+function _calcBalances() {
+  // Считаем остаток для каждого (catalog_item_id, client_id) по движениям
+  const map = {}; // key: `${catalog_item_id}::${client_id||'own'}` → { item, client, qty_total, qty_reserved, qty_issued }
+  const sign = { in_client:1, in_purchase:1, in_return:1, out_reserved:-1, out_issued:-1, out_defect:-1, out_written_off:-1 };
+  for (const m of _warehouseMovements) {
+    const k = `${m.catalog_item_id}::${m.client_id||'own'}`;
+    if (!map[k]) {
+      map[k] = {
+        catalog_item_id: m.catalog_item_id,
+        client_id: m.client_id || null,
+        qty: 0, reserved: 0, defect_qty: 0,
+      };
+    }
+    map[k].qty += (sign[m.type] || 0) * m.qty;
+    if (m.type === 'out_reserved') map[k].reserved += m.qty;
+    if (m.type === 'out_defect')   map[k].defect_qty += m.qty;
+  }
+  return Object.values(map).filter(b => Math.abs(b.qty) > 0.001 || b.reserved > 0);
+}
+
+function _renderWhBalances() {
+  const balances = _calcBalances();
+  if (!balances.length) return `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Нет данных. Оформите приход материалов.</div>`;
+
+  const catLabels = { sheet:'🪵 Листовые', edging:'📏 Кромка', hardware:'🔩 Фурнитура', services:'⚙️ Услуги' };
+  // Группировка по категории
+  const byCat = {};
+  for (const b of balances) {
+    const item = _catalog.find(x => x.id === b.catalog_item_id);
+    const cat = item?.category || 'sheet';
+    if (!byCat[cat]) byCat[cat] = [];
+    byCat[cat].push({ ...b, item });
+  }
+
+  return Object.entries(byCat).map(([cat, rows]) => `
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${catLabels[cat]||cat}</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:var(--gray-l,#f8fafc)">
+            <th style="padding:8px 12px;text-align:left;border:1px solid var(--border)">Позиция</th>
+            <th style="padding:8px 10px;text-align:left;border:1px solid var(--border)">Владелец</th>
+            <th style="padding:8px 10px;text-align:right;border:1px solid var(--border)">На складе</th>
+            <th style="padding:8px 10px;text-align:right;border:1px solid var(--border)">Зарезервировано</th>
+            <th style="padding:8px 10px;text-align:right;border:1px solid var(--border);color:#16a34a">Свободно</th>
+            <th style="padding:8px 10px;text-align:right;border:1px solid var(--border);color:#dc2626">Брак</th>
+          </tr></thead>
+          <tbody>${rows.map(b => {
+            const client = b.client_id ? _clients.find(x => x.id === b.client_id) : null;
+            const free = b.qty - b.reserved;
+            return `<tr style="border-top:1px solid var(--border);${free < 0 ? 'background:#fff5f5' : ''}">
+              <td style="padding:7px 12px;border:1px solid var(--border)">
+                <div style="font-weight:600">${escHtml(b.item?.name || '—')}</div>
+                <div style="font-size:11px;color:var(--muted)">${escHtml(b.item?.manufacturer || '')}</div>
+              </td>
+              <td style="padding:7px 10px;border:1px solid var(--border)">
+                ${client ? `<span style="font-weight:600;color:var(--primary)">👤 ${escHtml(client.name)}</span>` : '<span style="color:var(--muted)">Наш склад</span>'}
+              </td>
+              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);font-weight:700">${b.qty} ${escHtml(b.item?.unit||'шт')}</td>
+              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);color:#d97706">${b.reserved > 0 ? b.reserved + ' ' + escHtml(b.item?.unit||'шт') : '—'}</td>
+              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);font-weight:700;color:${free >= 0 ? '#16a34a' : '#dc2626'}">${free} ${escHtml(b.item?.unit||'шт')}</td>
+              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);color:${b.defect_qty > 0 ? '#dc2626' : 'var(--muted)'}">${b.defect_qty > 0 ? b.defect_qty + ' ' + escHtml(b.item?.unit||'шт') : '—'}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>`).join('');
+}
+
+// ── История движений ──
+function _renderWhHistory() {
+  const typeLabels = {
+    in_client:'⬇️ Приход от клиента', in_purchase:'⬇️ Приход (закуп)', in_return:'↩️ Возврат клиенту',
+    out_reserved:'🔒 Зарезервировано', out_issued:'➡️ Выдано в производство',
+    out_defect:'⚠️ Брак', out_written_off:'✅ Списано'
+  };
+  const typeColors = {
+    in_client:'#16a34a', in_purchase:'#16a34a', in_return:'#0369a1',
+    out_reserved:'#d97706', out_issued:'#7c3aed', out_defect:'#dc2626', out_written_off:'#6b7280'
+  };
+
+  if (!_warehouseMovements.length) return `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Движений пока нет</div>`;
+
+  return `<div style="display:flex;flex-direction:column;gap:6px">` +
+    _warehouseMovements.slice(0, 200).map(m => {
+      const item   = _catalog.find(x => x.id === m.catalog_item_id);
+      const client = m.client_id ? _clients.find(x => x.id === m.client_id) : null;
+      const supp   = m.supplier_id ? _suppliers.find(x => x.id === m.supplier_id) : null;
+      const color  = typeColors[m.type] || 'var(--muted)';
+      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:9px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">
+            <span style="font-size:12px;font-weight:700;color:${color}">${typeLabels[m.type]||m.type}</span>
+            ${m.order_id ? `<span style="font-size:11px;background:var(--gray-l);border-radius:4px;padding:1px 6px;cursor:pointer;color:var(--primary)" onclick="openOrderModal('${escHtml(m.order_id)}')">${escHtml(m.order_id)}</span>` : ''}
+            ${m.is_defect ? `<span style="font-size:11px;background:#fee2e2;color:#991b1b;border-radius:4px;padding:1px 6px">БРАК</span>` : ''}
+          </div>
+          <div style="font-size:13px;font-weight:600">${escHtml(item?.name || '—')} <span style="font-weight:400;color:var(--muted)">${escHtml(item?.manufacturer||'')}</span></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">
+            ${client ? `👤 ${escHtml(client.name)}` : ''}${supp ? ` · 🚚 ${escHtml(supp.name)}` : ''}
+            ${m.defect_reason ? ` · ⚠️ ${escHtml(m.defect_reason)}` : ''}
+            ${m.notes ? ` · ${escHtml(m.notes)}` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:15px;font-weight:800;color:${['in_client','in_purchase','in_return'].includes(m.type)?'#16a34a':'#dc2626'}">
+            ${['in_client','in_purchase','in_return'].includes(m.type)?'+':'-'}${m.qty} ${escHtml(item?.unit||'шт')}
+          </div>
+          <div style="font-size:10px;color:var(--muted)">${m.date||''} · ${escHtml(m.created_by||'')}</div>
+        </div>
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+// ── По клиентам ──
+function _renderWhByClient() {
+  const balances = _calcBalances().filter(b => b.client_id);
+  if (!balances.length) return `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Нет материалов от клиентов</div>`;
+
+  const byClient = {};
+  for (const b of balances) {
+    if (!byClient[b.client_id]) byClient[b.client_id] = [];
+    byClient[b.client_id].push(b);
+  }
+
+  return Object.entries(byClient).map(([clientId, rows]) => {
+    const client = _clients.find(x => x.id === clientId);
+    return `<div style="margin-bottom:16px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:var(--gray-l,#f8fafc);font-weight:700;font-size:14px">
+        👤 ${escHtml(client?.name || 'Неизвестный клиент')}
+        ${client?.phone ? `<span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">${escHtml(client.phone)}</span>` : ''}
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:var(--card)">
+          <th style="padding:7px 12px;text-align:left;border-bottom:1px solid var(--border)">Материал</th>
+          <th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--border)">На складе</th>
+          <th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--border)">Зарезервировано</th>
+          <th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--border);color:#16a34a">Свободно</th>
+        </tr></thead>
+        <tbody>${rows.map(b => {
+          const item = _catalog.find(x => x.id === b.catalog_item_id);
+          const free = b.qty - b.reserved;
+          return `<tr style="border-top:1px solid var(--border)">
+            <td style="padding:7px 12px">
+              <div style="font-weight:600">${escHtml(item?.name || '—')}</div>
+              <div style="font-size:11px;color:var(--muted)">${escHtml(item?.manufacturer||'')}</div>
+            </td>
+            <td style="padding:7px 10px;text-align:right;font-weight:700">${b.qty} ${escHtml(item?.unit||'шт')}</td>
+            <td style="padding:7px 10px;text-align:right;color:#d97706">${b.reserved > 0 ? b.reserved + ' ' + escHtml(item?.unit||'шт') : '—'}</td>
+            <td style="padding:7px 10px;text-align:right;font-weight:700;color:${free >= 0 ? '#16a34a' : '#dc2626'}">${free} ${escHtml(item?.unit||'шт')}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+  }).join('');
 }
 
 function renderPurchasesPage() {
-  // Заглушка — будет реализована в Этапе 3
+  // Будет реализована в Этапе 3
+  const el = document.getElementById('purchases-body');
+  if (el) el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">
+    <div style="font-size:32px;margin-bottom:10px">🛒</div>
+    <div style="font-weight:700;margin-bottom:6px">Страница закупок</div>
+    <div>Будет доступна после привязки материалов заказов к каталогу (Этап 3)</div>
+  </div>`;
 }
 
-function openWarehouseIn() {
-  alert('Функция прихода будет доступна после настройки каталога и клиентов');
+// ── Приход: открыть модалку ──
+let _whInMode = 'client'; // 'client' | 'purchase'
+
+function openWarehouseIn(mode) {
+  _whInMode = mode || 'client';
+  document.getElementById('whi-title').textContent = mode === 'purchase' ? 'Приход от поставщика' : 'Приход от клиента';
+
+  // Переключатель типа
+  document.getElementById('whi-mode-client').style.background   = _whInMode==='client'   ? 'var(--primary)' : 'var(--gray-l)';
+  document.getElementById('whi-mode-client').style.color        = _whInMode==='client'   ? '#fff' : 'var(--text)';
+  document.getElementById('whi-mode-purchase').style.background = _whInMode==='purchase' ? 'var(--primary)' : 'var(--gray-l)';
+  document.getElementById('whi-mode-purchase').style.color      = _whInMode==='purchase' ? '#fff' : 'var(--text)';
+
+  // Показать/скрыть поля
+  document.getElementById('whi-client-row').style.display   = _whInMode==='client'   ? '' : 'none';
+  document.getElementById('whi-supplier-row').style.display = _whInMode==='purchase' ? '' : 'none';
+
+  // Сброс полей
+  document.getElementById('whi-client-search').value  = '';
+  document.getElementById('whi-client-id').value      = '';
+  document.getElementById('whi-client-result').textContent = '';
+  document.getElementById('whi-supplier-select').innerHTML =
+    `<option value="">— выберите поставщика —</option>` +
+    _suppliers.map(s => `<option value="${escHtml(s.id)}">${escHtml(s.name)}</option>`).join('');
+  document.getElementById('whi-catalog-search').value  = '';
+  document.getElementById('whi-catalog-id').value      = '';
+  document.getElementById('whi-catalog-result').textContent = '';
+  document.getElementById('whi-catalog-unit').textContent = '';
+  document.getElementById('whi-qty').value     = '';
+  document.getElementById('whi-notes').value   = '';
+  document.getElementById('whi-date').value    = TODAY;
+  document.getElementById('whi-defect-wrap').style.display = 'none';
+  document.getElementById('whi-is-defect').checked = false;
+  document.getElementById('whi-defect-reason').value = '';
+
+  document.getElementById('wh-in-overlay').classList.add('show');
+}
+
+function _whSetMode(mode) {
+  openWarehouseIn(mode);
+}
+
+// Поиск клиента в модалке прихода
+function whiSearchClient() {
+  const q = document.getElementById('whi-client-search').value.trim().toLowerCase();
+  const list = _clients.filter(c => c.name.toLowerCase().includes(q) || (c.phone||'').includes(q));
+  const res = document.getElementById('whi-client-result');
+  if (!q && !list.length) { res.innerHTML=''; return; }
+  if (!list.length) { res.innerHTML=`<div style="padding:6px 10px;color:var(--muted);font-size:12px">Не найдено</div>`; return; }
+  res.innerHTML = list.slice(0,8).map(c =>
+    `<div onclick="whiSelectClient('${escHtml(c.id)}','${escHtml(c.name)}')"
+      style="padding:7px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
+      <strong>${escHtml(c.name)}</strong>${c.phone?`<span style="color:var(--muted);margin-left:8px;font-size:11px">${escHtml(c.phone)}</span>`:''}
+    </div>`
+  ).join('');
+}
+function whiSelectClient(id, name) {
+  document.getElementById('whi-client-search').value = name;
+  document.getElementById('whi-client-id').value = id;
+  document.getElementById('whi-client-result').innerHTML = '';
+}
+
+// Поиск позиции каталога в модалке прихода
+function whiSearchCatalog() {
+  const q = document.getElementById('whi-catalog-search').value.trim().toLowerCase();
+  const list = _catalog.filter(c =>
+    c.name.toLowerCase().includes(q) || c.manufacturer.toLowerCase().includes(q) || (c.sku||'').toLowerCase().includes(q)
+  );
+  const res = document.getElementById('whi-catalog-result');
+  if (!q && !list.length) { res.innerHTML=''; return; }
+  if (!list.length) { res.innerHTML=`<div style="padding:6px 10px;color:var(--muted);font-size:12px">Не найдено. <button class="btn btn-sm btn-secondary" onclick="openAddCatalogItem()">+ Создать</button></div>`; return; }
+  res.innerHTML = list.slice(0,10).map(c =>
+    `<div onclick="whiSelectCatalog('${escHtml(c.id)}','${escHtml(c.name)}','${escHtml(c.manufacturer)}','${escHtml(c.unit||'шт')}')"
+      style="padding:7px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
+      <strong>${escHtml(c.name)}</strong>
+      <span style="color:var(--muted);font-size:11px;margin-left:6px">${escHtml(c.manufacturer)}</span>
+      <span style="float:right;font-size:11px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+    </div>`
+  ).join('');
+}
+function whiSelectCatalog(id, name, mfr, unit) {
+  document.getElementById('whi-catalog-search').value = name + ' · ' + mfr;
+  document.getElementById('whi-catalog-id').value = id;
+  document.getElementById('whi-catalog-result').innerHTML = '';
+  document.getElementById('whi-catalog-unit').textContent = unit;
+}
+
+// Сохранить приход
+async function saveWarehouseIn() {
+  const catalogId  = document.getElementById('whi-catalog-id').value;
+  const qty        = parseFloat(document.getElementById('whi-qty').value);
+  const notes      = document.getElementById('whi-notes').value.trim();
+  const date       = document.getElementById('whi-date').value || TODAY;
+  const isDefect   = document.getElementById('whi-is-defect').checked;
+  const defectReason = document.getElementById('whi-defect-reason').value.trim();
+
+  if (!catalogId) { alert('Выберите позицию из каталога'); return; }
+  if (!qty || qty <= 0) { alert('Введите количество'); return; }
+
+  let clientId = null, supplierId = null, type = 'in_client';
+
+  if (_whInMode === 'client') {
+    clientId = document.getElementById('whi-client-id').value;
+    if (!clientId) { alert('Выберите клиента'); return; }
+    type = 'in_client';
+  } else {
+    supplierId = document.getElementById('whi-supplier-select').value;
+    type = 'in_purchase';
+  }
+
+  const payload = {
+    date, type, catalog_item_id: catalogId, qty,
+    client_id: clientId || null,
+    supplier_id: supplierId || null,
+    is_defect: isDefect,
+    defect_reason: defectReason || null,
+    notes: notes || null,
+    created_by: (typeof currentUser !== 'undefined' && currentUser?.name) || 'Менеджер'
+  };
+
+  const { data, error } = await _sb.from('warehouse_movements').insert(payload).select().single();
+  if (error) { alert('Ошибка: ' + error.message); return; }
+
+  _warehouseMovements.unshift(data);
+  document.getElementById('wh-in-overlay').classList.remove('show');
+  _renderWarehouseUI();
 }
 </script>
 
@@ -10065,6 +10406,82 @@ function openWarehouseIn() {
       <div><label class="fl">Примечание</label><textarea class="fc" id="as-notes" rows="2" placeholder="Условия работы, контактное лицо..."></textarea></div>
     </div>
     <div class="mf"><button class="btn btn-secondary" onclick="closeAddSupplier()">Отмена</button><button class="btn btn-primary" onclick="saveSupplier()">Сохранить</button></div>
+  </div>
+</div>
+
+<!-- ── MODAL: WAREHOUSE IN ── -->
+<div class="overlay" id="wh-in-overlay" role="dialog">
+  <div class="modal" style="width:520px;max-width:95vw">
+    <div class="mh">
+      <div><div class="mt" id="whi-title">Приход от клиента</div></div>
+      <button class="mx" onclick="document.getElementById('wh-in-overlay').classList.remove('show')">×</button>
+    </div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:14px">
+
+      <!-- Переключатель -->
+      <div style="display:flex;gap:6px">
+        <button id="whi-mode-client"   onclick="_whSetMode('client')"   style="flex:1;padding:8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--primary);color:#fff">👤 От клиента</button>
+        <button id="whi-mode-purchase" onclick="_whSetMode('purchase')" style="flex:1;padding:8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--gray-l);color:var(--text)">🚚 Закуп (поставщик)</button>
+      </div>
+
+      <!-- Клиент -->
+      <div id="whi-client-row">
+        <label class="fl">Клиент *</label>
+        <input class="fc" id="whi-client-search" placeholder="Начните вводить имя клиента..." oninput="whiSearchClient()" autocomplete="off">
+        <input type="hidden" id="whi-client-id">
+        <div id="whi-client-result" style="background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto"></div>
+      </div>
+
+      <!-- Поставщик -->
+      <div id="whi-supplier-row" style="display:none">
+        <label class="fl">Поставщик</label>
+        <select class="fc" id="whi-supplier-select"><option value="">— выберите —</option></select>
+      </div>
+
+      <!-- Позиция каталога -->
+      <div>
+        <label class="fl">Материал (из каталога) *</label>
+        <input class="fc" id="whi-catalog-search" placeholder="Начните вводить название..." oninput="whiSearchCatalog()" autocomplete="off">
+        <input type="hidden" id="whi-catalog-id">
+        <div id="whi-catalog-result" style="background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto"></div>
+      </div>
+
+      <!-- Количество + единица -->
+      <div style="display:flex;align-items:flex-end;gap:8px">
+        <div style="flex:1">
+          <label class="fl">Количество *</label>
+          <input class="fc" id="whi-qty" type="number" min="0.01" step="0.01" placeholder="10">
+        </div>
+        <div style="padding:9px 14px;background:var(--gray-l);border-radius:8px;font-weight:700;font-size:13px;white-space:nowrap" id="whi-catalog-unit">шт</div>
+      </div>
+
+      <!-- Дата -->
+      <div>
+        <label class="fl">Дата поступления</label>
+        <input class="fc" id="whi-date" type="date">
+      </div>
+
+      <!-- Брак -->
+      <div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="whi-is-defect" onchange="document.getElementById('whi-defect-wrap').style.display=this.checked?'':'none'">
+          <span>Материал с браком / дефектом</span>
+        </label>
+        <div id="whi-defect-wrap" style="display:none;margin-top:8px">
+          <input class="fc" id="whi-defect-reason" placeholder="Описание дефекта: полоса на 200мм, царапины...">
+        </div>
+      </div>
+
+      <!-- Примечание -->
+      <div>
+        <label class="fl">Примечание</label>
+        <textarea class="fc" id="whi-notes" rows="2" placeholder="Дополнительная информация..."></textarea>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-secondary" onclick="document.getElementById('wh-in-overlay').classList.remove('show')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveWarehouseIn()">Сохранить приход</button>
+    </div>
   </div>
 </div>
 
