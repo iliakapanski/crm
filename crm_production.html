@@ -680,7 +680,13 @@ table{max-width:100%}
       <div class="ct" style="margin-bottom:16px">Данные заказа</div>
       <div class="fg">
         <div><label class="fl">ID <span style="font-weight:400;color:var(--muted);font-size:10px">(можно изменить)</span></label><input id="f-num" class="fc" type="text" placeholder="1" title="Можно ввести любой свободный ID — например, задним числом"></div>
-        <div><label class="fl">Клиент</label><input id="f-client" class="fc" type="text" placeholder="Фамилия И.О."></div>
+        <div style="position:relative">
+          <label class="fl">Клиент</label>
+          <input id="f-client" class="fc" type="text" placeholder="Начните вводить имя клиента..." autocomplete="off"
+            oninput="onClientInput(this.value)" onfocus="onClientInput(this.value)">
+          <input type="hidden" id="f-client-id">
+          <div id="f-client-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;z-index:200;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
+        </div>
         <div class="fs2"><label class="fl">Описание</label><input id="f-desc" class="fc" type="text" placeholder="Кухня, шкаф-купе..."></div>
         <div class="fs2">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -3142,7 +3148,7 @@ function matSelectOpts(selected) {
 let formMaterials = [];
 
 function addFormMaterial() {
-  formMaterials.push({ id: 'm' + Date.now() + Math.random().toString(36).slice(2,5), type: 'sheet', desc: '', qty: '', edging_m: null });
+  formMaterials.push({ id: 'm' + Date.now() + Math.random().toString(36).slice(2,5), type: 'sheet', desc: '', qty: '', edging_m: null, supply_type: 'own', catalog_item_id: null });
   renderFormMatList();
 }
 
@@ -3266,6 +3272,104 @@ function onEditMillingToggle(checked) {
   }
 }
 
+// ── Autocomplete клиента в форме заказа ──
+function onClientInput(val) {
+  const q = (val || '').toLowerCase().trim();
+  const dd = document.getElementById('f-client-dropdown');
+  if (!dd) return;
+  const hiddenId = document.getElementById('f-client-id');
+  if (hiddenId) hiddenId.value = '';
+  if (!q) { dd.style.display = 'none'; return; }
+  const matches = _clients.filter(c =>
+    c.name.toLowerCase().includes(q) || (c.phone||'').includes(q)
+  ).slice(0, 8);
+  if (!matches.length) {
+    dd.style.display = 'block';
+    dd.innerHTML = `<div style="padding:8px 12px;font-size:12px;color:var(--muted)">Не найдено —
+      <span style="color:var(--primary);cursor:pointer;font-weight:600" onclick="quickCreateClient()">+ Создать клиента «${escHtml(val)}»</span>
+    </div>`;
+    return;
+  }
+  dd.style.display = 'block';
+  dd.innerHTML = matches.map(c => `
+    <div onclick="selectFormClient('${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}')"
+      style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
+      <span style="font-weight:600">${escHtml(c.name)}</span>
+      ${c.phone?`<span style="font-size:11px;color:var(--muted);margin-left:8px">${escHtml(c.phone)}</span>`:''}
+    </div>`).join('');
+}
+function selectFormClient(id, name) {
+  const inp = document.getElementById('f-client');
+  const hid = document.getElementById('f-client-id');
+  const dd  = document.getElementById('f-client-dropdown');
+  if (inp) inp.value = name;
+  if (hid) hid.value = id;
+  if (dd)  dd.style.display = 'none';
+  renderFormMatList();
+}
+async function quickCreateClient() {
+  const name = document.getElementById('f-client').value.trim();
+  if (!name || !_sb) return;
+  const { data, error } = await _sb.from('clients').insert({ name }).select().single();
+  if (error) { alert('Ошибка: ' + error.message); return; }
+  _clients.push(data);
+  _clients.sort((a,b) => a.name.localeCompare(b.name));
+  selectFormClient(data.id, data.name);
+}
+document.addEventListener('click', function(e) {
+  const dd  = document.getElementById('f-client-dropdown');
+  const inp = document.getElementById('f-client');
+  if (dd && inp && !inp.contains(e.target) && !dd.contains(e.target)) dd.style.display = 'none';
+});
+
+// ── Поиск в каталоге из строки материала ──
+function fmatSearchCatalog(matId, val) {
+  const dd = document.getElementById('fmat-dd-' + matId);
+  if (!dd) return;
+  const q = (val||'').toLowerCase().trim();
+  if (q.length < 2) { dd.style.display = 'none'; return; }
+  const list = _catalog.filter(c =>
+    c.name.toLowerCase().includes(q) || c.manufacturer.toLowerCase().includes(q) || (c.sku||'').toLowerCase().includes(q)
+  ).slice(0, 10);
+  if (!list.length) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = list.map(c =>
+    `<div onclick="fmatSelectCatalog('${matId}','${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}','${escHtml(c.manufacturer.replace(/'/g,"\\'"))}')"
+      style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
+      <strong>${escHtml(c.name)}</strong>
+      <span style="color:var(--muted);margin-left:6px;font-size:11px">${escHtml(c.manufacturer)}</span>
+      <span style="float:right;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+    </div>`).join('') +
+    `<div onclick="openAddCatalogItem()" style="padding:6px 10px;cursor:pointer;font-size:11px;color:var(--primary);border-top:1px solid var(--border)"
+      onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">+ Создать новую позицию в каталоге</div>`;
+}
+function fmatSelectCatalog(matId, catalogId, name, mfr) {
+  const m = formMaterials.find(x => x.id === matId);
+  if (!m) return;
+  m.catalog_item_id = catalogId;
+  m.desc = name + ' · ' + mfr;
+  const inp = document.getElementById('fmat-desc-' + matId);
+  if (inp) inp.value = m.desc;
+  const dd = document.getElementById('fmat-dd-' + matId);
+  if (dd) dd.style.display = 'none';
+  renderFormMatList();
+}
+function setMatSupply(matId, supplyType) {
+  const m = formMaterials.find(x => x.id === matId);
+  if (!m) return;
+  m.supply_type = supplyType;
+  renderFormMatList();
+}
+function _calcClientBalance(clientId, catalogItemId) {
+  if (!_warehouseMovements) return 0;
+  const sign = { in_client:1, in_purchase:1, in_return:1, out_reserved:-1, out_issued:-1, out_defect:-1, out_written_off:-1 };
+  return _warehouseMovements
+    .filter(m => m.client_id === clientId && m.catalog_item_id === catalogItemId)
+    .reduce((sum, m) => sum + (sign[m.type]||0) * m.qty, 0);
+}
+
 function renderFormMatList() {
   const el = document.getElementById('mat-list');
   if (!el) return;
@@ -3274,9 +3378,9 @@ function renderFormMatList() {
     recalcFormSheets();
     return;
   }
+  const clientId = document.getElementById('f-client-id')?.value || '';
   el.innerHTML = formMaterials.map(m => {
     const showEdging = isSheetMat(m) && matHasEdging(m);
-    const autoEdgVal = m.edging_m !== null ? m.edging_m : ((parseFloat(m.qty)||0)*EDGING_DEFAULT_PER_SHEET || '');
     const edgingInput = showEdging ? `
       <span style="font-size:11px;color:var(--muted);white-space:nowrap;margin-left:4px">кр:</span>
       <input class="fc" style="flex:0 0 75px;padding:5px 6px;font-size:12px;text-align:center" type="number" min="0" max="99999" step="1" placeholder="авто" value="${m.edging_m !== null ? m.edging_m : ''}" oninput="updateFormMat('${m.id}','edging_m',this.value===''?null:+this.value)">
@@ -3289,17 +3393,46 @@ function renderFormMatList() {
       </select>
       <input type="date" class="fc" style="flex:0 0 120px;padding:5px 6px;font-size:12px" placeholder="Дата" value="${m.mill_date||''}" oninput="updateFormMat('${m.id}','mill_date',this.value)" title="Дата готовности фрезеровки">` : '';
     const isMill = m.type === 'mill';
-    return `<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
-      <select class="fc" style="flex:0 0 110px;padding:5px 6px;font-size:12px" onchange="updateFormMat('${m.id}','type',this.value)">
-        ${matSelectOpts(m.type)}
-      </select>
-      <input class="fc" style="flex:1;min-width:80px;padding:5px 8px;font-size:12px" type="text" placeholder="${isMill?'Описание детали':'Цвет / описание'}" value="${escHtml(m.desc)}" oninput="updateFormMat('${m.id}','desc',this.value)">
-      ${!isMill ? `<input class="fc" style="flex:0 0 55px;padding:5px 8px;font-size:12px;text-align:center" type="number" min="0" max="9999" step="any" placeholder="0" value="${m.qty}" oninput="updateFormMat('${m.id}','qty',this.value)">
-      <span style="font-size:12px;color:var(--muted);min-width:14px">${matTypeUnit(m.type)}</span>` : ''}
-      ${edgingInput}${millInput}
-      <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;margin-left:auto" onclick="removeFormMaterial('${m.id}')">×</button>
+    const st = m.supply_type || 'own';
+    const catItem = m.catalog_item_id ? _catalog.find(x => x.id === m.catalog_item_id) : null;
+    const catalogHint = catItem
+      ? `<div style="font-size:10px;color:var(--primary);margin-top:3px">📋 ${escHtml(catItem.manufacturer)} · ${escHtml(catItem.name)}</div>` : '';
+    let clientBalanceHtml = '';
+    if (st === 'client' && clientId && m.catalog_item_id) {
+      const bal = _calcClientBalance(clientId, m.catalog_item_id);
+      const unit = catItem?.unit || 'шт';
+      clientBalanceHtml = `<div style="font-size:10px;margin-top:2px;font-weight:700;color:${bal >= 0?'#16a34a':'#dc2626'}">
+        📦 На складе клиента: ${bal} ${escHtml(unit)}</div>`;
+    }
+    const supplyBtns = `<div style="display:flex;gap:3px;margin-top:5px">
+      <button type="button" onclick="setMatSupply('${m.id}','own')"
+        style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='own'?'#e0f2fe':'var(--gray-l)'};color:${st==='own'?'#0369a1':'var(--muted)'}">🏭 Наш</button>
+      <button type="button" onclick="setMatSupply('${m.id}','client')"
+        style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='client'?'#dcfce7':'var(--gray-l)'};color:${st==='client'?'#166534':'var(--muted)'}">👤 Клиент</button>
+      <button type="button" onclick="setMatSupply('${m.id}','purchase')"
+        style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='purchase'?'#fef3c7':'var(--gray-l)'};color:${st==='purchase'?'#92400e':'var(--muted)'}">🛒 Закуп</button>
+    </div>`;
+    return `<div style="padding:7px 9px;background:var(--gray-l,#f8fafc);border-radius:8px;border:1px solid var(--border);margin-bottom:4px">
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+        <select class="fc" style="flex:0 0 110px;padding:5px 6px;font-size:12px" onchange="updateFormMat('${m.id}','type',this.value)">
+          ${matSelectOpts(m.type)}
+        </select>
+        <div style="flex:1;min-width:80px;position:relative">
+          <input class="fc" style="width:100%;padding:5px 8px;font-size:12px;box-sizing:border-box" type="text"
+            placeholder="${isMill?'Описание детали':'Цвет / описание (поиск в каталоге)'}"
+            value="${escHtml(m.desc)}" id="fmat-desc-${m.id}" autocomplete="off"
+            oninput="updateFormMat('${m.id}','desc',this.value);fmatSearchCatalog('${m.id}',this.value)">
+          <div id="fmat-dd-${m.id}" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;z-index:150;max-height:180px;overflow-y:auto;box-shadow:0 4px 10px rgba(0,0,0,.12)"></div>
+        </div>
+        ${!isMill ? `<input class="fc" style="flex:0 0 55px;padding:5px 8px;font-size:12px;text-align:center" type="number" min="0" max="9999" step="any" placeholder="0" value="${m.qty}" oninput="updateFormMat('${m.id}','qty',this.value)">
+        <span style="font-size:12px;color:var(--muted);min-width:14px">${matTypeUnit(m.type)}</span>` : ''}
+        ${edgingInput}${millInput}
+        <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;margin-left:auto" onclick="removeFormMaterial('${m.id}')">×</button>
+      </div>
+      ${catalogHint}${clientBalanceHtml}${supplyBtns}
     </div>`;
   }).join('');
+  recalcFormSheets();
 }
 
 function onSheetsChange(val) {
@@ -3472,8 +3605,9 @@ function chooseSplit(mode) {
 
 function createOrder() {
   const num    = document.getElementById('f-num').value.trim();
-  const client = document.getElementById('f-client').value.trim();
-  const desc   = document.getElementById('f-desc').value.trim();
+  const client     = document.getElementById('f-client').value.trim();
+  const clientDbId = document.getElementById('f-client-id')?.value || null;
+  const desc       = document.getElementById('f-desc').value.trim();
   const sheets = parseFloat(document.getElementById('f-sheets').value) || 0;
   const hasMills = formMaterials.some(m => m.type === 'mill');
   const hasSheets = sheets > 0;
@@ -3532,7 +3666,7 @@ function createOrder() {
     pendingSched.doSplit = false;
   }
   const p = pendingSched;
-  const mats = formMaterials.map(m => ({ id: m.id, type: m.type, desc: m.desc, qty: parseFloat(m.qty)||0, edging_m: m.edging_m, mill_duration: m.mill_duration, mill_date: m.mill_date, stages:{} }));
+  const mats = formMaterials.map(m => ({ id: m.id, type: m.type, desc: m.desc, qty: parseFloat(m.qty)||0, edging_m: m.edging_m, mill_duration: m.mill_duration, mill_date: m.mill_date, supply_type: m.supply_type||'own', catalog_item_id: m.catalog_item_id||null, stages:{} }));
   // Apply per-material cutting dates if the user set individual dates
   if (p.perMatDates) {
     mats.forEach(m => {
@@ -3550,7 +3684,7 @@ function createOrder() {
   const splitSh1  = (p.doSplit && p.splitPlan) ? (p.splitPlan[0]?.sheets || sheets) : sheets;
   const splitSh2  = (p.doSplit && p.splitPlan) ? (p.splitPlan[1]?.sheets || 0) : 0;
   const newO = {
-    id: num, client, desc, sheets,
+    id: num, client, client_db_id: clientDbId||null, desc, sheets,
     materials: mats.length ? mats : null,
     edging_meters: edgingMeters,
     no_edging: p.noEdging||false, no_drilling: p.noDrilling||false, no_project: p.noProject||false,
@@ -3853,6 +3987,8 @@ function resetForm() {
   _formCreateFiles = []; _updateCreateFilesList();
   _formFieldFiles = {};
   _expandedCreateSections = new Set();
+  const fci = document.getElementById('f-client-id'); if (fci) fci.value = '';
+  const fcd = document.getElementById('f-client-dropdown'); if (fcd) fcd.style.display = 'none';
   formMaterials = [];
   formNesting = 1;
   setFormNesting(1);
