@@ -1167,11 +1167,8 @@ table{max-width:100%}
     </div>
     <div class="mb" id="stg-body"></div>
     <div class="mf" style="justify-content:space-between">
-      <button class="btn btn-secondary" onclick="backFromStages()">← Назад</button>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary" onclick="closeStages()">Закрыть</button>
-        <button class="btn btn-primary" onclick="openEdit(stagesOrderId);closeStages()">Редактировать даты</button>
-      </div>
+      <button class="btn btn-secondary" onclick="closeStages()">Закрыть</button>
+      <button class="btn btn-primary" onclick="backFromStages()">Открыть заказ →</button>
     </div>
   </div>
 </div>
@@ -5667,6 +5664,28 @@ async function submitComment(orderId) {
   toggleChatSection(true);
 }
 
+async function submitStageComment(orderId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  const textEl = document.getElementById('stg-comment-text');
+  const text = textEl ? textEl.value.trim() : '';
+  if (!text) return;
+  if (!o.comments) o.comments = [];
+  o.comments.push({
+    id: Date.now(),
+    user: currentUser?.name || 'Менеджер',
+    date: TODAY,
+    time: new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'}),
+    text,
+    files: []
+  });
+  markDirty(orderId);
+  saveOrders();
+  if (textEl) textEl.value = '';
+  // перерисовываем стадии чтобы обновился список комментариев
+  renderStagesBody(o);
+}
+
 // ============================================================
 // ИСТОРИЯ ЗАКАЗА
 // ============================================================
@@ -7450,7 +7469,42 @@ function renderStagesBody(o) {
         })()}</tbody>
       </table>
     </div>
-    <div id="mat-note-panel" style="display:none"></div>`;
+    <div id="mat-note-panel" style="display:none"></div>
+    ${(() => {
+      const comments = o.comments || [];
+      const dk = isDarkTheme();
+      const hdrBg  = dk ? 'rgba(14,165,233,.18)' : '#e0f2fe';
+      const hdrBrd = dk ? 'rgba(14,165,233,.35)'  : '#bae6fd';
+      const hdrClr = dk ? '#38bdf8' : '#0369a1';
+      const bodyBg = dk ? 'rgba(14,165,233,.06)'  : '#f0f9ff';
+      const commentHtml = comments.length
+        ? comments.map((c, ci) => `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px 12px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid var(--border)">
+                <div style="font-size:12px;font-weight:800;color:var(--primary)">👤 ${escHtml(c.user||'—')}</div>
+                <div style="font-size:10px;color:var(--muted);white-space:nowrap">${c.date||''} ${c.time?'в '+c.time:''}</div>
+              </div>
+              ${c.text ? `<div style="font-size:13px;white-space:pre-wrap;color:var(--text)">${escHtml(c.text)}</div>` : ''}
+              ${(c.files||[]).length ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px">${c.files.map(f=>`<a href="${escHtml(f.url)}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;background:var(--gray-l);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;text-decoration:none;color:var(--text)">📎 ${escHtml(f.name)}</a>`).join('')}</div>` : ''}
+            </div>`).join('')
+        : `<div style="text-align:center;padding:10px;color:var(--muted);font-size:12px">Комментариев пока нет</div>`;
+      return `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+        <div onclick="(el=>{const b=el.nextElementSibling;const a=el.querySelector('.stg-chat-arr');const open=b.style.display==='none';b.style.display=open?'':'none';a.textContent=open?'▼':'▶'})(this)"
+          style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-radius:9px;padding:8px 12px;background:${hdrBg};border:1px solid ${hdrBrd}">
+          <span style="font-size:12px;font-weight:700;color:${hdrClr};text-transform:uppercase;letter-spacing:.04em">💬 Переписка${comments.length?` <span style="font-weight:400;opacity:.75">(${comments.length})</span>`:''}</span>
+          <span class="stg-chat-arr" style="font-size:11px;color:${hdrClr}">▶</span>
+        </div>
+        <div style="display:none;background:${bodyBg};border:1px solid ${hdrBrd};border-radius:9px;padding:12px;margin-top:4px">
+          <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding-right:4px">${commentHtml}</div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:12px;border:2px dashed var(--border)">
+            <textarea id="stg-comment-text" placeholder="Написать комментарий..." rows="2" class="fc" oninput="autoResizeTA(this)" style="resize:none;overflow:hidden;font-size:13px;padding:8px 10px;min-height:50px;box-sizing:border-box"></textarea>
+            <div style="display:flex;justify-content:flex-end">
+              <button class="btn btn-sm btn-primary" onclick="submitStageComment('${o.id}')">Отправить</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    })()}`;
 }
 
 function setStageDate(orderId, field, value) {
