@@ -694,12 +694,9 @@ table{max-width:100%}
         </div>
         <div class="fs2"><label class="fl">Описание</label><input id="f-desc" class="fc" type="text" placeholder="Кухня, шкаф-купе..."></div>
         <div class="fs2">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <label class="fl" style="margin-bottom:0">Материалы заказа</label>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="addFormMaterial()" style="padding:3px 10px;font-size:12px">+ Добавить</button>
-          </div>
+          <label class="fl">Материалы заказа</label>
           <input id="f-sheets" type="hidden" value="0">
-          <div id="mat-list" style="display:flex;flex-direction:column;gap:5px"></div>
+          <div id="mat-list"></div>
           <div style="font-size:11px;color:var(--muted);margin-top:5px">Итого ЛДСП: <b id="mat-total-sheets">0</b> л.</div>
         </div>
         <div><label class="fl">Желаемая дата запуска</label><input id="f-date" class="fc" type="date" oninput="onSheetsChange(document.getElementById('f-sheets').value)"></div>
@@ -3153,13 +3150,17 @@ function renderNewOrderSidebar() {
 // ============================================================
 const MAT_TYPES = [
   // isSheet: учитывается в расчёте листов; hasEdging: можно кромить; hasDrilling: можно присаживать
-  { value:'sheet',  label:'Лист ЛДСП', unit:'л', isSheet:true,  hasEdging:true,  hasDrilling:true  },
-  { value:'mdf',    label:'МДФ',       unit:'л', isSheet:true,  hasEdging:true,  hasDrilling:true  },
-  { value:'hdf',    label:'ХДФ',       unit:'л', isSheet:true,  hasEdging:false, hasDrilling:false },
-  { value:'fanera', label:'Фанера',    unit:'л', isSheet:true,  hasEdging:false, hasDrilling:true  },
-  { value:'edging', label:'Кромка',    unit:'м', isSheet:false, hasEdging:true,  hasDrilling:false },
-  { value:'mill',   label:'Фрезеровка МДФ', unit:'д', isSheet:false, hasEdging:false, hasDrilling:false },
+  { value:'sheet',    label:'Лист ЛДСП',        unit:'л',  isSheet:true,  hasEdging:true,  hasDrilling:true,  group:'mat'      },
+  { value:'mdf',      label:'МДФ',              unit:'л',  isSheet:true,  hasEdging:true,  hasDrilling:true,  group:'mat'      },
+  { value:'hdf',      label:'ХДФ',              unit:'л',  isSheet:true,  hasEdging:false, hasDrilling:false, group:'mat'      },
+  { value:'fanera',   label:'Фанера',           unit:'л',  isSheet:true,  hasEdging:false, hasDrilling:true,  group:'mat'      },
+  { value:'edging',   label:'Кромка',           unit:'м',  isSheet:false, hasEdging:true,  hasDrilling:false, group:'mat'      },
+  { value:'mill',     label:'Фрезеровка МДФ',  unit:'д',  isSheet:false, hasEdging:false, hasDrilling:false, group:'service'  },
+  { value:'service',  label:'Услуга',           unit:'шт', isSheet:false, hasEdging:false, hasDrilling:false, group:'service'  },
+  { value:'hardware', label:'Фурнитура',        unit:'шт', isSheet:false, hasEdging:false, hasDrilling:false, group:'hardware' },
 ];
+// Вспомогательные функции группировки
+function matGroup(m) { return MAT_TYPES.find(t=>t.value===m.type)?.group || 'mat'; }
 const EDGING_DEFAULT_PER_SHEET = 30; // метров кромки на 1 лист по умолчанию
 
 function matTypeLabel(type)  { return MAT_TYPES.find(t=>t.value===type)?.label || type; }
@@ -3181,8 +3182,9 @@ function calcEdgingMeters(mats) {
   return explicit + implicit;
 }
 
-function matSelectOpts(selected) {
-  return MAT_TYPES.map(t=>`<option value="${t.value}" ${selected===t.value?'selected':''}>${t.label}</option>`).join('');
+function matSelectOpts(selected, filterGroup) {
+  const types = filterGroup ? MAT_TYPES.filter(t => t.group === filterGroup) : MAT_TYPES;
+  return types.map(t=>`<option value="${t.value}" ${selected===t.value?'selected':''}>${t.label}</option>`).join('');
 }
 
 // ============================================================
@@ -3190,8 +3192,9 @@ function matSelectOpts(selected) {
 // ============================================================
 let formMaterials = [];
 
-function addFormMaterial() {
-  formMaterials.push({ id: 'm' + Date.now() + Math.random().toString(36).slice(2,5), type: 'sheet', desc: '', qty: '', edging_m: null, supply_type: 'own', catalog_item_id: null });
+function addFormMaterial(group) {
+  const defType = { mat:'sheet', service:'service', hardware:'hardware' }[group||'mat'] || 'sheet';
+  formMaterials.push({ id: 'm' + Date.now() + Math.random().toString(36).slice(2,5), type: defType, desc: '', qty: '', edging_m: null, supply_type: 'own', catalog_item_id: null });
   renderFormMatList();
 }
 
@@ -3349,14 +3352,21 @@ function selectFormClient(id, name) {
   if (dd)  dd.style.display = 'none';
   renderFormMatList();
 }
-async function quickCreateClient() {
+let _addClientFromForm = false; // флаг: открыт из поля клиента заказа
+function quickCreateClient() {
   const name = document.getElementById('f-client').value.trim();
-  if (!name || !_sb) return;
-  const { data, error } = await _sb.from('clients').insert({ name }).select().single();
-  if (error) { alert('Ошибка: ' + error.message); return; }
-  _clients.push(data);
-  _clients.sort((a,b) => a.name.localeCompare(b.name));
-  selectFormClient(data.id, data.name);
+  _addClientFromForm = true;
+  _editClientId = null;
+  document.getElementById('add-client-title').textContent = 'Новый клиент';
+  document.getElementById('ac-name').value  = name;
+  document.getElementById('ac-phone').value = '';
+  document.getElementById('ac-notes').value = '';
+  document.getElementById('add-client-overlay').classList.add('show');
+  // закрыть дропдаун
+  const dd = document.getElementById('f-client-dropdown');
+  if (dd) dd.style.display = 'none';
+  // фокус на телефон (имя уже заполнено)
+  setTimeout(() => document.getElementById('ac-phone')?.focus(), 100);
 }
 document.addEventListener('click', function(e) {
   const dd  = document.getElementById('f-client-dropdown');
@@ -3448,89 +3458,104 @@ function _calcClientBalance(clientId, catalogItemId) {
     .reduce((sum, m) => sum + (sign[m.type]||0) * m.qty, 0);
 }
 
+function _fmatRowHtml(m, clientId) {
+  const grp = matGroup(m);
+  const isMill    = m.type === 'mill';
+  const isService = grp === 'service';
+  const isHW      = grp === 'hardware';
+  // Per-material кромка/присадка тогглы (только для листовых)
+  const canEdge  = isSheetMat(m) && typeSupportsEdging(m.type);
+  const canDrill = isSheetMat(m) && typeHasDrilling(m.type);
+  const hasEdge  = canEdge  && !m.no_edging;
+  const hasDrill = canDrill && !m.no_drilling;
+  const opToggles = (canEdge || canDrill) ? `<div style="display:flex;gap:3px;margin-top:4px">
+    ${canEdge  ? `<button type="button" onclick="toggleMatEdging('${m.id}')"
+      title="${hasEdge?'Кромка включена':'Кромка отключена'}"
+      style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;cursor:pointer;border:1px solid ${hasEdge?'#0d9488':'var(--border)'};background:${hasEdge?'#f0fdfa':'var(--gray-l)'};color:${hasEdge?'#0f766e':'var(--muted)'}">К ${hasEdge?'✓':'✗'}</button>` : ''}
+    ${canDrill ? `<button type="button" onclick="toggleMatDrilling('${m.id}')"
+      title="${hasDrill?'Присадка включена':'Присадка отключена'}"
+      style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;cursor:pointer;border:1px solid ${hasDrill?'#d97706':'var(--border)'};background:${hasDrill?'#fffbeb':'var(--gray-l)'};color:${hasDrill?'#92400e':'var(--muted)'}">П ${hasDrill?'✓':'✗'}</button>` : ''}
+  </div>` : '';
+  const edgingInput = hasEdge ? `
+    <span style="font-size:11px;color:var(--muted);white-space:nowrap;margin-left:4px">кр:</span>
+    <input class="fc" style="flex:0 0 75px;padding:5px 6px;font-size:12px;text-align:center" type="number" min="0" max="99999" step="1" placeholder="авто" value="${m.edging_m !== null ? m.edging_m : ''}" oninput="updateFormMat('${m.id}','edging_m',this.value===''?null:+this.value)">
+    <span style="font-size:11px;color:var(--muted)">м</span>` : '';
+  const millInput = isMill ? `
+    <select class="fc" style="flex:0 0 100px;padding:5px 6px;font-size:12px" onchange="updateFormMat('${m.id}','mill_duration',this.value)">
+      <option value="0.5" ${m.mill_duration==0.5?'selected':''}>Полдня</option>
+      <option value="1"   ${(!m.mill_duration||m.mill_duration==1)?'selected':''}>1 день</option>
+      <option value="2"   ${m.mill_duration==2?'selected':''}>2 дня</option>
+    </select>
+    <input type="date" class="fc" style="flex:0 0 120px;padding:5px 6px;font-size:12px" value="${m.mill_date||''}" oninput="updateFormMat('${m.id}','mill_date',this.value)" title="Дата готовности">` : '';
+  const st = m.supply_type || 'own';
+  const catItem = m.catalog_item_id ? _catalog.find(x => x.id === m.catalog_item_id) : null;
+  const catalogHint = catItem ? (() => {
+    const parts = [
+      catItem.sku ? `<span style="font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(catItem.sku)}</span>` : null,
+      `<span style="font-weight:600">${escHtml(catItem.name)}</span>`,
+      catItem.sheet_size ? `<span style="color:var(--muted)">${escHtml(catItem.sheet_size)}</span>` : null,
+      catItem.thickness != null ? `<span style="color:var(--muted)">${catItem.thickness} мм</span>` : null,
+      catItem.manufacturer && catItem.manufacturer !== '—' ? `<span style="color:var(--muted)">${escHtml(catItem.manufacturer)}</span>` : null,
+    ].filter(Boolean).join(' · ');
+    return `<div style="font-size:10px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${parts}</div>`;
+  })() : '';
+  let clientBalanceHtml = '';
+  if (st === 'client' && clientId && m.catalog_item_id) {
+    const bal = _calcClientBalance(clientId, m.catalog_item_id);
+    const unit = catItem?.unit || 'шт';
+    clientBalanceHtml = `<div style="font-size:10px;margin-top:2px;font-weight:700;color:${bal >= 0?'#16a34a':'#dc2626'}">📦 На складе клиента: ${bal} ${escHtml(unit)}</div>`;
+  }
+  // Кнопки "Наш/Клиент/Закуп" — только для материалов, не для услуг/фурнитуры
+  const supplyBtns = !isService && !isHW ? `<div style="display:flex;gap:3px;margin-top:5px">
+    <button type="button" onclick="setMatSupply('${m.id}','own')" style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='own'?'#e0f2fe':'var(--gray-l)'};color:${st==='own'?'#0369a1':'var(--muted)'}">🏭 Наш</button>
+    <button type="button" onclick="setMatSupply('${m.id}','client')" style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='client'?'#dcfce7':'var(--gray-l)'};color:${st==='client'?'#166534':'var(--muted)'}">👤 Клиент</button>
+    <button type="button" onclick="setMatSupply('${m.id}','purchase')" style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='purchase'?'#fef3c7':'var(--gray-l)'};color:${st==='purchase'?'#92400e':'var(--muted)'}">🛒 Закуп</button>
+  </div>` : '';
+  const grpForSel = grp; // фильтруем типы в select по группе блока
+  const qtyBlock = !isMill ? `<input class="fc" style="flex:0 0 55px;padding:5px 8px;font-size:12px;text-align:center" type="number" min="0" max="9999" step="any" placeholder="0" value="${m.qty}" oninput="updateFormMat('${m.id}','qty',this.value)">
+    <span style="font-size:12px;color:var(--muted);min-width:14px">${matTypeUnit(m.type)}</span>` : '';
+  return `<div style="padding:7px 9px;background:var(--gray-l,#f8fafc);border-radius:8px;border:1px solid var(--border);margin-bottom:4px">
+    <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+      <select class="fc" style="flex:0 0 110px;padding:5px 6px;font-size:12px" onchange="updateFormMat('${m.id}','type',this.value)">
+        ${matSelectOpts(m.type, grpForSel)}
+      </select>
+      <div style="flex:1;min-width:80px;position:relative">
+        <input class="fc" style="width:100%;padding:5px 8px;font-size:12px;box-sizing:border-box" type="text"
+          placeholder="${isMill?'Описание детали':'Название / описание'}"
+          value="${escHtml(m.desc)}" id="fmat-desc-${m.id}" autocomplete="off"
+          oninput="updateFormMat('${m.id}','desc',this.value);fmatSearchCatalog('${m.id}',this.value)">
+        <div id="fmat-dd-${m.id}" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;z-index:150;max-height:180px;overflow-y:auto;box-shadow:0 4px 10px rgba(0,0,0,.12)"></div>
+      </div>
+      ${qtyBlock}${edgingInput}${millInput}
+      <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;margin-left:auto" onclick="removeFormMaterial('${m.id}')">×</button>
+    </div>
+    ${catalogHint}${clientBalanceHtml}${opToggles}${supplyBtns}
+  </div>`;
+}
+
 function renderFormMatList() {
   const el = document.getElementById('mat-list');
   if (!el) return;
-  if (!formMaterials.length) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0">Нет материалов — нажмите "+ Добавить"</div>';
-    recalcFormSheets();
-    return;
-  }
   const clientId = document.getElementById('f-client-id')?.value || '';
-  el.innerHTML = formMaterials.map(m => {
-    // Per-material кромка/присадка тогглы (только для типов которые поддерживают)
-    const canEdge  = isSheetMat(m) && typeSupportsEdging(m.type);
-    const canDrill = isSheetMat(m) && typeHasDrilling(m.type);
-    const hasEdge  = canEdge  && !m.no_edging;
-    const hasDrill = canDrill && !m.no_drilling;
-    const opToggles = (canEdge || canDrill) ? `<div style="display:flex;gap:3px;margin-top:4px">
-      ${canEdge  ? `<button type="button" onclick="toggleMatEdging('${m.id}')"
-        title="${hasEdge?'Кромка включена — нажмите чтобы отключить':'Кромка отключена — нажмите чтобы включить'}"
-        style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;cursor:pointer;border:1px solid ${hasEdge?'#0d9488':'var(--border)'};background:${hasEdge?'#f0fdfa':'var(--gray-l)'};color:${hasEdge?'#0f766e':'var(--muted)'};transition:all .15s">К ${hasEdge?'✓':'✗'}</button>` : ''}
-      ${canDrill ? `<button type="button" onclick="toggleMatDrilling('${m.id}')"
-        title="${hasDrill?'Присадка включена — нажмите чтобы отключить':'Присадка отключена — нажмите чтобы включить'}"
-        style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;cursor:pointer;border:1px solid ${hasDrill?'#d97706':'var(--border)'};background:${hasDrill?'#fffbeb':'var(--gray-l)'};color:${hasDrill?'#92400e':'var(--muted)'};transition:all .15s">П ${hasDrill?'✓':'✗'}</button>` : ''}
-    </div>` : '';
-    const showEdging = hasEdge;
-    const edgingInput = showEdging ? `
-      <span style="font-size:11px;color:var(--muted);white-space:nowrap;margin-left:4px">кр:</span>
-      <input class="fc" style="flex:0 0 75px;padding:5px 6px;font-size:12px;text-align:center" type="number" min="0" max="99999" step="1" placeholder="авто" value="${m.edging_m !== null ? m.edging_m : ''}" oninput="updateFormMat('${m.id}','edging_m',this.value===''?null:+this.value)">
-      <span style="font-size:11px;color:var(--muted)">м</span>` : '';
-    const millInput = m.type === 'mill' ? `
-      <select class="fc" style="flex:0 0 100px;padding:5px 6px;font-size:12px" onchange="updateFormMat('${m.id}','mill_duration',this.value)">
-        <option value="0.5" ${m.mill_duration==0.5?'selected':''}>Полдня</option>
-        <option value="1"   ${(!m.mill_duration||m.mill_duration==1)?'selected':''}>1 день</option>
-        <option value="2"   ${m.mill_duration==2?'selected':''}>2 дня</option>
-      </select>
-      <input type="date" class="fc" style="flex:0 0 120px;padding:5px 6px;font-size:12px" placeholder="Дата" value="${m.mill_date||''}" oninput="updateFormMat('${m.id}','mill_date',this.value)" title="Дата готовности фрезеровки">` : '';
-    const isMill = m.type === 'mill';
-    const st = m.supply_type || 'own';
-    const catItem = m.catalog_item_id ? _catalog.find(x => x.id === m.catalog_item_id) : null;
-    const catalogHint = catItem ? (() => {
-      const parts = [
-        catItem.sku ? `<span style="font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(catItem.sku)}</span>` : null,
-        `<span style="font-weight:600">${escHtml(catItem.name)}</span>`,
-        catItem.sheet_size ? `<span style="color:var(--muted)">${escHtml(catItem.sheet_size)}</span>` : null,
-        catItem.thickness != null ? `<span style="color:var(--muted)">${catItem.thickness} мм</span>` : null,
-        `<span style="color:var(--muted)">${escHtml(catItem.manufacturer)}</span>`,
-      ].filter(Boolean).join(' · ');
-      return `<div style="font-size:10px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${parts}</div>`;
-    })() : '';
-    let clientBalanceHtml = '';
-    if (st === 'client' && clientId && m.catalog_item_id) {
-      const bal = _calcClientBalance(clientId, m.catalog_item_id);
-      const unit = catItem?.unit || 'шт';
-      clientBalanceHtml = `<div style="font-size:10px;margin-top:2px;font-weight:700;color:${bal >= 0?'#16a34a':'#dc2626'}">
-        📦 На складе клиента: ${bal} ${escHtml(unit)}</div>`;
-    }
-    const supplyBtns = `<div style="display:flex;gap:3px;margin-top:5px">
-      <button type="button" onclick="setMatSupply('${m.id}','own')"
-        style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='own'?'#e0f2fe':'var(--gray-l)'};color:${st==='own'?'#0369a1':'var(--muted)'}">🏭 Наш</button>
-      <button type="button" onclick="setMatSupply('${m.id}','client')"
-        style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='client'?'#dcfce7':'var(--gray-l)'};color:${st==='client'?'#166534':'var(--muted)'}">👤 Клиент</button>
-      <button type="button" onclick="setMatSupply('${m.id}','purchase')"
-        style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='purchase'?'#fef3c7':'var(--gray-l)'};color:${st==='purchase'?'#92400e':'var(--muted)'}">🛒 Закуп</button>
-    </div>`;
-    return `<div style="padding:7px 9px;background:var(--gray-l,#f8fafc);border-radius:8px;border:1px solid var(--border);margin-bottom:4px">
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
-        <select class="fc" style="flex:0 0 110px;padding:5px 6px;font-size:12px" onchange="updateFormMat('${m.id}','type',this.value)">
-          ${matSelectOpts(m.type)}
-        </select>
-        <div style="flex:1;min-width:80px;position:relative">
-          <input class="fc" style="width:100%;padding:5px 8px;font-size:12px;box-sizing:border-box" type="text"
-            placeholder="${isMill?'Описание детали':'Цвет / описание (поиск в каталоге)'}"
-            value="${escHtml(m.desc)}" id="fmat-desc-${m.id}" autocomplete="off"
-            oninput="updateFormMat('${m.id}','desc',this.value);fmatSearchCatalog('${m.id}',this.value)">
-          <div id="fmat-dd-${m.id}" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;z-index:150;max-height:180px;overflow-y:auto;box-shadow:0 4px 10px rgba(0,0,0,.12)"></div>
-        </div>
-        ${!isMill ? `<input class="fc" style="flex:0 0 55px;padding:5px 8px;font-size:12px;text-align:center" type="number" min="0" max="9999" step="any" placeholder="0" value="${m.qty}" oninput="updateFormMat('${m.id}','qty',this.value)">
-        <span style="font-size:12px;color:var(--muted);min-width:14px">${matTypeUnit(m.type)}</span>` : ''}
-        ${edgingInput}${millInput}
-        <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;margin-left:auto" onclick="removeFormMaterial('${m.id}')">×</button>
+  const BLOCKS = [
+    { key:'mat',      label:'Материалы',  icon:'🪵', color:'#1d4ed8', bg:'rgba(219,234,254,.35)' },
+    { key:'service',  label:'Услуги',     icon:'⚙️', color:'#7c3aed', bg:'rgba(237,233,254,.35)' },
+    { key:'hardware', label:'Фурнитура',  icon:'🔩', color:'#b45309', bg:'rgba(254,243,199,.35)' },
+  ];
+  let html = '';
+  BLOCKS.forEach(block => {
+    const items = formMaterials.filter(m => matGroup(m) === block.key);
+    html += `<div style="margin-bottom:8px;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:${block.bg}">
+        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${block.color}">${block.icon} ${block.label}</span>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="addFormMaterial('${block.key}')" style="padding:2px 9px;font-size:11px">+ Добавить</button>
       </div>
-      ${catalogHint}${clientBalanceHtml}${opToggles}${supplyBtns}
+      <div style="padding:${items.length?'6px':'4px'} 6px ${items.length?'2px':'4px'}">
+        ${items.length ? items.map(m=>_fmatRowHtml(m,clientId)).join('') : '<div style="font-size:11px;color:var(--muted);padding:4px 4px;text-align:center">нет позиций</div>'}
+      </div>
     </div>`;
-  }).join('');
+  });
+  el.innerHTML = html;
   recalcFormSheets();
 }
 
@@ -10403,6 +10428,8 @@ async function saveClient() {
     if (error) { alert('Ошибка: ' + error.message); return; }
     _clients.push(data);
     _clients.sort((a,b) => a.name.localeCompare(b.name));
+    // Если открывали из формы создания заказа — автовыбрать клиента
+    if (_addClientFromForm) { selectFormClient(data.id, data.name); _addClientFromForm = false; }
   }
   closeAddClient();
   renderClientsList();
@@ -10463,6 +10490,28 @@ function renderCatalogList() {
 }
 
 let _addCatalogCtx = null; // { form: 'new'|'edit', matId: string }
+
+// Показать/скрыть поля в форме каталога в зависимости от категории
+function aciCategoryChange() {
+  const cat = document.getElementById('aci-category').value;
+  const isSheet   = cat === 'sheet' || cat === 'edging';
+  const isSrv     = cat === 'services';
+  const isHw      = cat === 'hardware';
+  document.getElementById('aci-sheet-row').style.display   = isSheet ? '' : 'none';
+  document.getElementById('aci-mfr-row').style.display     = isSrv   ? 'none' : '';
+  document.getElementById('aci-sku-row').style.display     = isSrv   ? 'none' : 'flex';
+  document.getElementById('aci-unit-srv-row').style.display= isSrv   ? '' : 'none';
+  // Подсказка для производителя
+  const lbl = document.getElementById('aci-mfr-lbl');
+  if (lbl) lbl.textContent = isHw ? 'Поставщик/Бренд *' : 'Производитель *';
+  // Для услуг синхронизируем unit-srv → unit
+  if (isSrv) {
+    const uSrv = document.getElementById('aci-unit-srv');
+    const u = document.getElementById('aci-unit');
+    if (uSrv && u) uSrv.value = u.value;
+  }
+}
+
 function openAddCatalogItem(prefill, ctx) {
   _editCatalogId = null;
   _addCatalogCtx = ctx || null;
@@ -10472,8 +10521,10 @@ function openAddCatalogItem(prefill, ctx) {
   document.getElementById('aci-name').value         = prefill?.name || '';
   document.getElementById('aci-sku').value          = prefill?.sku || '';
   document.getElementById('aci-unit').value         = prefill?.unit || 'лист';
+  document.getElementById('aci-unit-srv').value     = prefill?.unit || 'шт';
   document.getElementById('aci-thickness').value    = prefill?.thickness ?? 16;
   document.getElementById('aci-size').value         = prefill?.sheet_size || '';
+  aciCategoryChange();
   document.getElementById('add-catalog-overlay').classList.add('show');
 }
 
@@ -10483,12 +10534,14 @@ function openEditCatalogItem(id) {
   _editCatalogId = id;
   document.getElementById('add-catalog-title').textContent = 'Редактировать позицию';
   document.getElementById('aci-category').value     = c.category;
-  document.getElementById('aci-manufacturer').value = c.manufacturer;
+  document.getElementById('aci-manufacturer').value = c.manufacturer || '';
   document.getElementById('aci-name').value         = c.name;
   document.getElementById('aci-sku').value          = c.sku || '';
   document.getElementById('aci-unit').value         = c.unit || 'лист';
+  document.getElementById('aci-unit-srv').value     = c.unit || 'шт';
   document.getElementById('aci-thickness').value    = c.thickness ?? 16;
   document.getElementById('aci-size').value         = c.sheet_size || '';
+  aciCategoryChange();
   document.getElementById('add-catalog-overlay').classList.add('show');
 }
 
@@ -10498,13 +10551,16 @@ function closeAddCatalogItem() {
 
 async function saveCatalogItem() {
   const category     = document.getElementById('aci-category').value;
-  const manufacturer = document.getElementById('aci-manufacturer').value.trim();
+  const isSrv        = category === 'services';
+  const manufacturer = isSrv ? (document.getElementById('aci-manufacturer').value.trim() || '—') : document.getElementById('aci-manufacturer').value.trim();
   const name         = document.getElementById('aci-name').value.trim();
-  const sku          = document.getElementById('aci-sku').value.trim();
-  const unit         = document.getElementById('aci-unit').value;
-  const thickness    = parseFloat(document.getElementById('aci-thickness').value) || 16;
-  const sheet_size   = document.getElementById('aci-size').value.trim() || null;
-  if (!manufacturer || !name) { alert('Заполните производителя и наименование'); return; }
+  const sku          = isSrv ? '' : document.getElementById('aci-sku').value.trim();
+  const unit         = isSrv ? document.getElementById('aci-unit-srv').value : document.getElementById('aci-unit').value;
+  const isSheet      = category === 'sheet' || category === 'edging';
+  const thickness    = isSheet ? (parseFloat(document.getElementById('aci-thickness').value) || 16) : null;
+  const sheet_size   = isSheet ? (document.getElementById('aci-size').value.trim() || null) : null;
+  if (!name) { alert('Введите наименование'); return; }
+  if (!isSrv && !manufacturer) { alert('Заполните производителя'); return; }
   if (!_sb) return;
 
   const payload = { category, manufacturer, name, sku: sku||null, unit, thickness, sheet_size };
@@ -11631,16 +11687,18 @@ async function saveWarehouseIn() {
     <div class="mb" style="display:flex;flex-direction:column;gap:12px">
       <div>
         <label class="fl">Категория *</label>
-        <select class="fc" id="aci-category">
+        <select class="fc" id="aci-category" onchange="aciCategoryChange()">
           <option value="sheet">🪵 Листовые</option>
           <option value="edging">📏 Кромка</option>
           <option value="hardware">🔩 Фурнитура</option>
           <option value="services">⚙️ Услуги производства</option>
         </select>
       </div>
-      <div><label class="fl">Производитель *</label><input class="fc" id="aci-manufacturer" placeholder="Egger, Kronospan, Rehau..."></div>
+      <!-- Производитель — скрывается для услуг -->
+      <div id="aci-mfr-row"><label class="fl" id="aci-mfr-lbl">Производитель *</label><input class="fc" id="aci-manufacturer" placeholder="Egger, Kronospan, Rehau..."></div>
       <div><label class="fl">Наименование *</label><input class="fc" id="aci-name" placeholder="U117 ST9 Белый Базовый 18мм"></div>
-      <div style="display:flex;gap:8px">
+      <!-- SKU — скрывается для услуг -->
+      <div id="aci-sku-row" style="display:flex;gap:8px">
         <div style="flex:1"><label class="fl">Артикул / SKU</label><input class="fc" id="aci-sku" placeholder="U117 ST9"></div>
         <div style="flex:1">
           <label class="fl">Единица</label>
@@ -11649,12 +11707,25 @@ async function saveWarehouseIn() {
             <option value="м.п.">м.п.</option>
             <option value="шт">шт</option>
             <option value="м²">м²</option>
+            <option value="ч">ч (час)</option>
           </select>
         </div>
       </div>
-      <div style="display:flex;gap:8px">
+      <!-- Единица для услуг отдельно (без SKU) -->
+      <div id="aci-unit-srv-row" style="display:none">
+        <label class="fl">Единица измерения</label>
+        <select class="fc" id="aci-unit-srv" onchange="document.getElementById('aci-unit').value=this.value">
+          <option value="шт">шт</option>
+          <option value="м.п.">м.п.</option>
+          <option value="м²">м²</option>
+          <option value="ч">ч (час)</option>
+          <option value="лист">лист</option>
+        </select>
+      </div>
+      <!-- Толщина + Размер — только для листовых и кромки -->
+      <div id="aci-sheet-row" style="display:flex;gap:8px">
         <div style="flex:1"><label class="fl">Толщина (мм)</label><input class="fc" id="aci-thickness" type="number" min="1" step="0.1" placeholder="16" value="16"></div>
-        <div style="flex:2"><label class="fl">Размер листа</label><input class="fc" id="aci-size" placeholder="2750x1830 или 2800x2070"></div>
+        <div style="flex:2"><label class="fl">Размер</label><input class="fc" id="aci-size" placeholder="2750x1830 или 2800x2070"></div>
       </div>
     </div>
     <div class="mf"><button class="btn btn-secondary" onclick="closeAddCatalogItem()">Отмена</button><button class="btn btn-primary" onclick="saveCatalogItem()">Сохранить</button></div>
