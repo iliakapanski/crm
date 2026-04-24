@@ -1143,7 +1143,7 @@ table{max-width:100%}
 </div>
 
 <!-- ── CAL HOVER CARD ── -->
-<div id="cal-hover-card" style="display:none;position:fixed;z-index:9500;width:340px;max-height:80vh;overflow-y:auto;pointer-events:none"></div>
+<div id="cal-hover-card" style="display:none;position:fixed;z-index:9500;min-width:320px;max-width:min(580px,calc(100vw - 28px));max-height:80vh;overflow-y:auto;pointer-events:none"></div>
 </main><!-- /main -->
 
 
@@ -4448,7 +4448,7 @@ function buildCalHoverHtml(orderId) {
     if (op.key === 'cutting')  hasOp = sheetMats.length > 0 && !o.no_cutting;
     if (op.key === 'packing')  hasOp = sheetMats.length > 0 && !o.no_packing;
     if (op.key === 'edging')   hasOp = (sheetMats.some(m => matHasEdging(m)) || edgingMats.length > 0) && !o.no_edging;
-    if (op.key === 'drilling') hasOp = sheetMats.length > 0 && !o.no_drilling;
+    if (op.key === 'drilling') hasOp = sheetMats.some(m => matHasDrilling(m)) && !o.no_drilling;
     if (!hasOp) return;
 
     // Вспомогательная функция: одна строка с полными данными из каталога
@@ -4472,7 +4472,7 @@ function buildCalHoverHtml(orderId) {
         const done = m.stages?.edging?.done;
         rows.push(`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px dashed var(--border)">
           <span style="font-size:11px">${done?'✓':'☐'}</span>
-          <div style="flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${matFullLabel(m)}</div>
+          <div style="flex:1;font-size:10px;word-break:break-word">${matFullLabel(m)}</div>
           <span style="font-size:11px;font-weight:800;color:${op.hdr}">${edgM} м</span>
         </div>`);
       });
@@ -4480,16 +4480,17 @@ function buildCalHoverHtml(orderId) {
         const done = m.stages?.edging?.done;
         rows.push(`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px dashed var(--border)">
           <span style="font-size:11px">${done?'✓':'☐'}</span>
-          <div style="flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.desc||'Кромка')}</div>
+          <div style="flex:1;font-size:10px;word-break:break-word">${escHtml(m.desc||'Кромка')}</div>
           <span style="font-size:11px;font-weight:800;color:${op.hdr}">${parseFloat(m.qty)||0} м</span>
         </div>`);
       });
     } else {
-      sheetMats.forEach(m => {
+      const mats4op = op.key === 'drilling' ? sheetMats.filter(m => matHasDrilling(m)) : sheetMats;
+      mats4op.forEach(m => {
         const done = m.stages?.[op.key]?.done;
         rows.push(`<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px dashed var(--border)">
           <span style="font-size:11px">${done?'✓':'☐'}</span>
-          <div style="flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${matFullLabel(m)}</div>
+          <div style="flex:1;font-size:10px;word-break:break-word">${matFullLabel(m)}</div>
           <span style="font-size:11px;font-weight:800;color:${op.hdr}">${m.qty||0} л</span>
         </div>`);
       });
@@ -4515,7 +4516,7 @@ function buildCalHoverHtml(orderId) {
   const popup = document.getElementById('cal-hover-card');
   if (!container || !popup) return;
 
-  const POPUP_W = 344; // ширина попапа (из CSS width:340px + border)
+  const POPUP_W = () => popup.offsetWidth || 344; // динамическая ширина
   let _hideTimer = null;
   let _currentOid = null;
 
@@ -4526,10 +4527,11 @@ function buildCalHoverHtml(orderId) {
     let left, top;
 
     // По горизонтали: открываем вправо если есть место, иначе влево
-    if (clientX + margin + POPUP_W <= window.innerWidth - margin) {
+    const pw = POPUP_W();
+    if (clientX + margin + pw <= window.innerWidth - margin) {
       left = clientX + margin;
     } else {
-      left = clientX - margin - POPUP_W;
+      left = clientX - margin - pw;
     }
     // Не выходим за левый край
     if (left < margin) left = margin;
