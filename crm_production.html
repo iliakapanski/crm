@@ -639,6 +639,9 @@ table{max-width:100%}
     <div class="nav-it" data-page="orders" title="Все заказы" onclick="showPage('orders')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span><span class="nav-txt">Все заказы</span></div>
     <div class="nav-it" data-page="stats" title="Статистика" onclick="showPage('stats')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><span class="nav-txt">Статистика</span></div>
     <div class="nav-it" data-page="payroll" title="Начисления" onclick="showPage('payroll')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span><span class="nav-txt">Начисления</span></div>
+    <div class="nav-lbl">Закупки и склад</div>
+    <div class="nav-it" data-page="warehouse" title="Склад" onclick="showPage('warehouse')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span><span class="nav-txt">Склад</span></div>
+    <div class="nav-it" data-page="purchases" title="Закупки" onclick="showPage('purchases')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span><span class="nav-txt">Закупки</span></div>
     <div class="nav-lbl">Система</div>
     <div class="nav-it" data-page="settings" title="Настройки" onclick="showPage('settings')"><span class="nav-ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="nav-txt">Настройки</span></div>
   </nav>
@@ -924,6 +927,54 @@ table{max-width:100%}
     <div id="perm-grid" style="overflow-x:auto"></div>
   </div>
 
+  <!-- ── КЛИЕНТЫ ── -->
+  <div class="settings-section" id="clients-settings-section">
+    <div class="settings-title" style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:7px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Клиенты
+      </span>
+      <button class="btn btn-sm btn-primary" onclick="openAddClient()">+ Добавить клиента</button>
+    </div>
+    <input class="fc" id="clients-search" placeholder="Поиск по имени или телефону..." style="margin-bottom:10px;width:100%;box-sizing:border-box" oninput="renderClientsList()">
+    <div id="clients-list"></div>
+  </div>
+
+  <!-- ── КАТАЛОГ ── -->
+  <div class="settings-section" id="catalog-settings-section">
+    <div class="settings-title" style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:7px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+        Каталог материалов
+      </span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-secondary" onclick="document.getElementById('catalog-excel-input').click()">📥 Загрузить Excel</button>
+        <input id="catalog-excel-input" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importCatalogExcel(this)">
+        <button class="btn btn-sm btn-primary" onclick="openAddCatalogItem()">+ Добавить позицию</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn btn-sm" id="cat-tab-sheet"    onclick="setCatalogTab('sheet')"    style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd">🪵 Листовые</button>
+      <button class="btn btn-sm" id="cat-tab-edging"   onclick="setCatalogTab('edging')"   style="background:var(--gray-l);color:var(--muted);border:1px solid var(--border)">📏 Кромка</button>
+      <button class="btn btn-sm" id="cat-tab-hardware" onclick="setCatalogTab('hardware')" style="background:var(--gray-l);color:var(--muted);border:1px solid var(--border)">🔩 Фурнитура</button>
+      <button class="btn btn-sm" id="cat-tab-services" onclick="setCatalogTab('services')" style="background:var(--gray-l);color:var(--muted);border:1px solid var(--border)">⚙️ Услуги</button>
+    </div>
+    <input class="fc" id="catalog-search" placeholder="Поиск по названию, производителю, артикулу..." style="margin-bottom:10px;width:100%;box-sizing:border-box" oninput="renderCatalogList()">
+    <div id="catalog-list"></div>
+  </div>
+
+  <!-- ── ПОСТАВЩИКИ ── -->
+  <div class="settings-section" id="suppliers-settings-section">
+    <div class="settings-title" style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:7px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Поставщики
+      </span>
+      <button class="btn btn-sm btn-primary" onclick="openAddSupplier()">+ Добавить поставщика</button>
+    </div>
+    <div id="suppliers-list"></div>
+  </div>
+
   <div class="settings-section" id="field-template-section">
     <div class="settings-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>Шаблон карточки заказа</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">
@@ -954,6 +1005,25 @@ table{max-width:100%}
     <div style="font-size:11px;color:var(--muted);margin-top:10px">
       🟢 Supabase подключён. Синхронизация происходит мгновенно через Realtime — без опроса каждые N секунд.
     </div>
+  </div>
+</div>
+
+<!-- ── WAREHOUSE ── -->
+<div id="page-warehouse" class="page">
+  <div class="ph">
+    <div><div class="ptitle">Склад</div><div class="psub">Движения материалов, остатки по клиентам</div></div>
+    <button class="btn btn-primary" onclick="openWarehouseIn()">+ Приход</button>
+  </div>
+  <div id="warehouse-body" style="padding:0 16px 24px"></div>
+</div>
+
+<!-- ── PURCHASES ── -->
+<div id="page-purchases" class="page">
+  <div class="ph">
+    <div><div class="ptitle">Закупки</div><div class="psub">Материалы к выкупу по заказам</div></div>
+  </div>
+  <div id="purchases-body" style="padding:0 16px 24px">
+    <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Функция будет доступна после привязки материалов заказов к каталогу</div>
   </div>
 </div>
 
@@ -1242,6 +1312,12 @@ const TODAY = (function() {
 // ============================================================
 // НАСТРОЙКИ (загружаются из localStorage)
 // ============================================================
+// ── Справочники (Supabase) ──
+let _clients   = [];   // [{id,name,phone,notes}]
+let _catalog   = [];   // [{id,category,manufacturer,name,sku,unit}]
+let _suppliers = [];   // [{id,name,categories[],phone,email,notes}]
+let _refLoaded = false;
+
 let CAP = { cutting: 50, edging: 800, drilling: 25, packing: 999 };
 let workingWeekends = new Set(); // Set of 'YYYY-MM-DD' strings
 let nonWorkingDays  = new Set(); // Weekdays marked as holidays/non-working
@@ -1778,10 +1854,26 @@ function initSupabase() {
         }
       })
       .subscribe();
+    loadReferenceData();
     console.log('Supabase инициализирован, Realtime подписка активна');
   } catch(e) {
     console.warn('Ошибка инициализации Supabase:', e);
   }
+}
+
+async function loadReferenceData() {
+  if (!_sb) return;
+  try {
+    const [cl, ca, su] = await Promise.all([
+      _sb.from('clients').select('*').order('name'),
+      _sb.from('catalog_items').select('*').order('manufacturer').order('name'),
+      _sb.from('suppliers').select('*').order('name'),
+    ]);
+    if (!cl.error)  _clients   = cl.data  || [];
+    if (!ca.error)  _catalog   = ca.data  || [];
+    if (!su.error)  _suppliers = su.data  || [];
+    _refLoaded = true;
+  } catch(e) { console.warn('loadReferenceData:', e); }
 }
 
 // ============================================================
@@ -2633,6 +2725,8 @@ function showPage(id) {
   if (id==='production')  renderProduction();
   if (id==='payroll')     setPayPeriod(payPeriod);
   if (id==='constructor-tasks') renderConstructorTasks();
+  if (id==='warehouse') renderWarehousePage();
+  if (id==='purchases') renderPurchasesPage();
   closeSidebar();
 }
 
@@ -6531,6 +6625,9 @@ function renderSettings() {
   renderHolidayGrid();
   renderPermissionsGrid();
   renderFieldTemplateEditor();
+  renderClientsList();
+  renderCatalogList();
+  renderSuppliersList();
   // Статус Supabase
   updateSyncIndicator(_sb ? 'ok' : 'error', _sb ? '' : 'Supabase не инициализирован');
 
@@ -9540,6 +9637,435 @@ function renderPayroll() {
       </div>`;
     }).join('')}`;
 }
+
+// ══════════════════════════════════════════════
+// СПРАВОЧНИКИ: КЛИЕНТЫ, КАТАЛОГ, ПОСТАВЩИКИ
+// ══════════════════════════════════════════════
+
+// ── Текущая вкладка каталога ──
+let _catalogTab = 'sheet';
+
+function setCatalogTab(tab) {
+  _catalogTab = tab;
+  ['sheet','edging','hardware','services'].forEach(t => {
+    const btn = document.getElementById('cat-tab-'+t);
+    if (!btn) return;
+    if (t === tab) {
+      btn.style.background = '#dbeafe'; btn.style.color = '#1e40af'; btn.style.borderColor = '#93c5fd';
+    } else {
+      btn.style.background = 'var(--gray-l)'; btn.style.color = 'var(--muted)'; btn.style.borderColor = 'var(--border)';
+    }
+  });
+  renderCatalogList();
+}
+
+// ── КЛИЕНТЫ ──
+let _editClientId = null;
+
+function renderClientsList() {
+  const el = document.getElementById('clients-list');
+  if (!el) return;
+  const q = (document.getElementById('clients-search')?.value || '').toLowerCase();
+  const list = _clients.filter(c =>
+    c.name.toLowerCase().includes(q) || (c.phone||'').includes(q)
+  );
+  if (!list.length) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">${q ? 'Не найдено' : 'Клиентов пока нет. Нажмите «+ Добавить клиента»'}</div>`;
+    return;
+  }
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">` +
+    list.map(c => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--gray-l,#f8fafc);border-radius:9px;border:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${escHtml(c.name)}</div>
+          ${c.phone ? `<div style="font-size:11px;color:var(--muted)">${escHtml(c.phone)}</div>` : ''}
+          ${c.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(c.notes)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          <button class="btn btn-sm btn-secondary" onclick="openEditClient('${escHtml(c.id)}')">✏️</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteClient('${escHtml(c.id)}')">✕</button>
+        </div>
+      </div>`).join('') + `</div>`;
+}
+
+function openAddClient() {
+  _editClientId = null;
+  document.getElementById('add-client-title').textContent = 'Новый клиент';
+  document.getElementById('ac-name').value = '';
+  document.getElementById('ac-phone').value = '';
+  document.getElementById('ac-notes').value = '';
+  document.getElementById('add-client-overlay').classList.add('show');
+}
+
+function openEditClient(id) {
+  const c = _clients.find(x => x.id === id);
+  if (!c) return;
+  _editClientId = id;
+  document.getElementById('add-client-title').textContent = 'Редактировать клиента';
+  document.getElementById('ac-name').value  = c.name  || '';
+  document.getElementById('ac-phone').value = c.phone || '';
+  document.getElementById('ac-notes').value = c.notes || '';
+  document.getElementById('add-client-overlay').classList.add('show');
+}
+
+function closeAddClient() {
+  document.getElementById('add-client-overlay').classList.remove('show');
+}
+
+async function saveClient() {
+  const name  = document.getElementById('ac-name').value.trim();
+  const phone = document.getElementById('ac-phone').value.trim();
+  const notes = document.getElementById('ac-notes').value.trim();
+  if (!name) { alert('Введите имя клиента'); return; }
+  if (!_sb) { alert('Нет подключения к Supabase'); return; }
+
+  if (_editClientId) {
+    const { error } = await _sb.from('clients').update({ name, phone: phone||null, notes: notes||null }).eq('id', _editClientId);
+    if (error) { alert('Ошибка: ' + error.message); return; }
+    const idx = _clients.findIndex(x => x.id === _editClientId);
+    if (idx >= 0) _clients[idx] = { ..._clients[idx], name, phone, notes };
+  } else {
+    const { data, error } = await _sb.from('clients').insert({ name, phone: phone||null, notes: notes||null }).select().single();
+    if (error) { alert('Ошибка: ' + error.message); return; }
+    _clients.push(data);
+    _clients.sort((a,b) => a.name.localeCompare(b.name));
+  }
+  closeAddClient();
+  renderClientsList();
+}
+
+async function deleteClient(id) {
+  const c = _clients.find(x => x.id === id);
+  if (!confirm(`Удалить клиента «${c?.name}»?`)) return;
+  if (!_sb) return;
+  const { error } = await _sb.from('clients').delete().eq('id', id);
+  if (error) { alert('Ошибка: ' + error.message); return; }
+  _clients = _clients.filter(x => x.id !== id);
+  renderClientsList();
+}
+
+// ── КАТАЛОГ ──
+let _editCatalogId = null;
+
+const _CAT_LABELS = { sheet:'🪵 Листовые', edging:'📏 Кромка', hardware:'🔩 Фурнитура', services:'⚙️ Услуги' };
+
+function renderCatalogList() {
+  const el = document.getElementById('catalog-list');
+  if (!el) return;
+  const q = (document.getElementById('catalog-search')?.value || '').toLowerCase();
+  const list = _catalog.filter(c =>
+    c.category === _catalogTab &&
+    (c.name.toLowerCase().includes(q) || c.manufacturer.toLowerCase().includes(q) || (c.sku||'').toLowerCase().includes(q))
+  );
+  if (!list.length) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">${q ? 'Не найдено' : 'Позиций нет. Добавьте вручную или загрузите Excel.'}</div>`;
+    return;
+  }
+  // Группировка по производителю
+  const byMfr = {};
+  list.forEach(c => { (byMfr[c.manufacturer] = byMfr[c.manufacturer]||[]).push(c); });
+  el.innerHTML = Object.entries(byMfr).map(([mfr, items]) => `
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:6px">${escHtml(mfr)}</div>
+      ${items.map(c => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;border:1px solid var(--border);margin-bottom:4px;background:var(--card)">
+          <div style="flex:1;min-width:0">
+            <span style="font-size:13px;font-weight:600">${escHtml(c.name)}</span>
+            ${c.sku ? `<span style="margin-left:8px;font-size:10px;color:var(--muted);background:var(--gray-l);border-radius:4px;padding:1px 5px">${escHtml(c.sku)}</span>` : ''}
+            <span style="margin-left:6px;font-size:11px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0">
+            <button class="btn btn-sm btn-secondary" onclick="openEditCatalogItem('${escHtml(c.id)}')">✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteCatalogItem('${escHtml(c.id)}')">✕</button>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function openAddCatalogItem(prefill) {
+  _editCatalogId = null;
+  document.getElementById('add-catalog-title').textContent = 'Новая позиция каталога';
+  document.getElementById('aci-category').value     = prefill?.category || _catalogTab;
+  document.getElementById('aci-manufacturer').value = prefill?.manufacturer || '';
+  document.getElementById('aci-name').value         = prefill?.name || '';
+  document.getElementById('aci-sku').value          = prefill?.sku || '';
+  document.getElementById('aci-unit').value         = prefill?.unit || 'лист';
+  document.getElementById('add-catalog-overlay').classList.add('show');
+}
+
+function openEditCatalogItem(id) {
+  const c = _catalog.find(x => x.id === id);
+  if (!c) return;
+  _editCatalogId = id;
+  document.getElementById('add-catalog-title').textContent = 'Редактировать позицию';
+  document.getElementById('aci-category').value     = c.category;
+  document.getElementById('aci-manufacturer').value = c.manufacturer;
+  document.getElementById('aci-name').value         = c.name;
+  document.getElementById('aci-sku').value          = c.sku || '';
+  document.getElementById('aci-unit').value         = c.unit || 'лист';
+  document.getElementById('add-catalog-overlay').classList.add('show');
+}
+
+function closeAddCatalogItem() {
+  document.getElementById('add-catalog-overlay').classList.remove('show');
+}
+
+async function saveCatalogItem() {
+  const category     = document.getElementById('aci-category').value;
+  const manufacturer = document.getElementById('aci-manufacturer').value.trim();
+  const name         = document.getElementById('aci-name').value.trim();
+  const sku          = document.getElementById('aci-sku').value.trim();
+  const unit         = document.getElementById('aci-unit').value;
+  if (!manufacturer || !name) { alert('Заполните производителя и наименование'); return; }
+  if (!_sb) return;
+
+  if (_editCatalogId) {
+    const { error } = await _sb.from('catalog_items').update({ category, manufacturer, name, sku: sku||null, unit }).eq('id', _editCatalogId);
+    if (error) { alert('Ошибка: ' + error.message); return; }
+    const idx = _catalog.findIndex(x => x.id === _editCatalogId);
+    if (idx >= 0) _catalog[idx] = { ..._catalog[idx], category, manufacturer, name, sku, unit };
+  } else {
+    const { data, error } = await _sb.from('catalog_items').insert({ category, manufacturer, name, sku: sku||null, unit }).select().single();
+    if (error) { alert('Ошибка: ' + error.message); return; }
+    _catalog.push(data);
+  }
+  closeAddCatalogItem();
+  renderCatalogList();
+}
+
+async function deleteCatalogItem(id) {
+  const c = _catalog.find(x => x.id === id);
+  if (!confirm(`Удалить «${c?.name}»?`)) return;
+  if (!_sb) return;
+  const { error } = await _sb.from('catalog_items').delete().eq('id', id);
+  if (error) { alert('Ошибка: ' + error.message); return; }
+  _catalog = _catalog.filter(x => x.id !== id);
+  renderCatalogList();
+}
+
+// ── Excel импорт каталога ──
+async function importCatalogExcel(input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  input.value = '';
+
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    alert('Для импорта используйте формат CSV (сохраните Excel как CSV UTF-8).\n\nКолонки: A=Категория, B=Производитель, C=Наименование, D=Артикул (необяз.)');
+    return;
+  }
+
+  const text = await file.text();
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) { alert('Файл пустой или нет данных'); return; }
+
+  const catMap = {
+    'листовые':'sheet','лдсп':'sheet','мдф':'sheet','фанера':'sheet',
+    'кромка':'edging',
+    'фурнитура':'hardware','петли':'hardware',
+    'услуги':'services','услуги производства':'services'
+  };
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(/[;,\t]/).map(c => c.replace(/^"|"$/g,'').trim());
+    const [catRaw, manufacturer, itemName, sku] = cols;
+    if (!manufacturer || !itemName) continue;
+    const catKey = catMap[(catRaw||'').toLowerCase()] || 'sheet';
+    rows.push({ category: catKey, manufacturer, name: itemName, sku: sku||null, unit: catKey==='edging'?'м.п.':catKey==='hardware'?'шт':'лист' });
+  }
+
+  if (!rows.length) { alert('Не удалось распознать строки. Проверьте формат файла.'); return; }
+  if (!confirm(`Загрузить ${rows.length} позиций в каталог?`)) return;
+
+  let added = 0;
+  for (const row of rows) {
+    const { data, error } = await _sb.from('catalog_items').insert(row).select().single();
+    if (!error && data) { _catalog.push(data); added++; }
+  }
+  alert(`Добавлено ${added} из ${rows.length} позиций.`);
+  renderCatalogList();
+}
+
+// ── ПОСТАВЩИКИ ──
+let _editSupplierId = null;
+
+function renderSuppliersList() {
+  const el = document.getElementById('suppliers-list');
+  if (!el) return;
+  if (!_suppliers.length) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Поставщиков пока нет. Нажмите «+ Добавить поставщика»</div>`;
+    return;
+  }
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">` +
+    _suppliers.map(s => {
+      const cats = (s.categories||[]).map(c => _CAT_LABELS[c]||c).join(', ');
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--gray-l,#f8fafc);border-radius:9px;border:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${escHtml(s.name)}</div>
+          ${cats ? `<div style="font-size:11px;color:var(--muted);margin-top:1px">${cats}</div>` : ''}
+          ${s.phone ? `<div style="font-size:11px;color:var(--muted)">📞 ${escHtml(s.phone)}</div>` : ''}
+          ${s.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(s.notes)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          <button class="btn btn-sm btn-secondary" onclick="openEditSupplier('${escHtml(s.id)}')">✏️</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteSupplier('${escHtml(s.id)}')">✕</button>
+        </div>
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+function openAddSupplier() {
+  _editSupplierId = null;
+  document.getElementById('add-supplier-title').textContent = 'Новый поставщик';
+  ['as-name','as-phone','as-email','as-notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  ['sheet','edging','hardware','services'].forEach(c => { const el = document.getElementById('as-cat-'+c); if(el) el.checked=false; });
+  document.getElementById('add-supplier-overlay').classList.add('show');
+}
+
+function openEditSupplier(id) {
+  const s = _suppliers.find(x => x.id === id);
+  if (!s) return;
+  _editSupplierId = id;
+  document.getElementById('add-supplier-title').textContent = 'Редактировать поставщика';
+  document.getElementById('as-name').value  = s.name  || '';
+  document.getElementById('as-phone').value = s.phone || '';
+  document.getElementById('as-email').value = s.email || '';
+  document.getElementById('as-notes').value = s.notes || '';
+  ['sheet','edging','hardware','services'].forEach(c => {
+    const el = document.getElementById('as-cat-'+c);
+    if(el) el.checked = (s.categories||[]).includes(c);
+  });
+  document.getElementById('add-supplier-overlay').classList.add('show');
+}
+
+function closeAddSupplier() {
+  document.getElementById('add-supplier-overlay').classList.remove('show');
+}
+
+async function saveSupplier() {
+  const name  = document.getElementById('as-name').value.trim();
+  const phone = document.getElementById('as-phone').value.trim();
+  const email = document.getElementById('as-email').value.trim();
+  const notes = document.getElementById('as-notes').value.trim();
+  const categories = ['sheet','edging','hardware','services'].filter(c => document.getElementById('as-cat-'+c)?.checked);
+  if (!name) { alert('Введите название поставщика'); return; }
+  if (!_sb) return;
+
+  const payload = { name, phone: phone||null, email: email||null, notes: notes||null, categories };
+
+  if (_editSupplierId) {
+    const { error } = await _sb.from('suppliers').update(payload).eq('id', _editSupplierId);
+    if (error) { alert('Ошибка: ' + error.message); return; }
+    const idx = _suppliers.findIndex(x => x.id === _editSupplierId);
+    if (idx >= 0) _suppliers[idx] = { ..._suppliers[idx], ...payload };
+  } else {
+    const { data, error } = await _sb.from('suppliers').insert(payload).select().single();
+    if (error) { alert('Ошибка: ' + error.message); return; }
+    _suppliers.push(data);
+    _suppliers.sort((a,b) => a.name.localeCompare(b.name));
+  }
+  closeAddSupplier();
+  renderSuppliersList();
+}
+
+async function deleteSupplier(id) {
+  const s = _suppliers.find(x => x.id === id);
+  if (!confirm(`Удалить поставщика «${s?.name}»?`)) return;
+  const { error } = await _sb.from('suppliers').delete().eq('id', id);
+  if (error) { alert('Ошибка: ' + error.message); return; }
+  _suppliers = _suppliers.filter(x => x.id !== id);
+  renderSuppliersList();
+}
+
+// ── Страницы склада и закупок (заглушки — будут расширены) ──
+function renderWarehousePage() {
+  const el = document.getElementById('warehouse-body');
+  if (!el) return;
+  el.innerHTML = `<div style="text-align:center;padding:60px;color:var(--muted)">
+    <div style="font-size:40px;margin-bottom:12px">🏗️</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px">Склад в разработке</div>
+    <div style="font-size:13px">Сначала заполните справочники в Настройках:<br>Клиенты → Каталог → Поставщики</div>
+  </div>`;
+}
+
+function renderPurchasesPage() {
+  // Заглушка — будет реализована в Этапе 3
+}
+
+function openWarehouseIn() {
+  alert('Функция прихода будет доступна после настройки каталога и клиентов');
+}
 </script>
+
+<!-- ── MODAL: ADD CLIENT ── -->
+<div class="overlay" id="add-client-overlay" role="dialog">
+  <div class="modal" style="width:420px;max-width:95vw">
+    <div class="mh"><div><div class="mt" id="add-client-title">Новый клиент</div></div><button class="mx" onclick="closeAddClient()">×</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:12px">
+      <div><label class="fl">Имя / Название *</label><input class="fc" id="ac-name" placeholder="Иванов Иван или ООО Гранд"></div>
+      <div><label class="fl">Телефон</label><input class="fc" id="ac-phone" placeholder="+7 700 000 00 00"></div>
+      <div><label class="fl">Примечание</label><textarea class="fc" id="ac-notes" rows="2" placeholder="Доп. информация"></textarea></div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeAddClient()">Отмена</button><button class="btn btn-primary" onclick="saveClient()">Сохранить</button></div>
+  </div>
+</div>
+
+<!-- ── MODAL: ADD CATALOG ITEM ── -->
+<div class="overlay" id="add-catalog-overlay" role="dialog">
+  <div class="modal" style="width:480px;max-width:95vw">
+    <div class="mh"><div><div class="mt" id="add-catalog-title">Новая позиция каталога</div></div><button class="mx" onclick="closeAddCatalogItem()">×</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label class="fl">Категория *</label>
+        <select class="fc" id="aci-category">
+          <option value="sheet">🪵 Листовые</option>
+          <option value="edging">📏 Кромка</option>
+          <option value="hardware">🔩 Фурнитура</option>
+          <option value="services">⚙️ Услуги производства</option>
+        </select>
+      </div>
+      <div><label class="fl">Производитель *</label><input class="fc" id="aci-manufacturer" placeholder="Egger, Kronospan, Rehau..."></div>
+      <div><label class="fl">Наименование *</label><input class="fc" id="aci-name" placeholder="U117 ST9 Белый Базовый 18мм"></div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label class="fl">Артикул</label><input class="fc" id="aci-sku" placeholder="U117"></div>
+        <div style="flex:1">
+          <label class="fl">Единица</label>
+          <select class="fc" id="aci-unit">
+            <option value="лист">лист</option>
+            <option value="м.п.">м.п.</option>
+            <option value="шт">шт</option>
+            <option value="м²">м²</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeAddCatalogItem()">Отмена</button><button class="btn btn-primary" onclick="saveCatalogItem()">Сохранить</button></div>
+  </div>
+</div>
+
+<!-- ── MODAL: ADD SUPPLIER ── -->
+<div class="overlay" id="add-supplier-overlay" role="dialog">
+  <div class="modal" style="width:460px;max-width:95vw">
+    <div class="mh"><div><div class="mt" id="add-supplier-title">Новый поставщик</div></div><button class="mx" onclick="closeAddSupplier()">×</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:12px">
+      <div><label class="fl">Название *</label><input class="fc" id="as-name" placeholder="ООО МастерЛес, ИП Иванов..."></div>
+      <div><label class="fl">Телефон</label><input class="fc" id="as-phone" placeholder="+7 700..."></div>
+      <div><label class="fl">Email</label><input class="fc" id="as-email" placeholder="sales@supplier.kz"></div>
+      <div>
+        <label class="fl">Категории поставок</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px"><input type="checkbox" id="as-cat-sheet" value="sheet"> 🪵 Листовые</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px"><input type="checkbox" id="as-cat-edging" value="edging"> 📏 Кромка</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px"><input type="checkbox" id="as-cat-hardware" value="hardware"> 🔩 Фурнитура</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px"><input type="checkbox" id="as-cat-services" value="services"> ⚙️ Услуги</label>
+        </div>
+      </div>
+      <div><label class="fl">Примечание</label><textarea class="fc" id="as-notes" rows="2" placeholder="Условия работы, контактное лицо..."></textarea></div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeAddSupplier()">Отмена</button><button class="btn btn-primary" onclick="saveSupplier()">Сохранить</button></div>
+  </div>
+</div>
+
 </body>
 </html>
