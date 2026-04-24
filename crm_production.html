@@ -3370,13 +3370,19 @@ function fmatSearchCatalog(matId, val) {
   if (!dd) return;
   const q = (val||'').toLowerCase().trim();
   if (q.length < 2) { dd.style.display = 'none'; return; }
-  const list = _catalog.filter(c =>
+  const list = (_catalog||[]).filter(c =>
     c.name.toLowerCase().includes(q) || c.manufacturer.toLowerCase().includes(q) || (c.sku||'').toLowerCase().includes(q)
   ).slice(0, 10);
-  if (!list.length) { dd.style.display = 'none'; return; }
+  const createBtn = `<div onmousedown="event.preventDefault()" onclick="openAddCatalogItem(null,{form:'new',matId:'${matId}'})" style="padding:6px 10px;cursor:pointer;font-size:11px;color:var(--primary);border-top:1px solid var(--border)"
+    onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">+ Создать новую позицию в каталоге</div>`;
+  if (!list.length) {
+    dd.style.display = 'block';
+    dd.innerHTML = `<div style="padding:6px 10px;color:var(--muted);font-size:12px">Не найдено в каталоге</div>` + createBtn;
+    return;
+  }
   dd.style.display = 'block';
   dd.innerHTML = list.map(c =>
-    `<div onclick="fmatSelectCatalog('${matId}','${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}','${escHtml(c.manufacturer.replace(/'/g,"\\'"))}')"
+    `<div onmousedown="event.preventDefault()" onclick="fmatSelectCatalog('${matId}','${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}','${escHtml(c.manufacturer.replace(/'/g,"\\'"))}')"
       style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -3387,9 +3393,7 @@ function fmatSearchCatalog(matId, val) {
         <span style="margin-left:auto;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:1px">${escHtml(c.manufacturer)}</div>
-    </div>`).join('') +
-    `<div onclick="openAddCatalogItem()" style="padding:6px 10px;cursor:pointer;font-size:11px;color:var(--primary);border-top:1px solid var(--border)"
-      onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">+ Создать новую позицию в каталоге</div>`;
+    </div>`).join('') + createBtn;
 }
 function fmatSelectCatalog(matId, catalogId, name, mfr) {
   const m = formMaterials.find(x => x.id === matId);
@@ -6211,10 +6215,16 @@ function ematSearchCatalog(matId, val) {
   const list = (_catalog||[]).filter(c =>
     c.name.toLowerCase().includes(q) || c.manufacturer.toLowerCase().includes(q) || (c.sku||'').toLowerCase().includes(q)
   ).slice(0, 10);
-  if (!list.length) { dd.style.display = 'none'; return; }
+  const createBtn = `<div onmousedown="event.preventDefault()" onclick="openAddCatalogItem(null,{form:'edit',matId:'${matId}'})" style="padding:6px 10px;cursor:pointer;font-size:11px;color:var(--primary);border-top:1px solid var(--border)"
+    onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">+ Создать новую позицию в каталоге</div>`;
+  if (!list.length) {
+    dd.style.display = 'block';
+    dd.innerHTML = `<div style="padding:6px 10px;color:var(--muted);font-size:12px">Не найдено в каталоге</div>` + createBtn;
+    return;
+  }
   dd.style.display = 'block';
   dd.innerHTML = list.map(c =>
-    `<div onclick="ematSelectCatalog('${matId}','${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}','${escHtml(c.manufacturer.replace(/'/g,"\\'"))}')"
+    `<div onmousedown="event.preventDefault()" onclick="ematSelectCatalog('${matId}','${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}','${escHtml(c.manufacturer.replace(/'/g,"\\'"))}')"
       style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -6225,7 +6235,7 @@ function ematSearchCatalog(matId, val) {
         <span style="margin-left:auto;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:1px">${escHtml(c.manufacturer)}</div>
-    </div>`).join('');
+    </div>`).join('') + createBtn;
 }
 function ematSelectCatalog(matId, catalogId, name, mfr) {
   const m = editMaterials.find(x => x.id === matId);
@@ -7954,7 +7964,7 @@ function renderStagesBody(o) {
 
     const cells = stageKeys.map(k => {
       const isActive = activeCols.includes(k);
-      if (!isActive) return `<td style="background:#f8fafc;border:1px solid var(--border)"></td>`;
+      if (!isActive) return `<td style="background:#f8fafc;border:1px solid var(--border);text-align:center;color:#d1d5db;font-size:14px;vertical-align:middle">—</td>`;
       const stg = stgs[k] || {};
       const done = !!stg.done;
       const isRz = !!stg.is_redzone;
@@ -10450,10 +10460,12 @@ function renderCatalogList() {
     </div>`).join('');
 }
 
-function openAddCatalogItem(prefill) {
+let _addCatalogCtx = null; // { form: 'new'|'edit', matId: string }
+function openAddCatalogItem(prefill, ctx) {
   _editCatalogId = null;
+  _addCatalogCtx = ctx || null;
   document.getElementById('add-catalog-title').textContent = 'Новая позиция каталога';
-  document.getElementById('aci-category').value     = prefill?.category || _catalogTab;
+  document.getElementById('aci-category').value     = prefill?.category || _catalogTab || 'sheet';
   document.getElementById('aci-manufacturer').value = prefill?.manufacturer || '';
   document.getElementById('aci-name').value         = prefill?.name || '';
   document.getElementById('aci-sku').value          = prefill?.sku || '';
@@ -10504,6 +10516,13 @@ async function saveCatalogItem() {
     const { data, error } = await _sb.from('catalog_items').insert(payload).select().single();
     if (error) { alert('Ошибка: ' + error.message); return; }
     _catalog.push(data);
+    // Автовыбор только что созданной позиции в поле материала
+    if (_addCatalogCtx && data) {
+      const { form, matId } = _addCatalogCtx;
+      if (form === 'new') fmatSelectCatalog(matId, data.id, data.name, data.manufacturer);
+      else if (form === 'edit') ematSelectCatalog(matId, data.id, data.name, data.manufacturer);
+      _addCatalogCtx = null;
+    }
   }
   closeAddCatalogItem();
   renderCatalogList();
@@ -11604,7 +11623,7 @@ async function saveWarehouseIn() {
 </div>
 
 <!-- ── MODAL: ADD CATALOG ITEM ── -->
-<div class="overlay" id="add-catalog-overlay" role="dialog">
+<div class="overlay" id="add-catalog-overlay" role="dialog" style="z-index:1100">
   <div class="modal" style="width:480px;max-width:95vw">
     <div class="mh"><div><div class="mt" id="add-catalog-title">Новая позиция каталога</div></div><button class="mx" onclick="closeAddCatalogItem()">×</button></div>
     <div class="mb" style="display:flex;flex-direction:column;gap:12px">
