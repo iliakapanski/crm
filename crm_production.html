@@ -3757,6 +3757,7 @@ function resetForm() {
   _formDefectFiles = [];
   _formCreateFiles = []; _updateCreateFilesList();
   _formFieldFiles = {};
+  _expandedCreateSections = new Set();
   formMaterials = [];
   formNesting = 1;
   setFormNesting(1);
@@ -5289,25 +5290,30 @@ function openOrderModal(id) {
     </div>
     ${(fvh => fvh ? `<div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:16px"><div id="om-field-values">${fvh}</div></div>` : `<div id="om-field-values"></div>`)(renderFieldValues(o))}
     <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">📎 Вложения</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;border-radius:9px;padding:8px 12px;margin-bottom:10px;background:${isDarkTheme()?'rgba(100,116,139,.18)':'#f1f5f9'};border:1px solid ${isDarkTheme()?'rgba(100,116,139,.35)':'#cbd5e1'}">
+        <span style="font-size:12px;font-weight:700;color:${isDarkTheme()?'#94a3b8':'#475569'};text-transform:uppercase;letter-spacing:.04em">📎 Вложения</span>
         <button class="btn btn-sm btn-secondary" onclick="openAddAttachmentSlot('${o.id}')">+ Добавить поле</button>
       </div>
       <div id="om-attachments">${renderAttachments(o)}</div>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:14px">
-      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">💬 Переписка</div>
-      <div id="om-comments" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${renderComments(o)}</div>
-      <div id="om-drop-zone" ondragover="onCommentDragOver(event)" ondragleave="onCommentDragLeave(event)" ondrop="onCommentDrop(event,'${o.id}')"
-        style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:12px;border:2px dashed var(--border);transition:border-color .15s,background .15s">
-        <textarea id="om-comment-text" placeholder="Написать комментарий..." rows="3" class="fc" oninput="autoResizeTA(this)" style="resize:none;overflow:hidden;font-size:13px;padding:8px 10px;min-height:64px;box-sizing:border-box"></textarea>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <input type="file" id="om-file-input-${o.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCommentFileSelect(event,'${o.id}')">
-          <button class="btn btn-sm btn-secondary" style="cursor:pointer;padding:5px 12px" type="button" onclick="document.getElementById('om-file-input-${o.id}').click()">
-            📎 Прикрепить файл
-          </button>
-          <div id="om-comment-files" style="font-size:11px;color:var(--muted)">или перетащите файл сюда</div>
-          <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="submitComment('${o.id}')">Отправить</button>
+      <div onclick="toggleChatSection()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-radius:9px;padding:8px 12px;margin-bottom:4px;background:${isDarkTheme()?'rgba(14,165,233,.18)':'#e0f2fe'};border:1px solid ${isDarkTheme()?'rgba(14,165,233,.35)':'#bae6fd'}">
+        <span style="font-size:12px;font-weight:700;color:${isDarkTheme()?'#38bdf8':'#0369a1'};text-transform:uppercase;letter-spacing:.04em">💬 Переписка${(o.comments&&o.comments.length)?` <span style="font-weight:400;opacity:.75">(${o.comments.length})</span>`:''}</span>
+        <span id="om-chat-arr" style="font-size:11px;color:${isDarkTheme()?'#38bdf8':'#0369a1'}">▶</span>
+      </div>
+      <div id="om-chat-body" style="display:none;background:${isDarkTheme()?'rgba(14,165,233,.06)':'#f0f9ff'};border:1px solid ${isDarkTheme()?'rgba(14,165,233,.2)':'#bae6fd'};border-radius:9px;padding:12px;margin-bottom:4px">
+        <div id="om-comments" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;max-height:360px;overflow-y:auto;padding-right:4px">${renderComments(o)}</div>
+        <div id="om-drop-zone" ondragover="onCommentDragOver(event)" ondragleave="onCommentDragLeave(event)" ondrop="onCommentDrop(event,'${o.id}')"
+          style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:9px;padding:12px;border:2px dashed var(--border);transition:border-color .15s,background .15s">
+          <textarea id="om-comment-text" placeholder="Написать комментарий..." rows="3" class="fc" oninput="autoResizeTA(this)" style="resize:none;overflow:hidden;font-size:13px;padding:8px 10px;min-height:64px;box-sizing:border-box"></textarea>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <input type="file" id="om-file-input-${o.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onCommentFileSelect(event,'${o.id}')">
+            <button class="btn btn-sm btn-secondary" style="cursor:pointer;padding:5px 12px" type="button" onclick="document.getElementById('om-file-input-${o.id}').click()">
+              📎 Прикрепить файл
+            </button>
+            <div id="om-comment-files" style="font-size:11px;color:var(--muted)">или перетащите файл сюда</div>
+            <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="submitComment('${o.id}')">Отправить</button>
+          </div>
         </div>
       </div>
     </div>`;
@@ -5405,7 +5411,7 @@ function renderComments(o) {
                ${delBtn}
              </div>`;
       }).join('')}</div>` : ''}
-    </div>`).reverse().join('');
+    </div>`).join('');
 }
 
 async function deleteCommentFile(orderId, commentIdx, fileIdx) {
@@ -5426,7 +5432,7 @@ async function deleteCommentFile(orderId, commentIdx, fileIdx) {
   markDirty(orderId);
   saveOrders();
   const commentsEl = document.getElementById('om-comments');
-  if (commentsEl) commentsEl.innerHTML = renderComments(o);
+  if (commentsEl) { commentsEl.innerHTML = renderComments(o); commentsEl.scrollTop = commentsEl.scrollHeight; }
 }
 
 // ============================================================
@@ -5656,6 +5662,9 @@ async function submitComment(orderId) {
   // Re-render comments
   const commentsEl = document.getElementById('om-comments');
   if (commentsEl) commentsEl.innerHTML = renderComments(o);
+
+  // Раскрыть чат и прокрутить к последнему сообщению
+  toggleChatSection(true);
 }
 
 // ============================================================
@@ -6529,15 +6538,19 @@ function renderFieldTemplateEditor() {
     el.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:8px 0">Разделов нет. Нажмите «+ Добавить раздел» чтобы создать первый.</div>`;
     return;
   }
-  el.innerHTML = orderFieldTemplate.map((sec) => `
-    <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--card)">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <input class="fc" style="flex:1;font-weight:700;font-size:14px;padding:5px 9px"
+  el.innerHTML = orderFieldTemplate.map((sec, si) => {
+    const c = _secColor(si);
+    return `
+    <div style="border:1px solid ${c.brd};border-radius:10px;overflow:hidden;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${c.hdr}">
+        <span style="width:10px;height:10px;border-radius:50%;background:${c.brd};flex-shrink:0;display:inline-block"></span>
+        <input class="fc" style="flex:1;font-weight:700;font-size:14px;padding:5px 9px;background:transparent;border-color:${c.brd}"
           value="${escHtml(sec.title)}"
           onblur="renameTemplateSection('${sec.id}',this.value)"
           placeholder="Название раздела">
         <button class="btn btn-sm btn-danger" onclick="deleteTemplateSection('${sec.id}')" title="Удалить раздел">✕</button>
       </div>
+      <div style="padding:12px;background:${c.bg}">
       ${sec.fields.length ? sec.fields.map((f) => `
         <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px dashed var(--border)">
           <span style="font-size:13px;width:18px;text-align:center;flex-shrink:0">${f.type==='text'?'🔤':'📎'}</span>
@@ -6553,8 +6566,9 @@ function renderFieldTemplateEditor() {
         <button class="btn btn-sm btn-secondary" onclick="addTemplateField('${sec.id}','text')">+ Текст</button>
         <button class="btn btn-sm btn-secondary" onclick="addTemplateField('${sec.id}','file')">+ Файл</button>
       </div>
-    </div>
-  `).join('');
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function _saveFieldTemplate() {
@@ -6613,9 +6627,31 @@ function renameTemplateField(secId, fieldId, label) {
   if (f && label.trim()) { f.label = label.trim(); _saveFieldTemplate(); }
 }
 
+// ── Цветовая палитра разделов ──
+const _SEC_PAL = [
+  {bg:'#eef2ff',hdr:'#dde6ff',brd:'#c7d2fe'},
+  {bg:'#f0fdf4',hdr:'#dcfce7',brd:'#bbf7d0'},
+  {bg:'#fff7ed',hdr:'#ffedd5',brd:'#fed7aa'},
+  {bg:'#fdf4ff',hdr:'#fae8ff',brd:'#e9d5ff'},
+  {bg:'#f0fdfa',hdr:'#ccfbf1',brd:'#99f6e4'},
+  {bg:'#fefce8',hdr:'#fef9c3',brd:'#fde68a'},
+];
+const _SEC_PAL_DK = [
+  {bg:'rgba(99,102,241,.09)',hdr:'rgba(99,102,241,.22)',brd:'rgba(99,102,241,.4)'},
+  {bg:'rgba(34,197,94,.08)',hdr:'rgba(34,197,94,.2)',brd:'rgba(34,197,94,.35)'},
+  {bg:'rgba(249,115,22,.08)',hdr:'rgba(249,115,22,.2)',brd:'rgba(249,115,22,.35)'},
+  {bg:'rgba(168,85,247,.08)',hdr:'rgba(168,85,247,.2)',brd:'rgba(168,85,247,.35)'},
+  {bg:'rgba(20,184,166,.08)',hdr:'rgba(20,184,166,.2)',brd:'rgba(20,184,166,.35)'},
+  {bg:'rgba(234,179,8,.08)',hdr:'rgba(234,179,8,.2)',brd:'rgba(234,179,8,.35)'},
+];
+function _secColor(idx) {
+  const pal = isDarkTheme() ? _SEC_PAL_DK : _SEC_PAL;
+  return pal[idx % pal.length];
+}
+
 // ── Рендер полей в форме создания заказа ──
 let _formFieldFiles = {}; // fieldId -> File[]
-let _collapsedCreateSections = new Set(); // IDs свёрнутых разделов в форме создания
+let _expandedCreateSections = new Set(); // IDs развёрнутых разделов (по умолч. скрыты)
 
 function toggleCreateSection(secId) {
   const body  = document.getElementById('ftf-body-' + secId);
@@ -6624,15 +6660,14 @@ function toggleCreateSection(secId) {
   const isHidden = body.style.display === 'none';
   body.style.display = isHidden ? '' : 'none';
   if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
-  if (isHidden) _collapsedCreateSections.delete(secId);
-  else          _collapsedCreateSections.add(secId);
+  if (isHidden) _expandedCreateSections.add(secId);
+  else          _expandedCreateSections.delete(secId);
 }
 
 function renderCreateFormFields() {
   const wrap = document.getElementById('f-template-fields-wrap');
   if (!wrap) return;
   if (!orderFieldTemplate.length) {
-    // Нет шаблона — показываем стандартное поле комментария + вложения
     wrap.innerHTML = `
       <div style="margin-top:12px">
         <label class="fl">Комментарий</label><input id="f-comment" class="fc" type="text" placeholder="Необязательно">
@@ -6650,12 +6685,12 @@ function renderCreateFormFields() {
       </div>`;
     return;
   }
-  // Есть шаблон — рендерим аккордеон-разделы
   const hasSecs = orderFieldTemplate.some(s => s.fields.length > 0);
   wrap.innerHTML = (hasSecs ? `<div style="margin-top:14px;display:flex;flex-direction:column;gap:6px">` : '') +
-    orderFieldTemplate.map(sec => {
+    orderFieldTemplate.map((sec, si) => {
       if (!sec.fields.length) return '';
-      const collapsed = _collapsedCreateSections.has(sec.id);
+      const expanded = _expandedCreateSections.has(sec.id);
+      const c = _secColor(si);
       const fieldsHtml = sec.fields.map(f => {
         if (f.type === 'text') {
           return `<div style="margin-bottom:8px">
@@ -6666,22 +6701,23 @@ function renderCreateFormFields() {
           return `<div style="margin-bottom:8px">
             <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">${escHtml(f.label)}</label>
             <div id="ftf-drop-${f.id}" ondragover="onFtfDragOver(event,'${f.id}')" ondragleave="onFtfDragLeave(event,'${f.id}')" ondrop="onFtfDrop(event,'${f.id}')"
-              style="display:flex;flex-direction:column;gap:6px;background:var(--gray-l,#f8fafc);border-radius:8px;padding:8px 12px;border:2px dashed var(--border);transition:border-color .15s">
+              style="background:var(--gray-l,#f8fafc);border-radius:8px;padding:8px 12px;border:2px dashed var(--border);transition:border-color .15s">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <input type="file" id="ftf-file-${f.id}" multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" style="position:absolute;opacity:0;width:0;height:0" onchange="onFtfFileSelect(event,'${f.id}')">
                 <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('ftf-file-${f.id}').click()">📎 Прикрепить файлы</button>
                 <span id="ftf-label-${f.id}" style="font-size:11px;color:var(--muted)">или перетащите сюда</span>
               </div>
+              <div id="ftf-files-${f.id}" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:0"></div>
             </div>
           </div>`;
         }
       }).join('');
-      return `<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
-        <div onclick="toggleCreateSection('${sec.id}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gray-l,#f1f5f9);user-select:none">
+      return `<div style="border:1px solid ${c.brd};border-radius:10px;overflow:hidden">
+        <div onclick="toggleCreateSection('${sec.id}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${c.hdr};user-select:none">
           <span style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(sec.title)}</span>
-          <span id="ftf-arr-${sec.id}" style="font-size:11px;color:var(--muted);margin-left:8px">${collapsed ? '▶' : '▼'}</span>
+          <span id="ftf-arr-${sec.id}" style="font-size:11px;color:var(--muted);margin-left:8px">${expanded ? '▼' : '▶'}</span>
         </div>
-        <div id="ftf-body-${sec.id}" style="padding:12px 14px;${collapsed ? 'display:none' : ''}">
+        <div id="ftf-body-${sec.id}" style="padding:12px 14px;background:${c.bg};${expanded ? '' : 'display:none'}">
           ${fieldsHtml}
         </div>
       </div>`;
@@ -6711,23 +6747,69 @@ function onFtfDrop(event, fieldId) {
   _formFieldFiles[fieldId] = (_formFieldFiles[fieldId] || []).concat(Array.from(event.dataTransfer.files || []));
   _updateFtfLabel(fieldId);
 }
+function removeFtfFile(fieldId, idx) {
+  if (_formFieldFiles[fieldId]) {
+    _formFieldFiles[fieldId].splice(idx, 1);
+    _updateFtfLabel(fieldId);
+  }
+}
 function _updateFtfLabel(fieldId) {
-  const el = document.getElementById('ftf-label-' + fieldId);
   const files = _formFieldFiles[fieldId] || [];
-  if (el) el.textContent = files.length ? files.map(f => f.name).join(', ') : 'или перетащите сюда';
+  const lbl = document.getElementById('ftf-label-' + fieldId);
+  const listEl = document.getElementById('ftf-files-' + fieldId);
+  if (lbl) lbl.textContent = files.length ? '' : 'или перетащите сюда';
+  if (listEl) {
+    listEl.style.marginTop = files.length ? '6px' : '0';
+    listEl.innerHTML = files.map((f, i) =>
+      `<span style="display:inline-flex;align-items:center;gap:3px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:11px;max-width:200px">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.name)}</span>
+        <button onclick="removeFtfFile('${escHtml(fieldId)}',${i})" style="flex-shrink:0;background:none;border:none;cursor:pointer;color:#dc2626;font-size:12px;padding:0 1px;line-height:1">✕</button>
+      </span>`
+    ).join('');
+  }
+}
+
+// ── Переписка: показать/скрыть ──
+function toggleChatSection(forceOpen) {
+  const body  = document.getElementById('om-chat-body');
+  const arrow = document.getElementById('om-chat-arr');
+  if (!body) return;
+  const shouldOpen = forceOpen === true ? true : body.style.display === 'none';
+  body.style.display = shouldOpen ? '' : 'none';
+  if (arrow) arrow.textContent = shouldOpen ? '▼' : '▶';
+  if (shouldOpen) {
+    // Прокрутить к последнему сообщению
+    const msgs = document.getElementById('om-comments');
+    if (msgs) setTimeout(() => { msgs.scrollTop = msgs.scrollHeight; }, 50);
+  }
 }
 
 // ── Рендер значений полей в карточке заказа ──
+let _expandedModalSections = new Set(); // IDs развёрнутых разделов в модалке
+
+function toggleModalSection(secId) {
+  const body  = document.getElementById('fvs-body-' + secId);
+  const arrow = document.getElementById('fvs-arr-' + secId);
+  if (!body) return;
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? '' : 'none';
+  if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
+  if (isHidden) _expandedModalSections.add(secId);
+  else          _expandedModalSections.delete(secId);
+}
+
 function renderFieldValues(o) {
   if (!orderFieldTemplate.length) return '';
   const fv = o.fieldValues || {};
   const hasSecs = orderFieldTemplate.some(s => s.fields.length > 0);
   if (!hasSecs) return '';
   return `<div style="display:flex;flex-direction:column;gap:6px">` +
-    orderFieldTemplate.map(sec => {
+    orderFieldTemplate.map((sec, si) => {
       if (!sec.fields.length) return '';
       const oid = escHtml(o.id);
       const sid = escHtml(sec.id);
+      const expanded = _expandedModalSections.has(sec.id);
+      const c = _secColor(si);
       const fieldsHtml = sec.fields.map(f => {
         const val = fv[f.id] || (f.type === 'text' ? { text: '' } : { note: '', files: [] });
         if (f.type === 'text') {
@@ -6763,25 +6845,16 @@ function renderFieldValues(o) {
           </div>`;
         }
       }).join('');
-      return `<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
-        <div onclick="toggleModalSection('${sid}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--gray-l,#f1f5f9);user-select:none">
+      return `<div style="border:1px solid ${c.brd};border-radius:10px;overflow:hidden">
+        <div onclick="toggleModalSection('${sid}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:${c.hdr};user-select:none">
           <span style="font-size:12px;font-weight:700;color:var(--text)">${escHtml(sec.title)}</span>
-          <span id="fvs-arr-${sid}" style="font-size:11px;color:var(--muted)">▼</span>
+          <span id="fvs-arr-${sid}" style="font-size:11px;color:var(--muted)">${expanded ? '▼' : '▶'}</span>
         </div>
-        <div id="fvs-body-${sid}" style="padding:12px 13px">
+        <div id="fvs-body-${sid}" style="padding:12px 13px;background:${c.bg};${expanded ? '' : 'display:none'}">
           ${fieldsHtml}
         </div>
       </div>`;
     }).join('') + `</div>`;
-}
-
-function toggleModalSection(secId) {
-  const body  = document.getElementById('fvs-body-' + secId);
-  const arrow = document.getElementById('fvs-arr-' + secId);
-  if (!body) return;
-  const isHidden = body.style.display === 'none';
-  body.style.display = isHidden ? '' : 'none';
-  if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
 }
 
 function saveFieldText(orderId, fieldId, text) {
