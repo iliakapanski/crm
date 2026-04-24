@@ -3363,16 +3363,14 @@ function fmatSearchCatalog(matId, val) {
     `<div onclick="fmatSelectCatalog('${matId}','${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}','${escHtml(c.manufacturer.replace(/'/g,"\\'"))}')"
       style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
-      <div style="display:flex;align-items:center;gap:6px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        ${c.sku ? `<span style="font-size:10px;font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(c.sku)}</span>` : ''}
         <strong>${escHtml(c.name)}</strong>
-        <span style="color:var(--muted);font-size:11px">${escHtml(c.manufacturer)}</span>
-        <span style="margin-left:auto;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
-        ${c.sku ? `<span style="font-size:10px;font-family:monospace;color:var(--primary)">${escHtml(c.sku)}</span>` : ''}
         ${c.thickness != null ? `<span style="font-size:10px;color:var(--muted)">⬛ ${c.thickness} мм</span>` : ''}
         ${c.sheet_size ? `<span style="font-size:10px;color:var(--muted)">📐 ${escHtml(c.sheet_size)}</span>` : ''}
+        <span style="margin-left:auto;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
       </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:1px">${escHtml(c.manufacturer)}</div>
     </div>`).join('') +
     `<div onclick="openAddCatalogItem()" style="padding:6px 10px;cursor:pointer;font-size:11px;color:var(--primary);border-top:1px solid var(--border)"
       onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">+ Создать новую позицию в каталоге</div>`;
@@ -3427,8 +3425,13 @@ function renderFormMatList() {
     const isMill = m.type === 'mill';
     const st = m.supply_type || 'own';
     const catItem = m.catalog_item_id ? _catalog.find(x => x.id === m.catalog_item_id) : null;
+    const catMeta = catItem ? [
+      catItem.sku ? catItem.sku : null,
+      catItem.thickness != null ? `⬛ ${catItem.thickness} мм` : null,
+      catItem.sheet_size ? `📐 ${catItem.sheet_size}` : null,
+    ].filter(Boolean).join(' · ') : '';
     const catalogHint = catItem
-      ? `<div style="font-size:10px;color:var(--primary);margin-top:3px">📋 ${escHtml(catItem.manufacturer)} · ${escHtml(catItem.name)}</div>` : '';
+      ? `<div style="font-size:10px;color:var(--primary);margin-top:3px">📋 ${escHtml(catItem.manufacturer)} · ${escHtml(catItem.name)}${catMeta ? `<span style="color:var(--muted);margin-left:6px">${catMeta}</span>` : ''}</div>` : '';
     let clientBalanceHtml = '';
     if (st === 'client' && clientId && m.catalog_item_id) {
       const bal = _calcClientBalance(clientId, m.catalog_item_id);
@@ -5068,10 +5071,12 @@ function renderCalDetailView(days) {
           const qtyVal = isEdgSec ? (matHasEdging(m) ? matAutoEdging(m) : 0) : (m.qty || 0);
           const qtyUnit = isEdgSec ? 'м' : 'л';
           if (isEdgSec && qtyVal <= 0) return '';
+          const ci5 = m.catalog_item_id && _catalog ? _catalog.find(c=>c.id===m.catalog_item_id) : null;
+          const ciMeta = ci5 ? [ci5.thickness!=null?`⬛${ci5.thickness}мм`:null, ci5.sheet_size?`📐${ci5.sheet_size}`:null].filter(Boolean).join(' ') : '';
           return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed var(--border);${done?'opacity:0.45;':''}">
             <div style="flex:1;min-width:0">
               <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${done?'text-decoration:line-through;':''}" title="${escHtml(m.desc)}">${done?'✓ ':''}${descText}</div>
-              <div style="font-size:10px;color:var(--muted)">${matLabel}${isEdgSec ? '' : edgM}</div>
+              <div style="font-size:10px;color:var(--muted)">${matLabel}${isEdgSec ? '' : edgM}${ciMeta ? ' · '+ciMeta : ''}</div>
             </div>
             <span style="font-size:11px;font-weight:800;color:${op.hdr};white-space:nowrap;${done?'text-decoration:line-through;':''}">${qtyVal} ${qtyUnit}${suffix?`<span style="color:var(--warn);font-weight:600"> ${suffix}</span>`:''}</span>
           </div>`;
@@ -7789,6 +7794,7 @@ function renderStagesBody(o) {
     return `<tr style="background:${isRed?'#fff1f2':allDone?'#f0fdf4':'transparent'}">
       <td style="padding:8px 10px;border:1px solid var(--border);min-width:130px;vertical-align:middle">
         <div style="font-weight:700;font-size:12px">${escHtml(mat.desc||'—')}</div>
+        ${(() => { const ci = mat.catalog_item_id && _catalog ? _catalog.find(c=>c.id===mat.catalog_item_id) : null; const parts=[ci?.thickness!=null?`⬛ ${ci.thickness} мм`:null,ci?.sheet_size?`📐 ${ci.sheet_size}`:null,ci?.sku||null].filter(Boolean); return parts.length ? `<div style="font-size:10px;color:var(--muted)">${parts.join(' · ')}</div>` : ''; })()}
         <div style="font-size:11px;color:var(--muted)">${mat.qty} ${isEdging?'м':'л'} · ${matTypeLabel(mat.type)}</div>
         <div style="font-size:10px;font-weight:700;margin-top:3px;color:${isRed?'#991b1b':allDone?'#15803d':doneCount>0?'#d97706':'#9ca3af'}">${isRed?'🔴 Красная зона':doneCount+'/'+activeCols.length+' стадий'}</div>
       </td>
@@ -10351,6 +10357,7 @@ function _renderWhRequests(el) {
       <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">
         ${st === 'pending'  ? `<button onclick="setPurchaseRequestStatus('${r.id}','ordered')"  style="padding:4px 10px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;border:1.5px solid #1d4ed8;background:#eff6ff;color:#1d4ed8">📦 Заказан</button>` : ''}
         ${st !== 'received' ? `<button onclick="setPurchaseRequestStatus('${r.id}','received')" style="padding:4px 10px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;border:1.5px solid #15803d;background:#dcfce7;color:#15803d">✅ Получен</button>` : ''}
+        ${st !== 'received' ? `<button onclick="openEditPurchaseRequest('${r.id}')" style="padding:3px 8px;font-size:10px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted)">✏️</button>` : ''}
         ${st === 'pending'  ? `<button onclick="deletePurchaseRequest('${r.id}')" style="padding:3px 8px;font-size:10px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted)">✕</button>` : ''}
       </div>
     </div>`;
@@ -10370,17 +10377,38 @@ function _renderWhRequests(el) {
   `;
 }
 
+let _editPurchaseRequestId = null;
 function openNewPurchaseRequest(prefill) {
+  _editPurchaseRequestId = null;
+  document.getElementById('pr-modal-title').textContent = 'Новая заявка на закуп';
   document.getElementById('pr-catalog-search').value = prefill?.name || '';
   document.getElementById('pr-catalog-id').value = prefill?.catalog_item_id || '';
   document.getElementById('pr-catalog-unit').textContent = prefill?.unit || 'шт';
   document.getElementById('pr-qty').value = prefill?.qty || '';
   document.getElementById('pr-date-needed').value = '';
   document.getElementById('pr-notes').value = '';
-  // populate supplier select
+  document.getElementById('pr-catalog-result').innerHTML = '';
   const sel = document.getElementById('pr-supplier-select');
   sel.innerHTML = `<option value="">— без поставщика —</option>` +
     _suppliers.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+  document.getElementById('pr-overlay').classList.add('show');
+}
+function openEditPurchaseRequest(id) {
+  const r = _purchaseRequests.find(x => x.id === id);
+  if (!r) return;
+  _editPurchaseRequestId = id;
+  document.getElementById('pr-modal-title').textContent = 'Редактировать заявку';
+  const item = _catalog.find(c => c.id === r.catalog_item_id);
+  document.getElementById('pr-catalog-search').value = item ? `${item.name} · ${item.manufacturer}` : '';
+  document.getElementById('pr-catalog-id').value = r.catalog_item_id || '';
+  document.getElementById('pr-catalog-unit').textContent = item?.unit || 'шт';
+  document.getElementById('pr-qty').value = r.qty || '';
+  document.getElementById('pr-date-needed').value = r.date_needed || '';
+  document.getElementById('pr-notes').value = r.notes || '';
+  document.getElementById('pr-catalog-result').innerHTML = '';
+  const sel = document.getElementById('pr-supplier-select');
+  sel.innerHTML = `<option value="">— без поставщика —</option>` +
+    _suppliers.map(s => `<option value="${s.id}" ${s.id===r.supplier_id?'selected':''}>${escHtml(s.name)}</option>`).join('');
   document.getElementById('pr-overlay').classList.add('show');
 }
 function closePurchaseRequest() {
@@ -10396,16 +10424,14 @@ function prSearchCatalog() {
     `<div onclick="prSelectCatalog('${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}','${escHtml(c.manufacturer.replace(/'/g,"\\'"))}','${escHtml(c.unit||'шт')}')"
       style="padding:7px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
-      <div style="display:flex;align-items:center;gap:6px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        ${c.sku ? `<span style="font-size:10px;font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(c.sku)}</span>` : ''}
         <strong>${escHtml(c.name)}</strong>
-        <span style="color:var(--muted);font-size:11px">${escHtml(c.manufacturer)}</span>
-        <span style="margin-left:auto;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:2px">
-        ${c.sku ? `<span style="font-size:10px;font-family:monospace;color:var(--primary)">${escHtml(c.sku)}</span>` : ''}
         ${c.thickness != null ? `<span style="font-size:10px;color:var(--muted)">⬛ ${c.thickness} мм</span>` : ''}
         ${c.sheet_size ? `<span style="font-size:10px;color:var(--muted)">📐 ${escHtml(c.sheet_size)}</span>` : ''}
+        <span style="margin-left:auto;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
       </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:1px">${escHtml(c.manufacturer)}</div>
     </div>`).join('');
 }
 function prSelectCatalog(id, name, mfr, unit) {
@@ -10422,6 +10448,12 @@ function savePurchaseRequest() {
   const notes = document.getElementById('pr-notes').value.trim();
   if (!catalogId) { alert('Выберите позицию из каталога'); return; }
   if (!qty || qty <= 0) { alert('Введите количество'); return; }
+  if (_editPurchaseRequestId) {
+    const r = _purchaseRequests.find(x => x.id === _editPurchaseRequestId);
+    if (r) { r.catalog_item_id = catalogId; r.qty = qty; r.supplier_id = supplierId||null; r.date_needed = dateNeeded||null; r.notes = notes||null; }
+    _editPurchaseRequestId = null;
+    savePurchaseRequests(); closePurchaseRequest(); _renderWarehouseUI(); return;
+  }
   const r = {
     id: 'PR-' + Date.now(),
     catalog_item_id: catalogId,
@@ -11113,16 +11145,14 @@ function whiSearchCatalog() {
     `<div onclick="whiSelectCatalog('${escHtml(c.id)}','${escHtml(c.name)}','${escHtml(c.manufacturer)}','${escHtml(c.unit||'шт')}')"
       style="padding:7px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
-      <div style="display:flex;align-items:center;gap:6px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        ${c.sku ? `<span style="font-size:10px;font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(c.sku)}</span>` : ''}
         <strong>${escHtml(c.name)}</strong>
-        <span style="color:var(--muted);font-size:11px">${escHtml(c.manufacturer)}</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:2px">
-        ${c.sku ? `<span style="font-size:10px;font-family:monospace;color:var(--primary)">${escHtml(c.sku)}</span>` : ''}
         ${c.thickness != null ? `<span style="font-size:10px;color:var(--muted)">⬛ ${c.thickness} мм</span>` : ''}
         ${c.sheet_size ? `<span style="font-size:10px;color:var(--muted)">📐 ${escHtml(c.sheet_size)}</span>` : ''}
+        <span style="margin-left:auto;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
       </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:1px">${escHtml(c.manufacturer)}</div>
     </div>`
   ).join('');
 }
@@ -11178,7 +11208,7 @@ async function saveWarehouseIn() {
 <!-- ── MODAL: PURCHASE REQUEST ── -->
 <div class="overlay" id="pr-overlay" role="dialog">
   <div class="modal" style="width:460px;max-width:95vw">
-    <div class="mh"><div><div class="mt">Новая заявка на закуп</div></div><button class="mx" onclick="closePurchaseRequest()">×</button></div>
+    <div class="mh"><div><div class="mt" id="pr-modal-title">Новая заявка на закуп</div></div><button class="mx" onclick="closePurchaseRequest()">×</button></div>
     <div class="mb" style="display:flex;flex-direction:column;gap:12px">
       <div style="position:relative">
         <label class="fl">Позиция каталога *</label>
