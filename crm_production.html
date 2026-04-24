@@ -2067,6 +2067,23 @@ function getCurviDate(o) {
   }
   return o.no_edging ? o.cutting_date : o.edging_date;
 }
+// Закуп: дата = cutting_date - 3 рабочих дня
+function getPurchaseDate(o) {
+  if (!o.cutting_date) return null;
+  return subWorkDays(o.cutting_date, 3);
+}
+// Есть ли у заказа материалы на закупку?
+function hasPurchaseMaterials(o) {
+  return !!(o.materials && o.materials.some(m => m.supply_type === 'purchase'));
+}
+// Все закупочные материалы получены?
+function isPurchaseDone(o) {
+  if (!o.materials) return false;
+  const purMats = o.materials.filter(m => m.supply_type === 'purchase');
+  if (!purMats.length) return false;
+  const ps = o.purchase_statuses || {};
+  return purMats.every(m => ps[m.id] === 'received');
+}
 
 // ============================================================
 // ПРОИЗВОДСТВЕННЫЙ КАЛЕНДАРЬ
@@ -3337,9 +3354,16 @@ function fmatSearchCatalog(matId, val) {
     `<div onclick="fmatSelectCatalog('${matId}','${escHtml(c.id)}','${escHtml(c.name.replace(/'/g,"\\'"))}','${escHtml(c.manufacturer.replace(/'/g,"\\'"))}')"
       style="padding:6px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
-      <strong>${escHtml(c.name)}</strong>
-      <span style="color:var(--muted);margin-left:6px;font-size:11px">${escHtml(c.manufacturer)}</span>
-      <span style="float:right;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <strong>${escHtml(c.name)}</strong>
+        <span style="color:var(--muted);font-size:11px">${escHtml(c.manufacturer)}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
+        ${c.sku ? `<span style="font-size:10px;font-family:monospace;color:var(--primary)">${escHtml(c.sku)}</span>` : ''}
+        ${c.thickness != null ? `<span style="font-size:10px;color:var(--muted)">⬛ ${c.thickness} мм</span>` : ''}
+        ${c.sheet_size ? `<span style="font-size:10px;color:var(--muted)">📐 ${escHtml(c.sheet_size)}</span>` : ''}
+      </div>
     </div>`).join('') +
     `<div onclick="openAddCatalogItem()" style="padding:6px 10px;cursor:pointer;font-size:11px;color:var(--primary);border-top:1px solid var(--border)"
       onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">+ Создать новую позицию в каталоге</div>`;
@@ -3886,6 +3910,27 @@ function createOrder() {
     })();
   }
 
+  // Авторезервирование: создаём out_reserved движения для материалов заказчика
+  (async () => {
+    if (!_sb) return;
+    const clientMats = (newO.materials||[]).filter(m => m.supply_type === 'client' && m.catalog_item_id && m.qty > 0);
+    if (!clientMats.length || !newO.client_db_id) return;
+    const movements = clientMats.map(m => ({
+      catalog_item_id: m.catalog_item_id,
+      client_id: newO.client_db_id,
+      type: 'out_reserved',
+      qty: parseFloat(m.qty) || 1,
+      order_id: String(newO.id),
+      note: `Резерв для заказа ${newO.id} — ${m.desc||''}`.trim(),
+      date: TODAY,
+      mat_id: m.id
+    }));
+    const { data: ins, error } = await _sb.from('warehouse_movements').insert(movements).select();
+    if (!error && ins) {
+      _warehouseMovements = [...(ins||[]), ..._warehouseMovements];
+    }
+  })();
+
   // Полный пересчёт prodCal (без инкрементальных add/sub — без призраков)
   rebuildProdCal();
 
@@ -4002,7 +4047,7 @@ let calShowHistory = false;
 let calView = 'week'; // 'day' | '3day' | 'week' | 'month'
 let calViewOffset = 0; // смещение в днях для режимов день/3дня
 let calSearchQuery = '';
-const _CAL_DETAIL_ALL_STAGES = ['design','launch','mill','cutting','edging','drilling','gluing','curvilinear','packing','redzone'];
+const _CAL_DETAIL_ALL_STAGES = ['zakup','design','launch','mill','cutting','edging','drilling','gluing','curvilinear','packing','redzone'];
 let calDetailStageFlt = new Set(_CAL_DETAIL_ALL_STAGES);
 function toggleCalDetailStage(key) {
   if (calDetailStageFlt.has(key)) {
@@ -4021,7 +4066,7 @@ function calDetailStageAll() {
   }
   renderCalendar();
 }
-const _CAL_TABLE_ALL_COLS = ['design','launch','cutting','edging','drilling','gluing','curvilinear','mill','packing','redzone'];
+const _CAL_TABLE_ALL_COLS = ['zakup','design','launch','cutting','edging','drilling','gluing','curvilinear','mill','packing','redzone'];
 let calTableColFlt = new Set(_CAL_TABLE_ALL_COLS);
 function toggleCalTableCol(key) {
   if (calTableColFlt.has(key)) {
@@ -4237,6 +4282,7 @@ function buildCalHoverHtml(orderId) {
 
   // Все возможные стадии с цветами
   const STAGES_CFG = dk ? [
+    {key:'zakup',       label:'Закуп',        hdr:'#fbbf24', bg:'rgba(251,191,36,.10)',  simple:true},
     {key:'design',      label:'Проект',       hdr:'#a78bfa', bg:'rgba(139,92,246,.08)',  simple:true},
     {key:'launch',      label:'Запуск',        hdr:'#fbbf24', bg:'rgba(251,191,36,.08)',  simple:true},
     {key:'cutting',     label:'Распил',        hdr:'#93c5fd', bg:'rgba(79,142,247,.08)',  simple:false},
@@ -4246,6 +4292,7 @@ function buildCalHoverHtml(orderId) {
     {key:'gluing',      label:'Склейка',       hdr:'#2dd4bf', bg:'rgba(20,184,166,.08)',  simple:true},
     {key:'curvilinear', label:'Криволинейка',  hdr:'#f9a8d4', bg:'rgba(236,72,153,.08)',  simple:true},
   ] : [
+    {key:'zakup',       label:'Закуп',        hdr:'#92400e', bg:'#fffbeb',  simple:true},
     {key:'design',      label:'Проект',       hdr:'#5b21b6', bg:'#f5f3ff',  simple:true},
     {key:'launch',      label:'Запуск',        hdr:'#92400e', bg:'#fffbeb',  simple:true},
     {key:'cutting',     label:'Распил',        hdr:'#1d4ed8', bg:'#eff6ff',  simple:false},
@@ -4281,7 +4328,15 @@ function buildCalHoverHtml(orderId) {
     // ── простые стадии (нет разбивки по материалам) ──
     if (op.simple) {
       let show = false, done = false, extra = '';
-      if (op.key === 'design') {
+      if (op.key === 'zakup') {
+        show = hasPurchaseMaterials(o);
+        done = isPurchaseDone(o);
+        const pd2 = getPurchaseDate(o);
+        const purMats2 = (o.materials||[]).filter(m => m.supply_type === 'purchase');
+        const ps2 = o.purchase_statuses || {};
+        const rc2 = purMats2.filter(m => ps2[m.id] === 'received').length;
+        extra = `<span style="font-size:10px;color:var(--muted)">${rc2}/${purMats2.length} поз.${pd2?' · до '+fmt(pd2,true):''}</span>`;
+      } else if (op.key === 'design') {
         show = !o.no_project;
         done = !!(o.stages_done?.design || o.design_stage_data?.done);
         if (o.design_end) extra = `<span style="font-size:10px;color:var(--muted)">до ${fmt(o.design_end,true)}</span>`;
@@ -4471,6 +4526,7 @@ function renderCalTableView(days) {
   const viewOrders = showOnlyDefect ? orders.filter(o => o.type === 'defect') : showDefectOrders ? orders : orders.filter(o => o.type !== 'defect');
   // Определение всех колонок с функциями рендера и стилями для фильтр-бара
   const TABLE_COLS = [
+    { key:'zakup',       label:'🛒 Закуп',           color:'#92400e', btnBg: _dk?'rgba(251,191,36,.18)':'#fffbeb',  td: d => zakupTd(d) },
     { key:'design',      label:'Проект',            color:'#3730a3', btnBg: _dk?'rgba(99,102,241,.18)':'#eef2ff',  td: d => designTd(d) },
     { key:'launch',      label:'Запуск',             color:'#92400e', btnBg: _dk?'rgba(251,191,36,.18)':'#fffbeb',  td: d => launchTd(d) },
     { key:'cutting',     label:'Распил',             color: _dk?'#93c5fd':'#1d4ed8', btnBg: _dk?'rgba(79,142,247,.18)':'#eff6ff',  td: d => opTd(d,'cutting','bf-cut','cc-cut') },
@@ -4482,6 +4538,19 @@ function renderCalTableView(days) {
     { key:'packing',     label:'Упаковка/Отгрузка', color: _dk?'#6ee7b7':'#065f46', btnBg: _dk?'rgba(52,211,153,.18)':'#f0fdf4',  td: d => opTd(d,'packing','bf-pkg','cc-pkg') },
     { key:'redzone',     label:'🔴 Красная зона',    color:'#991b1b', btnBg: _dk?'rgba(220,38,38,.18)':'#fef2f2',   td: d => redzoneTd(d) },
   ];
+
+  function zakupTd(date) {
+    const items = viewOrders.filter(o => hasPurchaseMaterials(o) && getPurchaseDate(o) === date);
+    if (!items.length) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
+    const chips = items.map(o => {
+      const done = isPurchaseDone(o);
+      const ps = o.purchase_statuses || {};
+      const pm = (o.materials||[]).filter(m => m.supply_type === 'purchase');
+      const rc = pm.filter(m => ps[m.id] === 'received').length;
+      return `<span class="cc" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)} — закупка ${rc}/${pm.length} поз." style="background:#fef3c7;color:#92400e;${done?'text-decoration:line-through;opacity:0.65':''}">${done?'✓ ':''}${o.urgent?'🔥':''}${o.id} ${rc}/${pm.length}п.</span>`;
+    }).join('');
+    return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#92400e;font-weight:700">${items.length} зак.</div><div class="cal-chips">${chips}</div></div></td>`;
+  }
 
   function designTd(date) {
     const inProgress = viewOrders.filter(o => {
@@ -4934,9 +5003,8 @@ function renderCalDetailView(days) {
         const done = !!(m.stages?.mill?.done);
         const dur = m.mill_duration == 0.5 ? '½ дня' : m.mill_duration == 2 ? '2 дня' : '1 день';
         return `<div class="cal-dcard" data-oid="${o.id}" data-client="${escHtml(o.client)}" data-desc="${escHtml(o.desc)}" data-mats="${escHtml(m.desc||'')}" style="${done?'opacity:0.6;':''}display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed #fde68a;cursor:pointer" onclick="openStages('${o.id}')">
-          <span style="font-size:13px">${done?'✅':'⬜'}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:800;color:#92400e;${done?'text-decoration:line-through;':''}">${o.urgent?'🔥 ':''}${escHtml(o.id)}</div>
+            <div style="font-size:13px;font-weight:800;color:#92400e;${done?'text-decoration:line-through;':''}">${done?'✓ ':''}${o.urgent?'🔥 ':''}${escHtml(o.id)}</div>
             <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.desc||'Фрезеровка')} · ${escHtml(o.client)}</div>
           </div>
           <span style="font-size:11px;font-weight:700;color:#92400e;white-space:nowrap">${done?'✓ Выполнено':dur}</span>
@@ -4991,13 +5059,12 @@ function renderCalDetailView(days) {
           const qtyVal = isEdgSec ? (matHasEdging(m) ? matAutoEdging(m) : 0) : (m.qty || 0);
           const qtyUnit = isEdgSec ? 'м' : 'л';
           if (isEdgSec && qtyVal <= 0) return '';
-          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed var(--border)">
-            <span style="font-size:13px">${done?'':'⬜'}</span>
+          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed var(--border);${done?'opacity:0.45;':''}">
             <div style="flex:1;min-width:0">
-              <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(m.desc)}">${descText}</div>
+              <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${done?'text-decoration:line-through;':''}" title="${escHtml(m.desc)}">${done?'✓ ':''}${descText}</div>
               <div style="font-size:10px;color:var(--muted)">${matLabel}${isEdgSec ? '' : edgM}</div>
             </div>
-            <span style="font-size:11px;font-weight:800;color:${op.hdr};white-space:nowrap">${qtyVal} ${qtyUnit}${suffix?`<span style="color:var(--warn);font-weight:600"> ${suffix}</span>`:''}</span>
+            <span style="font-size:11px;font-weight:800;color:${op.hdr};white-space:nowrap;${done?'text-decoration:line-through;':''}">${qtyVal} ${qtyUnit}${suffix?`<span style="color:var(--warn);font-weight:600"> ${suffix}</span>`:''}</span>
           </div>`;
         }).join('');
         // Отдельные кромка-материалы — показываем только в секции КРОМКА
@@ -5008,13 +5075,12 @@ function renderCalDetailView(days) {
           if (reschedTo && reschedTo !== date) suffix = ` → ${fmt(reschedTo,true)}`;
           else if (reschedTo === date) suffix = ' ↩';
           const descText = m.desc ? escHtml(m.desc) : 'Кромка';
-          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed var(--border)">
-            <span style="font-size:13px">${done?'':'⬜'}</span>
+          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px dashed var(--border);${done?'opacity:0.45;':''}">
             <div style="flex:1;min-width:0">
-              <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(m.desc)}">${descText}</div>
+              <div style="font-size:11px;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${done?'text-decoration:line-through;':''}" title="${escHtml(m.desc)}">${done?'✓ ':''}${descText}</div>
               <div style="font-size:10px;color:var(--muted)">Кромка (отдельно)</div>
             </div>
-            <span style="font-size:11px;font-weight:800;color:${op.hdr};white-space:nowrap">${parseFloat(m.qty)||0} м${suffix?`<span style="color:var(--warn);font-weight:600"> ${suffix}</span>`:''}</span>
+            <span style="font-size:11px;font-weight:800;color:${op.hdr};white-space:nowrap;${done?'text-decoration:line-through;':''}">${parseFloat(m.qty)||0} м${suffix?`<span style="color:var(--warn);font-weight:600"> ${suffix}</span>`:''}</span>
           </div>`;
         }).join('');
         const matRows = sheetRows + edgingRows;
@@ -5061,6 +5127,43 @@ function renderCalDetailView(days) {
         ${orderCards || `<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px 0">${used>0?'Выполнено: '+used+' '+unit:'Нет заказов'}</div>`}
       </div>`;
     }).filter(Boolean).join('');
+
+    // ── Закуп ──
+    const zakupOrders = calDetailStageFlt.has('zakup') ? viewOrders.filter(o => {
+      if (!hasPurchaseMaterials(o)) return false;
+      const pd = getPurchaseDate(o);
+      return pd === date;
+    }) : [];
+    const zakupSectionHtml = zakupOrders.length ? (() => {
+      const bdr = dk ? 'rgba(251,191,36,.45)' : '#fde68a';
+      const bg  = dk ? 'rgba(251,191,36,.10)' : '#fffbeb';
+      const hdr = dk ? '#fbbf24' : '#92400e';
+      const cards = zakupOrders.map(o => {
+        const done = isPurchaseDone(o);
+        const purMats = (o.materials||[]).filter(m => m.supply_type === 'purchase');
+        const ps = o.purchase_statuses || {};
+        const receivedCnt = purMats.filter(m => ps[m.id] === 'received').length;
+        const doneCardStyle = done ? 'opacity:0.6;' : '';
+        const doneIdStyle   = done ? 'text-decoration:line-through;' : '';
+        return `<div class="cal-dcard" data-oid="${o.id}" data-client="${escHtml(o.client)}" data-desc="${escHtml(o.desc)}" data-mats="${purMats.map(m=>escHtml(m.desc||'')).join(' ')}" style="${doneCardStyle}background:${dk?'var(--card)':bg};border:1.5px solid ${bdr};border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="openOrderModal('${o.id}')">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+            <div style="min-width:0">
+              <div style="font-size:14px;font-weight:900;font-family:monospace;color:${hdr};${doneIdStyle}">${done?'✓ ':''}${o.urgent?'🔥 ':''}ID ${escHtml(o.id)}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(o.client)}</div>
+              <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(o.desc)}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:11px;font-weight:700;color:${hdr};white-space:nowrap">${receivedCnt}/${purMats.length} поз.</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">${done?'✓ Получено':'Ожидает закупки'}</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+      return `<div class="cal-dsec" style="border:1px solid ${bdr};border-radius:9px;padding:12px;margin-bottom:10px;background:${dk?'var(--card)':'#fff'}">
+        <div style="font-size:12px;font-weight:800;color:${hdr};text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">🛒 Закуп</div>
+        ${cards}
+      </div>`;
+    })() : '';
 
     // ── Проект (Конструктор) ──
     const designOrders = calDetailStageFlt.has('design') ? viewOrders.filter(o => {
@@ -5242,7 +5345,7 @@ function renderCalDetailView(days) {
       </div>`;
     })() : '';
 
-    const allColSections = designSectionHtml + launchSectionHtml + millSectionHtml + opsHtml + gluingSectionHtml + curviSectionHtml + redzoneSectionHtml;
+    const allColSections = zakupSectionHtml + designSectionHtml + launchSectionHtml + millSectionHtml + opsHtml + gluingSectionHtml + curviSectionHtml + redzoneSectionHtml;
     return `<div style="flex:1;min-width:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:${dk?'#1c1c1e':'#fff'}">
       ${dateHeader}
       <div style="padding:10px 12px;overflow-y:auto;max-height:72vh">${allColSections || '<div style="text-align:center;padding:30px 16px;color:var(--muted);font-size:13px">Нет заказов</div>'}</div>
@@ -5251,6 +5354,7 @@ function renderCalDetailView(days) {
 
   // ── Фильтр-бар ──
   const STAGE_BTNS = [
+    { key:'zakup',       label:'🛒 Закуп',       color: dk?'#fbbf24':'#92400e', bg: dk?'rgba(251,191,36,.18)':'#fffbeb' },
     { key:'design',      label:'Проект',        color: dk?'#a5b4fc':'#3730a3', bg: dk?'rgba(99,102,241,.18)':'#eef2ff' },
     { key:'launch',      label:'Запуск',         color: dk?'#fbbf24':'#92400e', bg: dk?'rgba(251,191,36,.18)':'#fffbeb' },
     { key:'mill',        label:'Фрезеровка',    color: dk?'#fdba74':'#c2410c', bg: dk?'rgba(251,146,60,.18)':'#fff7ed' },
@@ -5438,6 +5542,8 @@ function openOrderModal(id) {
   const launchDate = getLaunchDate(o);
   const _omDk = isDarkTheme();
   const stages = [
+    ...((() => { const cm=(o.materials||[]).filter(m=>m.supply_type==='client'); if(!cm.length)return[]; const cms=o.client_material_statuses||{}; const issued=cm.filter(m=>(cms[m.id]||'reserved')==='issued'||cms[m.id]==='defect').length; return [{key:'client_mat',ic:'👤',bg:_omDk?'rgba(124,58,237,.18)':'#f5f3ff',lbl:'Матер. закзч.',date:null,note:issued+'/'+cm.length+' выдано',skip:false}]; })()),
+    ...(hasPurchaseMaterials(o) ? [{ key:'zakup', ic:'🛒', bg:_omDk?'rgba(251,191,36,.18)':'#fef3c7', lbl:'Закуп', date:getPurchaseDate(o), note: (() => { const ps=o.purchase_statuses||{}; const pm=(o.materials||[]).filter(m=>m.supply_type==='purchase'); const rc=pm.filter(m=>ps[m.id]==='received').length; return rc+'/'+pm.length+' получено'; })(), skip:false }] : []),
     { key:'design',      ic:'', bg:_omDk?'rgba(167,139,250,.18)':'#dbeafe', lbl:'Проект',        date:o.design_end,       note:desName(o.designer_id), skip:o.no_project },
     { key:'launch',      ic:'', bg:_omDk?'rgba(251,191,36,.18)':'#fef3c7',  lbl:'Запуск',        date:launchDate,         note:o.launch_date?'Задано вручную':(o.no_project?'До распила':'После проекта'), skip:!!o.no_launch },
     { key:'cutting',     ic:'', bg:_omDk?'rgba(79,142,247,.18)':'#ede9fe',  lbl:'Распил',        date:o.cutting_date,     note:o.sheets+' листов',     skip:!!o.no_cutting },
@@ -5481,11 +5587,17 @@ function openOrderModal(id) {
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;margin-bottom:14px">
       ${stages.map(s=>{
-        const done = !s.skip && (s.key==='launch' ? (sd.launch || o.launch_stage_data?.done) : sd[s.key]);
+        const done = !s.skip && (
+          s.key==='zakup'       ? isPurchaseDone(o) :
+          s.key==='client_mat'  ? (() => { const cm=(o.materials||[]).filter(m=>m.supply_type==='client'); const cms=o.client_material_statuses||{}; return cm.length>0 && cm.every(m=>(cms[m.id]||'reserved')==='issued'||cms[m.id]==='defect'); })() :
+          s.key==='launch'      ? (sd.launch || o.launch_stage_data?.done) :
+          sd[s.key]
+        );
         const doneBg    = _omDk ? 'rgba(52,211,153,.22)' : '#dcfce7';
         const doneBdr   = _omDk ? 'rgba(52,211,153,.45)' : '#86efac';
         const doneClr   = _omDk ? '#6ee7b7' : '#15803d';
-        return `<div style="background:${done?doneBg:s.bg};border-radius:9px;padding:10px;text-align:center;opacity:${s.skip?.4:1};border:1.5px solid ${done?doneBdr:'rgba(255,255,255,.07)'}">
+        const clickAttr = s.key==='zakup' ? `onclick="showPage('purchases')" style="cursor:pointer;` : s.key==='client_mat' ? `onclick="closeOrderModal();openStages('${o.id}')" style="cursor:pointer;` : `style="`;
+        return `<div ${clickAttr}background:${done?doneBg:s.bg};border-radius:9px;padding:10px;text-align:center;opacity:${s.skip?.4:1};border:1.5px solid ${done?doneBdr:'rgba(255,255,255,.07)'}${s.key==='zakup'?';box-shadow:0 0 0 2px #fde68a44':''}">
           <div style="font-size:20px;margin-bottom:3px">${s.ic}</div>
           <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">${s.lbl}</div>
           <div style="font-size:12px;font-weight:800;margin-top:2px;color:var(--text)">${s.skip?'---':fmt(s.date,true)}</div>
@@ -5495,7 +5607,7 @@ function openOrderModal(id) {
     </div>
     <div style="background:${_omDk?'rgba(255,255,255,.04)':'#f8fafc'};border-radius:9px;padding:12px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Назначенные сотрудники</div>
-      ${stages.filter(s=>!s.skip).map(s => {
+      ${stages.filter(s=>!s.skip && s.key!=='zakup' && s.key!=='client_mat').map(s => {
         const ws = stageWorkers[s.key];
         const done = s.key==='launch' ? (sd.launch || o.launch_stage_data?.done) : sd[s.key];
         const statusIcon = done ? '<span style="color:#15803d;font-weight:700">Выполнено</span>' : '<span style="color:var(--muted)">В ожидании</span>';
@@ -7420,6 +7532,85 @@ function renderStagesBody(o) {
   if (!o.stages_done) o.stages_done = {};
   const sd = o.stages_done;
 
+  // ── Раздел «Материал заказчика» ──
+  const clientMatsHtml = (() => {
+    const clientMats = (o.materials||[]).filter(m => m.supply_type === 'client');
+    if (!clientMats.length) return '';
+    const cms = o.client_material_statuses || {};
+    const ST_LBL = { reserved:'🔒 Зарезервировано', issued:'➡️ Выдано в пр-во', defect:'⚠️ Брак' };
+    const ST_CLR = { reserved:'#d97706', issued:'#7c3aed', defect:'#dc2626' };
+    const ST_BG  = { reserved:'#fffbeb', issued:'#f5f3ff', defect:'#fff5f5' };
+    const rows = clientMats.map(m => {
+      const st = cms[m.id] || 'reserved';
+      const catItem = _catalog && _catalog.find(c => c.id === m.catalog_item_id);
+      const matName = catItem ? `${catItem.manufacturer ? catItem.manufacturer+' — ' : ''}${catItem.name}` : (m.desc || 'Материал');
+      const btns = ['reserved','issued','defect'].map(ns => {
+        const active = st === ns;
+        // "зарезервировано" доступно всегда; "выдано" — после резерва; "брак" — после выдачи
+        const disabled = (ns === 'issued' && st === 'defect') || (ns === 'reserved' && st !== 'reserved' && st !== 'issued');
+        return `<button onclick="setClientMatStatus('${o.id}','${m.id}','${ns}')" ${disabled?'disabled':''} style="padding:3px 7px;font-size:10px;font-weight:700;border-radius:5px;cursor:${disabled?'default':'pointer'};opacity:${disabled?.4:1};border:1.5px solid ${active?ST_CLR[ns]:'var(--border)'};background:${active?ST_BG[ns]:'var(--card)'};color:${active?ST_CLR[ns]:'var(--muted)'}">${ST_LBL[ns]}</button>`;
+      }).join('');
+      const catMeta = [
+        catItem?.thickness != null ? `⬛ ${catItem.thickness} мм` : null,
+        catItem?.sheet_size ? `📐 ${catItem.sheet_size}` : null,
+        catItem?.sku ? catItem.sku : null,
+        m.qty ? 'Кол-во: '+m.qty : null,
+      ].filter(Boolean).join(' · ');
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:7px;background:${ST_BG[st]};margin-bottom:6px;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(matName)}</div>
+          <div style="font-size:10px;color:var(--muted)">${catMeta} · <span style="color:${ST_CLR[st]};font-weight:700">${ST_LBL[st]}</span></div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${btns}</div>
+      </div>`;
+    }).join('');
+    const allIssued = clientMats.every(m => (cms[m.id]||'reserved') === 'issued' || cms[m.id] === 'defect');
+    return `<div style="background:${allIssued?'#f5f3ff':'#fffbeb'};border:1.5px solid ${allIssued?'#c4b5fd':'#fde68a'};border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-weight:800;font-size:13px;color:#7c3aed;margin-bottom:8px">👤 Материал заказчика</div>
+      ${rows}
+    </div>`;
+  })();
+
+  // ── Раздел «Закуп» (только если есть закупочные материалы) ──
+  const zakupHtml = (() => {
+    if (!hasPurchaseMaterials(o)) return '';
+    const purMats = (o.materials||[]).filter(m => m.supply_type === 'purchase');
+    const ps = o.purchase_statuses || {};
+    const allDone = isPurchaseDone(o);
+    const pd = getPurchaseDate(o);
+    const STATUS_LABELS = { pending:'⏳ Ожидает', ordered:'📦 Заказан', received:'✅ Получен' };
+    const STATUS_COLORS = { pending:'#92400e', ordered:'#1d4ed8', received:'#15803d' };
+    const STATUS_BG    = { pending:'#fef3c7', ordered:'#eff6ff', received:'#dcfce7' };
+    const rows = purMats.map(m => {
+      const st = ps[m.id] || 'pending';
+      const catItem = _catalog && _catalog.find(c => c.id === m.catalog_item_id);
+      const matName = catItem ? `${catItem.manufacturer ? catItem.manufacturer+' — ' : ''}${catItem.name}` : (m.desc || 'Материал');
+      const purMeta = [
+        catItem?.thickness != null ? `⬛ ${catItem.thickness} мм` : null,
+        catItem?.sheet_size ? `📐 ${catItem.sheet_size}` : null,
+        catItem?.sku ? catItem.sku : null,
+        m.qty ? 'Кол-во: '+m.qty : null,
+      ].filter(Boolean).join(' · ');
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:7px;background:${STATUS_BG[st]};margin-bottom:6px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(matName)}</div>
+          <div style="font-size:10px;color:var(--muted)">${purMeta}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          ${['pending','ordered','received'].map(ns => `<button onclick="setPurStatus('${o.id}','${m.id}','${ns}')" style="padding:3px 7px;font-size:10px;font-weight:700;border-radius:5px;cursor:pointer;border:1.5px solid ${st===ns?STATUS_COLORS[ns]:'var(--border)'};background:${st===ns?STATUS_BG[ns]:'var(--card)'};color:${st===ns?STATUS_COLORS[ns]:'var(--muted)'}">${STATUS_LABELS[ns]}</button>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div style="background:${allDone?'#dcfce7':'#fffbeb'};border:1.5px solid ${allDone?'#86efac':'#fde68a'};border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-weight:800;font-size:13px;color:#92400e">🛒 Закуп материалов</div>
+        <div style="font-size:11px;color:var(--muted)">${pd ? 'Дата: '+fmt(pd,true) : '— дата не задана'}</div>
+      </div>
+      ${rows}
+      ${allDone ? '<div style="font-size:11px;font-weight:700;color:#15803d;margin-top:6px;text-align:center">✓ Все материалы получены</div>' : ''}
+    </div>`;
+  })();
+
   // Design stage row (always per-order, not per-material)
   const designHtml = o.no_project ? '' : (() => {
     const done = !!sd.design;
@@ -7457,6 +7648,8 @@ function renderStagesBody(o) {
     const stages = getStages(o).filter(s => s.key !== 'design' && s.key !== 'launch');
     document.getElementById('stg-body').innerHTML = `
       <div style="margin-bottom:10px">${sBadge(o.status)}</div>
+      ${clientMatsHtml}
+      ${zakupHtml}
       ${designHtml}
       ${launchHtml}
       <div style="display:flex;flex-direction:column;gap:8px">
@@ -7639,6 +7832,8 @@ function renderStagesBody(o) {
   })() : '';
 
   document.getElementById('stg-body').innerHTML = `
+    ${clientMatsHtml}
+    ${zakupHtml}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
       ${sBadge(o.status)}
       <span style="font-size:12px;color:var(--muted)">${totalSheet} видов листов · ${o.materials.filter(m=>m.type==='edging').length} видов кромки${millMats.length?` · ${millMats.length} фрезеровка`:''}</span>
@@ -9912,9 +10107,15 @@ function renderCatalogList() {
       ${items.map(c => `
         <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;border:1px solid var(--border);margin-bottom:4px;background:var(--card)">
           <div style="flex:1;min-width:0">
-            <span style="font-size:13px;font-weight:600">${escHtml(c.name)}</span>
-            ${c.sku ? `<span style="margin-left:8px;font-size:10px;color:var(--muted);background:var(--gray-l);border-radius:4px;padding:1px 5px">${escHtml(c.sku)}</span>` : ''}
-            <span style="margin-left:6px;font-size:11px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:600">${escHtml(c.name)}</span>
+              ${c.sku ? `<span style="font-size:10px;color:var(--muted);background:var(--gray-l);border-radius:4px;padding:1px 5px;font-family:monospace">${escHtml(c.sku)}</span>` : ''}
+              <span style="font-size:11px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:3px;flex-wrap:wrap">
+              ${c.thickness != null ? `<span style="font-size:11px;color:var(--muted)">⬛ ${c.thickness} мм</span>` : ''}
+              ${c.sheet_size ? `<span style="font-size:11px;color:var(--muted)">📐 ${escHtml(c.sheet_size)}</span>` : ''}
+            </div>
           </div>
           <div style="display:flex;gap:4px;flex-shrink:0">
             <button class="btn btn-sm btn-secondary" onclick="openEditCatalogItem('${escHtml(c.id)}')">✏️</button>
@@ -9932,6 +10133,8 @@ function openAddCatalogItem(prefill) {
   document.getElementById('aci-name').value         = prefill?.name || '';
   document.getElementById('aci-sku').value          = prefill?.sku || '';
   document.getElementById('aci-unit').value         = prefill?.unit || 'лист';
+  document.getElementById('aci-thickness').value    = prefill?.thickness ?? 16;
+  document.getElementById('aci-size').value         = prefill?.sheet_size || '';
   document.getElementById('add-catalog-overlay').classList.add('show');
 }
 
@@ -9945,6 +10148,8 @@ function openEditCatalogItem(id) {
   document.getElementById('aci-name').value         = c.name;
   document.getElementById('aci-sku').value          = c.sku || '';
   document.getElementById('aci-unit').value         = c.unit || 'лист';
+  document.getElementById('aci-thickness').value    = c.thickness ?? 16;
+  document.getElementById('aci-size').value         = c.sheet_size || '';
   document.getElementById('add-catalog-overlay').classList.add('show');
 }
 
@@ -9958,16 +10163,20 @@ async function saveCatalogItem() {
   const name         = document.getElementById('aci-name').value.trim();
   const sku          = document.getElementById('aci-sku').value.trim();
   const unit         = document.getElementById('aci-unit').value;
+  const thickness    = parseFloat(document.getElementById('aci-thickness').value) || 16;
+  const sheet_size   = document.getElementById('aci-size').value.trim() || null;
   if (!manufacturer || !name) { alert('Заполните производителя и наименование'); return; }
   if (!_sb) return;
 
+  const payload = { category, manufacturer, name, sku: sku||null, unit, thickness, sheet_size };
+
   if (_editCatalogId) {
-    const { error } = await _sb.from('catalog_items').update({ category, manufacturer, name, sku: sku||null, unit }).eq('id', _editCatalogId);
+    const { error } = await _sb.from('catalog_items').update(payload).eq('id', _editCatalogId);
     if (error) { alert('Ошибка: ' + error.message); return; }
     const idx = _catalog.findIndex(x => x.id === _editCatalogId);
-    if (idx >= 0) _catalog[idx] = { ..._catalog[idx], category, manufacturer, name, sku, unit };
+    if (idx >= 0) _catalog[idx] = { ..._catalog[idx], ...payload };
   } else {
-    const { data, error } = await _sb.from('catalog_items').insert({ category, manufacturer, name, sku: sku||null, unit }).select().single();
+    const { data, error } = await _sb.from('catalog_items').insert(payload).select().single();
     if (error) { alert('Ошибка: ' + error.message); return; }
     _catalog.push(data);
   }
@@ -10221,7 +10430,8 @@ function _renderWhBalances() {
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr style="background:var(--gray-l,#f8fafc)">
-            <th style="padding:8px 12px;text-align:left;border:1px solid var(--border)">Позиция</th>
+            <th style="padding:8px 12px;text-align:left;border:1px solid var(--border);min-width:220px">Позиция</th>
+            <th style="padding:8px 10px;text-align:left;border:1px solid var(--border)">Артикул</th>
             <th style="padding:8px 10px;text-align:left;border:1px solid var(--border)">Владелец</th>
             <th style="padding:8px 10px;text-align:right;border:1px solid var(--border)">На складе</th>
             <th style="padding:8px 10px;text-align:right;border:1px solid var(--border)">Зарезервировано</th>
@@ -10231,18 +10441,30 @@ function _renderWhBalances() {
           <tbody>${rows.map(b => {
             const client = b.client_id ? _clients.find(x => x.id === b.client_id) : null;
             const free = b.qty - b.reserved;
+            const item = b.item;
+            const tags = [
+              item?.unit ? `ед: ${item.unit}` : null,
+            ].filter(Boolean);
             return `<tr style="border-top:1px solid var(--border);${free < 0 ? 'background:#fff5f5' : ''}">
               <td style="padding:7px 12px;border:1px solid var(--border)">
-                <div style="font-weight:600">${escHtml(b.item?.name || '—')}</div>
-                <div style="font-size:11px;color:var(--muted)">${escHtml(b.item?.manufacturer || '')}</div>
+                <div style="font-weight:700;font-size:13px">${escHtml(item?.name || '—')}</div>
+                ${item?.manufacturer ? `<div style="font-size:11px;color:var(--muted);margin-top:1px">${escHtml(item.manufacturer)}</div>` : ''}
+                <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap;align-items:center">
+                  ${item?.category ? `<span style="font-size:10px;background:var(--gray-l);color:var(--muted);border-radius:4px;padding:1px 6px;font-weight:600">${escHtml(item.category)}</span>` : ''}
+                  ${item?.thickness != null ? `<span style="font-size:11px;color:var(--muted)">⬛ ${item.thickness} мм</span>` : ''}
+                  ${item?.sheet_size ? `<span style="font-size:11px;color:var(--muted)">📐 ${escHtml(item.sheet_size)}</span>` : ''}
+                </div>
+              </td>
+              <td style="padding:7px 10px;border:1px solid var(--border)">
+                ${item?.sku ? `<span style="font-family:monospace;font-size:12px;font-weight:600;color:var(--primary);background:var(--primary-l,#eff6ff);border-radius:4px;padding:2px 7px">${escHtml(item.sku)}</span>` : '<span style="color:var(--muted);font-size:11px">—</span>'}
               </td>
               <td style="padding:7px 10px;border:1px solid var(--border)">
                 ${client ? `<span style="font-weight:600;color:var(--primary)">👤 ${escHtml(client.name)}</span>` : '<span style="color:var(--muted)">Наш склад</span>'}
               </td>
-              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);font-weight:700">${b.qty} ${escHtml(b.item?.unit||'шт')}</td>
-              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);color:#d97706">${b.reserved > 0 ? b.reserved + ' ' + escHtml(b.item?.unit||'шт') : '—'}</td>
-              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);font-weight:700;color:${free >= 0 ? '#16a34a' : '#dc2626'}">${free} ${escHtml(b.item?.unit||'шт')}</td>
-              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);color:${b.defect_qty > 0 ? '#dc2626' : 'var(--muted)'}">${b.defect_qty > 0 ? b.defect_qty + ' ' + escHtml(b.item?.unit||'шт') : '—'}</td>
+              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);font-weight:700">${b.qty} ${escHtml(item?.unit||'шт')}</td>
+              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);color:#d97706">${b.reserved > 0 ? b.reserved + ' ' + escHtml(item?.unit||'шт') : '—'}</td>
+              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);font-weight:700;color:${free >= 0 ? '#16a34a' : '#dc2626'}">${free} ${escHtml(item?.unit||'шт')}</td>
+              <td style="padding:7px 10px;text-align:right;border:1px solid var(--border);color:${b.defect_qty > 0 ? '#dc2626' : 'var(--muted)'}">${b.defect_qty > 0 ? b.defect_qty + ' ' + escHtml(item?.unit||'шт') : '—'}</td>
             </tr>`;
           }).join('')}</tbody>
         </table>
@@ -10277,7 +10499,7 @@ function _renderWhHistory() {
             ${m.order_id ? `<span style="font-size:11px;background:var(--gray-l);border-radius:4px;padding:1px 6px;cursor:pointer;color:var(--primary)" onclick="openOrderModal('${escHtml(m.order_id)}')">${escHtml(m.order_id)}</span>` : ''}
             ${m.is_defect ? `<span style="font-size:11px;background:#fee2e2;color:#991b1b;border-radius:4px;padding:1px 6px">БРАК</span>` : ''}
           </div>
-          <div style="font-size:13px;font-weight:600">${escHtml(item?.name || '—')} <span style="font-weight:400;color:var(--muted)">${escHtml(item?.manufacturer||'')}</span></div>
+          <div style="font-size:13px;font-weight:600">${escHtml(item?.name || '—')} <span style="font-weight:400;color:var(--muted)">${escHtml(item?.manufacturer||'')}</span>${item?.sku ? ` <span style="font-size:11px;font-family:monospace;background:var(--gray-l);border-radius:4px;padding:1px 6px;color:var(--muted)">${escHtml(item.sku)}</span>` : ''}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">
             ${client ? `👤 ${escHtml(client.name)}` : ''}${supp ? ` · 🚚 ${escHtml(supp.name)}` : ''}
             ${m.defect_reason ? ` · ⚠️ ${escHtml(m.defect_reason)}` : ''}
@@ -10511,6 +10733,42 @@ function setPurStatus(orderId, matId, newStatus) {
   renderPurchasesPage();
 }
 
+// ── Статус материала заказчика: reserved → issued → defect ──
+async function setClientMatStatus(orderId, matId, newStatus) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  if (!o.client_material_statuses) o.client_material_statuses = {};
+  const prevStatus = o.client_material_statuses[matId] || 'reserved';
+  o.client_material_statuses[matId] = newStatus;
+
+  // При списании в брак — дополнительное движение out_defect
+  if (newStatus === 'defect' && _sb) {
+    const m = (o.materials||[]).find(x => x.id === matId);
+    if (m && m.catalog_item_id) {
+      const { data, error } = await _sb.from('warehouse_movements').insert({
+        date: TODAY,
+        type: 'out_defect',
+        catalog_item_id: m.catalog_item_id,
+        client_id: o.client_db_id || null,
+        qty: m.qty || 1,
+        order_id: String(orderId),
+        mat_id: matId,
+        note: `Брак по заказу ${orderId} — ${m.desc||''}`.trim(),
+        created_by: currentUser?.name || 'Система'
+      }).select().single();
+      if (!error && data) {
+        if (!_warehouseMovements) _warehouseMovements = [];
+        _warehouseMovements.unshift(data);
+      }
+    }
+  }
+
+  markDirty(orderId);
+  saveOrders();
+  // Перерисовываем панель стадий если открыта
+  if (stagesOrderId === orderId) { const oo = orders.find(x=>x.id===orderId); if (oo) renderStagesBody(oo); }
+}
+
 // ── Приход: открыть модалку ──
 let _whInMode = 'client'; // 'client' | 'purchase'
 
@@ -10587,9 +10845,16 @@ function whiSearchCatalog() {
     `<div onclick="whiSelectCatalog('${escHtml(c.id)}','${escHtml(c.name)}','${escHtml(c.manufacturer)}','${escHtml(c.unit||'шт')}')"
       style="padding:7px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
       onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">
-      <strong>${escHtml(c.name)}</strong>
-      <span style="color:var(--muted);font-size:11px;margin-left:6px">${escHtml(c.manufacturer)}</span>
-      <span style="float:right;font-size:11px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <strong>${escHtml(c.name)}</strong>
+        <span style="color:var(--muted);font-size:11px">${escHtml(c.manufacturer)}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:2px">
+        ${c.sku ? `<span style="font-size:10px;font-family:monospace;color:var(--primary)">${escHtml(c.sku)}</span>` : ''}
+        ${c.thickness != null ? `<span style="font-size:10px;color:var(--muted)">⬛ ${c.thickness} мм</span>` : ''}
+        ${c.sheet_size ? `<span style="font-size:10px;color:var(--muted)">📐 ${escHtml(c.sheet_size)}</span>` : ''}
+      </div>
     </div>`
   ).join('');
 }
@@ -10672,7 +10937,7 @@ async function saveWarehouseIn() {
       <div><label class="fl">Производитель *</label><input class="fc" id="aci-manufacturer" placeholder="Egger, Kronospan, Rehau..."></div>
       <div><label class="fl">Наименование *</label><input class="fc" id="aci-name" placeholder="U117 ST9 Белый Базовый 18мм"></div>
       <div style="display:flex;gap:8px">
-        <div style="flex:1"><label class="fl">Артикул</label><input class="fc" id="aci-sku" placeholder="U117"></div>
+        <div style="flex:1"><label class="fl">Артикул / SKU</label><input class="fc" id="aci-sku" placeholder="U117 ST9"></div>
         <div style="flex:1">
           <label class="fl">Единица</label>
           <select class="fc" id="aci-unit">
@@ -10682,6 +10947,10 @@ async function saveWarehouseIn() {
             <option value="м²">м²</option>
           </select>
         </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label class="fl">Толщина (мм)</label><input class="fc" id="aci-thickness" type="number" min="1" step="0.1" placeholder="16" value="16"></div>
+        <div style="flex:2"><label class="fl">Размер листа</label><input class="fc" id="aci-size" placeholder="2750x1830 или 2800x2070"></div>
       </div>
     </div>
     <div class="mf"><button class="btn btn-secondary" onclick="closeAddCatalogItem()">Отмена</button><button class="btn btn-primary" onclick="saveCatalogItem()">Сохранить</button></div>
