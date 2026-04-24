@@ -12,6 +12,7 @@
   } catch(e){}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -10246,21 +10247,11 @@ async function deleteCatalogItem(id) {
   renderCatalogList();
 }
 
-// ── Excel импорт каталога ──
+// ── Excel / CSV импорт каталога ──
 async function importCatalogExcel(input) {
   const file = input?.files?.[0];
   if (!file) return;
   input.value = '';
-
-  const name = file.name.toLowerCase();
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-    alert('Для импорта используйте формат CSV (сохраните Excel как CSV UTF-8).\n\nКолонки: A=Категория, B=Производитель, C=Наименование, D=Артикул, E=Толщина (мм), F=Размер листа');
-    return;
-  }
-
-  const text = await file.text();
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length < 2) { alert('Файл пустой или нет данных'); return; }
 
   const catMap = {
     'листовые':'sheet','лдсп':'sheet','мдф':'sheet','фанера':'sheet',
@@ -10269,31 +10260,56 @@ async function importCatalogExcel(input) {
     'услуги':'services','услуги производства':'services'
   };
 
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(/[;,\t]/).map(c => c.replace(/^"|"$/g,'').trim());
-    const [catRaw, manufacturer, itemName, sku, thicknessRaw, sheetSize] = cols;
-    if (!manufacturer || !itemName) continue;
-    const catKey = catMap[(catRaw||'').toLowerCase()] || 'sheet';
-    const thickness = thicknessRaw ? (parseFloat(thicknessRaw.replace(',','.')) || 16) : 16;
-    rows.push({
-      category: catKey, manufacturer, name: itemName,
-      sku: sku||null,
-      unit: catKey==='edging'?'м.п.':catKey==='hardware'?'шт':'лист',
-      thickness,
-      sheet_size: sheetSize || null
-    });
+  function parseRows(rawData) {
+    // rawData — массив массивов (строки × колонки)
+    const rows = [];
+    for (let i = 1; i < rawData.length; i++) {
+      const cols = (rawData[i] || []).map(c => (c == null ? '' : String(c)).trim());
+      const [catRaw, manufacturer, itemName, sku, thicknessRaw, sheetSize] = cols;
+      if (!manufacturer || !itemName) continue;
+      const catKey = catMap[(catRaw||'').toLowerCase()] || 'sheet';
+      const thickness = thicknessRaw ? (parseFloat(String(thicknessRaw).replace(',','.')) || 16) : 16;
+      rows.push({
+        category: catKey, manufacturer, name: itemName,
+        sku: sku || null,
+        unit: catKey==='edging'?'м.п.':catKey==='hardware'?'шт':'лист',
+        thickness,
+        sheet_size: sheetSize || null
+      });
+    }
+    return rows;
   }
 
-  if (!rows.length) { alert('Не удалось распознать строки. Проверьте формат файла.'); return; }
+  const fname = file.name.toLowerCase();
+  let rows = [];
+
+  if (fname.endsWith('.xlsx') || fname.endsWith('.xls')) {
+    // Парсим через SheetJS
+    if (typeof XLSX === 'undefined') { alert('Библиотека xlsx не загружена. Проверьте интернет-соединение.'); return; }
+    const buf = await file.arrayBuffer();
+    const wb  = XLSX.read(buf, { type: 'array' });
+    const ws  = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    rows = parseRows(data);
+  } else {
+    // CSV
+    const text = await file.text();
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) { alert('Файл пустой или нет данных'); return; }
+    const data = lines.map(l => l.split(/[;,\t]/).map(c => c.replace(/^"|"$/g,'').trim()));
+    rows = parseRows(data);
+  }
+
+  if (!rows.length) { alert('Не удалось распознать строки.\n\nКолонки: A=Категория, B=Производитель, C=Наименование, D=Артикул, E=Толщина(мм), F=Размер листа'); return; }
   if (!confirm(`Загрузить ${rows.length} позиций в каталог?`)) return;
 
-  let added = 0;
+  let added = 0, errors = 0;
   for (const row of rows) {
     const { data, error } = await _sb.from('catalog_items').insert(row).select().single();
     if (!error && data) { _catalog.push(data); added++; }
+    else errors++;
   }
-  alert(`Добавлено ${added} из ${rows.length} позиций.`);
+  alert(`Добавлено: ${added} из ${rows.length}${errors ? `\nОшибок: ${errors}` : ''}`);
   renderCatalogList();
 }
 
