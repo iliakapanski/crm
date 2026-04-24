@@ -1958,10 +1958,11 @@ const DEPARTMENTS = {
   'design':     { name: 'Конструкторский', roles: ['Конструктор старший', 'Конструктор', 'Пусковой'] },
   'sales':      { name: 'Продажи', roles: ['РОП', 'Менеджер'] }
 };
-const ALL_SECTIONS = ['dashboard','calendar','staff','production','orders','stats','payroll','settings','new-order'];
+const ALL_SECTIONS = ['dashboard','calendar','staff','production','orders','stats','payroll','settings','new-order','warehouse','purchases','constructor-tasks'];
 const SECTION_LABELS = {
   'dashboard':'Дашборд','calendar':'Календарь','staff':'Сотрудники','production':'Задания',
-  'orders':'Заказы','stats':'Статистика','payroll':'Начисления','settings':'Настройки','new-order':'Новый заказ'
+  'orders':'Заказы','stats':'Статистика','payroll':'Начисления','settings':'Настройки','new-order':'Новый заказ',
+  'warehouse':'Склад','purchases':'Закупки','constructor-tasks':'Задачи конструкторов'
 };
 const DEFAULT_PERMISSIONS = {
   'Руководитель':        ALL_SECTIONS,
@@ -1973,13 +1974,13 @@ const DEFAULT_PERMISSIONS = {
   'Шпонировщик':         ['dashboard','calendar','production','payroll'],
   'Грузчик':             ['dashboard','calendar','production','payroll'],
   'Упаковщик':           ['dashboard','calendar','production','payroll'],
-  'Нач снаб':            ['dashboard'],
-  'Кладовщик':           ['dashboard'],
-  'Конструктор старший': ['dashboard','calendar','staff','production','payroll'],
-  'Конструктор':         ['dashboard','calendar','staff','production','payroll'],
+  'Нач снаб':            ['dashboard','warehouse','purchases'],
+  'Кладовщик':           ['dashboard','warehouse'],
+  'Конструктор старший': ['dashboard','calendar','staff','production','payroll','constructor-tasks'],
+  'Конструктор':         ['dashboard','calendar','staff','production','payroll','constructor-tasks'],
   'Пусковой':            ['dashboard','calendar','staff','production','payroll'],
   'РОП':                 ['dashboard','orders'],
-  'Менеджер':            ['dashboard','orders','new-order']
+  'Менеджер':            ['dashboard','orders','new-order','warehouse','purchases']
 };
 let rolePermissions = {};
 function loadPermissions() {
