@@ -1170,12 +1170,9 @@ table{max-width:100%}
         <div><label class="fl">Клиент</label><input id="e-client" class="fc" type="text"></div>
         <div class="fs2"><label class="fl">Описание</label><input id="e-desc" class="fc" type="text"></div>
         <div class="fs2">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <label class="fl" style="margin-bottom:0">Материалы заказа</label>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="addEditMaterial()" style="padding:3px 10px;font-size:12px">+ Добавить</button>
-          </div>
+          <label class="fl" style="margin-bottom:6px">Материалы заказа</label>
           <input id="e-sheets" type="hidden" value="0">
-          <div id="edit-mat-list" style="display:flex;flex-direction:column;gap:5px"></div>
+          <div id="edit-mat-list"></div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px">Итого листов: <b id="edit-mat-total">0</b> л. · Кромка: <b id="edit-mat-edging">0</b> м.</div>
         </div>
         <div><label class="fl">Станок</label>
@@ -6248,9 +6245,72 @@ let editingId = null;
 // ============================================================
 let editMaterials = [];
 
-function addEditMaterial() {
-  editMaterials.push({ id: 'm' + Date.now() + Math.random().toString(36).slice(2,5), type: 'sheet', desc: '', qty: '', edging_m: null });
+function addEditMaterial(group) {
+  const defType = group === 'service' ? 'service' : group === 'hardware' ? 'hardware' : 'sheet';
+  editMaterials.push({ id: 'm' + Date.now() + Math.random().toString(36).slice(2,5), type: defType, desc: '', qty: '', edging_m: null, supply_type: 'own', stages: {} });
   renderEditMatList();
+}
+function setEditMatSupply(matId, supplyType) {
+  const m = editMaterials.find(x => x.id === matId);
+  if (!m) return;
+  m.supply_type = supplyType;
+  renderEditMatList();
+}
+function _ematRowHtml(m) {
+  const grp      = matGroup(m);
+  const isMill   = m.type === 'mill';
+  const isService = grp === 'service';
+  const isHW     = grp === 'hardware';
+  const canEdge  = isSheetMat(m) && typeSupportsEdging(m.type);
+  const canDrill = isSheetMat(m) && typeHasDrilling(m.type);
+  const hasEdge  = canEdge  && !m.no_edging;
+  const hasDrill = canDrill && !m.no_drilling;
+  const opToggles = (canEdge || canDrill) ? `<div style="display:flex;gap:3px;margin-top:4px">
+    ${canEdge  ? `<button type="button" onclick="toggleEditMatEdging('${m.id}')"
+      title="${hasEdge?'Кромка включена':'Кромка отключена'}"
+      style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;cursor:pointer;border:1px solid ${hasEdge?'#0d9488':'var(--border)'};background:${hasEdge?'#f0fdfa':'var(--gray-l)'};color:${hasEdge?'#0f766e':'var(--muted)'}">К ${hasEdge?'✓':'✗'}</button>` : ''}
+    ${canDrill ? `<button type="button" onclick="toggleEditMatDrilling('${m.id}')"
+      title="${hasDrill?'Присадка включена':'Присадка отключена'}"
+      style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;cursor:pointer;border:1px solid ${hasDrill?'#d97706':'var(--border)'};background:${hasDrill?'#fffbeb':'var(--gray-l)'};color:${hasDrill?'#92400e':'var(--muted)'}">П ${hasDrill?'✓':'✗'}</button>` : ''}
+  </div>` : '';
+  const edgingInput = hasEdge ? `
+    <span style="font-size:11px;color:var(--muted);white-space:nowrap;margin-left:4px">кр:</span>
+    <input class="fc" style="flex:0 0 75px;padding:5px 6px;font-size:12px;text-align:center" type="number" min="0" max="99999" step="1" placeholder="авто" value="${m.edging_m !== null && m.edging_m !== undefined ? m.edging_m : ''}" oninput="updateEditMat('${m.id}','edging_m',this.value===''?null:+this.value)">
+    <span style="font-size:11px;color:var(--muted)">м</span>` : '';
+  const editMillInput = isMill ? `
+    <select class="fc" style="flex:0 0 100px;padding:5px 6px;font-size:12px" onchange="updateEditMat('${m.id}','mill_duration',this.value)">
+      <option value="0.5" ${m.mill_duration==0.5?'selected':''}>Полдня</option>
+      <option value="1"   ${(!m.mill_duration||m.mill_duration==1)?'selected':''}>1 день</option>
+      <option value="2"   ${m.mill_duration==2?'selected':''}>2 дня</option>
+    </select>
+    <input type="date" class="fc" style="flex:0 0 120px;padding:5px 6px;font-size:12px" value="${m.mill_date||''}" oninput="updateEditMat('${m.id}','mill_date',this.value)" title="Дата готовности фрезеровки">` : '';
+  const st = m.supply_type || 'own';
+  const supplyBtns = !isService && !isHW ? `<div style="display:flex;gap:3px;margin-top:5px">
+    <button type="button" onclick="setEditMatSupply('${m.id}','own')" style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='own'?'#e0f2fe':'var(--gray-l)'};color:${st==='own'?'#0369a1':'var(--muted)'}">🏭 Наш</button>
+    <button type="button" onclick="setEditMatSupply('${m.id}','client')" style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='client'?'#dcfce7':'var(--gray-l)'};color:${st==='client'?'#166534':'var(--muted)'}">👤 Клиент</button>
+    <button type="button" onclick="setEditMatSupply('${m.id}','purchase')" style="flex:1;font-size:10px;padding:3px 4px;border-radius:5px;cursor:pointer;border:1px solid var(--border);font-weight:600;background:${st==='purchase'?'#fef3c7':'var(--gray-l)'};color:${st==='purchase'?'#92400e':'var(--muted)'}">🛒 Закуп</button>
+  </div>` : '';
+  const qtyBlock = !isMill ? `<input class="fc" style="flex:0 0 55px;padding:5px 8px;font-size:12px;text-align:center" type="number" min="0" max="9999" step="any" placeholder="0" value="${m.qty||''}" oninput="updateEditMat('${m.id}','qty',this.value)">
+    <span style="font-size:12px;color:var(--muted);min-width:14px;padding-top:6px">${matTypeUnit(m.type)}</span>` : '';
+  return `<div style="padding:7px 9px;background:var(--gray-l,#f8fafc);border-radius:8px;border:1px solid var(--border);margin-bottom:4px">
+    <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+      <select class="fc" style="flex:0 0 110px;padding:5px 6px;font-size:12px" onchange="updateEditMat('${m.id}','type',this.value)">
+        ${matSelectOpts(m.type, grp)}
+      </select>
+      <div style="flex:1;min-width:80px;position:relative">
+        <input id="emat-desc-${m.id}" class="fc" style="width:100%;box-sizing:border-box;padding:5px 8px;font-size:12px" type="text" autocomplete="off"
+          placeholder="${isMill?'Описание детали':'Название / поиск в каталоге'}"
+          value="${escHtml(matInputValue(m))}"
+          oninput="updateEditMat('${m.id}','desc',this.value);ematSearchCatalog('${m.id}',this.value)"
+          onfocus="ematSearchCatalog('${m.id}',this.value)"
+          onblur="setTimeout(()=>{const d=document.getElementById('emat-dd-${m.id}');if(d)d.style.display='none'},200)">
+        <div id="emat-dd-${m.id}" style="display:none;position:absolute;left:0;top:100%;z-index:500;min-width:320px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:480px;overflow-y:auto"></div>
+      </div>
+      ${qtyBlock}${edgingInput}${editMillInput}
+      <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0" onclick="removeEditMaterial('${m.id}')">×</button>
+    </div>
+    ${opToggles}${supplyBtns}
+  </div>`;
 }
 
 function removeEditMaterial(id) {
@@ -6326,55 +6386,26 @@ function ematSelectCatalog(matId, catalogId, name, mfr) {
 function renderEditMatList() {
   const el = document.getElementById('edit-mat-list');
   if (!el) return;
-  if (!editMaterials.length) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0">Нет материалов — нажмите "+ Добавить"</div>';
-    recalcEditSheets();
-    return;
-  }
-  el.innerHTML = editMaterials.map(m => {
-    const canEdge  = isSheetMat(m) && typeSupportsEdging(m.type);
-    const canDrill = isSheetMat(m) && typeHasDrilling(m.type);
-    const hasEdge  = canEdge  && !m.no_edging;
-    const hasDrill = canDrill && !m.no_drilling;
-    const opToggles = (canEdge || canDrill) ? `<div style="display:flex;gap:3px;margin-top:4px">
-      ${canEdge  ? `<button type="button" onclick="toggleEditMatEdging('${m.id}')"
-        title="${hasEdge?'Кромка включена':'Кромка отключена'}"
-        style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;cursor:pointer;border:1px solid ${hasEdge?'#0d9488':'var(--border)'};background:${hasEdge?'#f0fdfa':'var(--gray-l)'};color:${hasEdge?'#0f766e':'var(--muted)'}">К ${hasEdge?'✓':'✗'}</button>` : ''}
-      ${canDrill ? `<button type="button" onclick="toggleEditMatDrilling('${m.id}')"
-        title="${hasDrill?'Присадка включена':'Присадка отключена'}"
-        style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;cursor:pointer;border:1px solid ${hasDrill?'#d97706':'var(--border)'};background:${hasDrill?'#fffbeb':'var(--gray-l)'};color:${hasDrill?'#92400e':'var(--muted)'}">П ${hasDrill?'✓':'✗'}</button>` : ''}
-    </div>` : '';
-    const showEdging = hasEdge;
-    const edgingInput = showEdging ? `
-      <span style="font-size:11px;color:var(--muted);white-space:nowrap;margin-left:4px">кр:</span>
-      <input class="fc" style="flex:0 0 75px;padding:5px 6px;font-size:12px;text-align:center" type="number" min="0" max="99999" step="1" placeholder="авто" value="${m.edging_m !== null && m.edging_m !== undefined ? m.edging_m : ''}" oninput="updateEditMat('${m.id}','edging_m',this.value===''?null:+this.value)">
-      <span style="font-size:11px;color:var(--muted)">м</span>` : '';
-    const editMillInput = m.type === 'mill' ? `
-      <select class="fc" style="flex:0 0 100px;padding:5px 6px;font-size:12px" onchange="updateEditMat('${m.id}','mill_duration',this.value)">
-        <option value="0.5" ${m.mill_duration==0.5?'selected':''}>Полдня</option>
-        <option value="1"   ${(!m.mill_duration||m.mill_duration==1)?'selected':''}>1 день</option>
-        <option value="2"   ${m.mill_duration==2?'selected':''}>2 дня</option>
-      </select>
-      <input type="date" class="fc" style="flex:0 0 120px;padding:5px 6px;font-size:12px" value="${m.mill_date||''}" oninput="updateEditMat('${m.id}','mill_date',this.value)" title="Дата готовности фрезеровки">` : '';
-    const isMill = m.type === 'mill';
-    return `<div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;margin-bottom:4px">
-      <select class="fc" style="flex:0 0 110px;padding:5px 6px;font-size:12px" onchange="updateEditMat('${m.id}','type',this.value)">
-        ${matSelectOpts(m.type)}
-      </select>
-      <div style="flex:1;min-width:80px;position:relative">
-        <input id="emat-desc-${m.id}" class="fc" style="width:100%;box-sizing:border-box;padding:5px 8px;font-size:12px" type="text" placeholder="${isMill?'Описание детали':'Название / поиск в каталоге'}" value="${escHtml(matInputValue(m))}"
-          oninput="updateEditMat('${m.id}','desc',this.value);ematSearchCatalog('${m.id}',this.value)"
-          onfocus="ematSearchCatalog('${m.id}',this.value)"
-          onblur="setTimeout(()=>{const d=document.getElementById('emat-dd-${m.id}');if(d)d.style.display='none'},200)">
-        <div id="emat-dd-${m.id}" style="display:none;position:absolute;left:0;top:100%;z-index:500;width:320px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:480px;overflow-y:auto"></div>
+  const BLOCKS = [
+    { key:'mat',      label:'Материалы', icon:'🪵', color:'#1d4ed8', bg:'rgba(219,234,254,.35)' },
+    { key:'service',  label:'Услуги',    icon:'⚙️', color:'#7c3aed', bg:'rgba(237,233,254,.35)' },
+    { key:'hardware', label:'Фурнитура', icon:'🔩', color:'#b45309', bg:'rgba(254,243,199,.35)' },
+  ];
+  let html = '';
+  BLOCKS.forEach(block => {
+    const items = editMaterials.filter(m => matGroup(m) === block.key);
+    html += `<div style="margin-bottom:8px;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:${block.bg}">
+        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${block.color}">${block.icon} ${block.label}</span>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="addEditMaterial('${block.key}')" style="padding:2px 9px;font-size:11px">+ Добавить</button>
       </div>
-      ${!isMill ? `<input class="fc" style="flex:0 0 55px;padding:5px 8px;font-size:12px;text-align:center" type="number" min="0" max="9999" step="any" placeholder="0" value="${m.qty||''}" oninput="updateEditMat('${m.id}','qty',this.value)">
-      <span style="font-size:12px;color:var(--muted);min-width:14px;padding-top:6px">${matTypeUnit(m.type)}</span>` : ''}
-      ${edgingInput}${editMillInput}
-      <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0" onclick="removeEditMaterial('${m.id}')">×</button>
-    </div>
-    ${opToggles}`;
-  }).join('');
+      <div style="padding:${items.length?'6px':'4px'} 6px ${items.length?'2px':'4px'}">
+        ${items.length ? items.map(m => _ematRowHtml(m)).join('') : '<div style="font-size:11px;color:var(--muted);padding:4px 4px;text-align:center">нет позиций</div>'}
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html;
+  recalcEditSheets();
 }
 
 function collectEditMaterials() {
