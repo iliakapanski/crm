@@ -3182,6 +3182,22 @@ function calcEdgingMeters(mats) {
   return explicit + implicit;
 }
 
+// Полная строка из каталога для отображения в инпуте: SKU · название · размер · толщина · производитель
+function matCatalogLabel(ci) {
+  if (!ci) return null;
+  return [
+    ci.sku   || null,
+    ci.name,
+    ci.sheet_size || null,
+    ci.thickness != null ? ci.thickness + ' мм' : null,
+    (ci.manufacturer && ci.manufacturer !== '—') ? ci.manufacturer : null,
+  ].filter(Boolean).join(' · ');
+}
+// Значение для инпута: полная строка если есть catalog_item_id, иначе m.desc
+function matInputValue(m) {
+  const ci = m.catalog_item_id && _catalog ? _catalog.find(c => c.id === m.catalog_item_id) : null;
+  return matCatalogLabel(ci) || m.desc || '';
+}
 function matSelectOpts(selected, filterGroup) {
   const types = filterGroup ? MAT_TYPES.filter(t => t.group === filterGroup) : MAT_TYPES;
   return types.map(t=>`<option value="${t.value}" ${selected===t.value?'selected':''}>${t.label}</option>`).join('');
@@ -3410,8 +3426,9 @@ function fmatSelectCatalog(matId, catalogId, name, mfr) {
   if (!m) return;
   m.catalog_item_id = catalogId;
   m.desc = name + ' · ' + mfr;
+  const ci = _catalog ? _catalog.find(c => c.id === catalogId) : null;
   const inp = document.getElementById('fmat-desc-' + matId);
-  if (inp) inp.value = m.desc;
+  if (inp) inp.value = matCatalogLabel(ci) || m.desc;
   const dd = document.getElementById('fmat-dd-' + matId);
   if (dd) dd.style.display = 'none';
   renderFormMatList();
@@ -3489,16 +3506,6 @@ function _fmatRowHtml(m, clientId) {
     <input type="date" class="fc" style="flex:0 0 120px;padding:5px 6px;font-size:12px" value="${m.mill_date||''}" oninput="updateFormMat('${m.id}','mill_date',this.value)" title="Дата готовности">` : '';
   const st = m.supply_type || 'own';
   const catItem = m.catalog_item_id ? _catalog.find(x => x.id === m.catalog_item_id) : null;
-  const catalogHint = catItem ? (() => {
-    const parts = [
-      catItem.sku ? `<span style="font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(catItem.sku)}</span>` : null,
-      `<span style="font-weight:600">${escHtml(catItem.name)}</span>`,
-      catItem.sheet_size ? `<span style="color:var(--muted)">${escHtml(catItem.sheet_size)}</span>` : null,
-      catItem.thickness != null ? `<span style="color:var(--muted)">${catItem.thickness} мм</span>` : null,
-      catItem.manufacturer && catItem.manufacturer !== '—' ? `<span style="color:var(--muted)">${escHtml(catItem.manufacturer)}</span>` : null,
-    ].filter(Boolean).join(' · ');
-    return `<div style="font-size:10px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${parts}</div>`;
-  })() : '';
   let clientBalanceHtml = '';
   if (st === 'client' && clientId && m.catalog_item_id) {
     const bal = _calcClientBalance(clientId, m.catalog_item_id);
@@ -3521,15 +3528,15 @@ function _fmatRowHtml(m, clientId) {
       </select>
       <div style="flex:1;min-width:80px;position:relative">
         <input class="fc" style="width:100%;padding:5px 8px;font-size:12px;box-sizing:border-box" type="text"
-          placeholder="${isMill?'Описание детали':'Название / описание'}"
-          value="${escHtml(m.desc)}" id="fmat-desc-${m.id}" autocomplete="off"
+          placeholder="${isMill?'Описание детали':'Название / поиск в каталоге'}"
+          value="${escHtml(matInputValue(m))}" id="fmat-desc-${m.id}" autocomplete="off"
           oninput="updateFormMat('${m.id}','desc',this.value);fmatSearchCatalog('${m.id}',this.value)">
         <div id="fmat-dd-${m.id}" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;z-index:150;max-height:180px;overflow-y:auto;box-shadow:0 4px 10px rgba(0,0,0,.12)"></div>
       </div>
       ${qtyBlock}${edgingInput}${millInput}
       <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;margin-left:auto" onclick="removeFormMaterial('${m.id}')">×</button>
     </div>
-    ${catalogHint}${clientBalanceHtml}${opToggles}${supplyBtns}
+    ${clientBalanceHtml}${opToggles}${supplyBtns}
   </div>`;
 }
 
@@ -6269,8 +6276,9 @@ function ematSelectCatalog(matId, catalogId, name, mfr) {
   if (!m) return;
   m.catalog_item_id = catalogId;
   m.desc = name + ' · ' + mfr;
+  const ci = _catalog ? _catalog.find(c => c.id === catalogId) : null;
   const inp = document.getElementById('emat-desc-' + matId);
-  if (inp) inp.value = m.desc;
+  if (inp) inp.value = matCatalogLabel(ci) || m.desc;
   const dd = document.getElementById('emat-dd-' + matId);
   if (dd) dd.style.display = 'none';
   renderEditMatList();
@@ -6310,28 +6318,15 @@ function renderEditMatList() {
       </select>
       <input type="date" class="fc" style="flex:0 0 120px;padding:5px 6px;font-size:12px" value="${m.mill_date||''}" oninput="updateEditMat('${m.id}','mill_date',this.value)" title="Дата готовности фрезеровки">` : '';
     const isMill = m.type === 'mill';
-    // Каталожная подсказка (как в форме создания)
-    const catItem = m.catalog_item_id && _catalog ? _catalog.find(c => c.id === m.catalog_item_id) : null;
-    const catalogHint = catItem ? (() => {
-      const parts = [
-        catItem.sku ? `<span style="font-family:monospace;font-weight:700;color:var(--primary)">${escHtml(catItem.sku)}</span>` : null,
-        `<span style="font-weight:600">${escHtml(catItem.name)}</span>`,
-        catItem.sheet_size ? `<span style="color:var(--muted)">${escHtml(catItem.sheet_size)}</span>` : null,
-        catItem.thickness != null ? `<span style="color:var(--muted)">${catItem.thickness} мм</span>` : null,
-        `<span style="color:var(--muted)">${escHtml(catItem.manufacturer)}</span>`,
-      ].filter(Boolean).join(' · ');
-      return `<div style="font-size:10px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${parts}</div>`;
-    })() : '';
     return `<div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;margin-bottom:4px">
       <select class="fc" style="flex:0 0 110px;padding:5px 6px;font-size:12px" onchange="updateEditMat('${m.id}','type',this.value)">
         ${matSelectOpts(m.type)}
       </select>
       <div style="flex:1;min-width:80px;position:relative">
-        <input id="emat-desc-${m.id}" class="fc" style="width:100%;box-sizing:border-box;padding:5px 8px;font-size:12px" type="text" placeholder="${isMill?'Описание детали':'Цвет / описание'}" value="${escHtml(m.desc||'')}"
+        <input id="emat-desc-${m.id}" class="fc" style="width:100%;box-sizing:border-box;padding:5px 8px;font-size:12px" type="text" placeholder="${isMill?'Описание детали':'Название / поиск в каталоге'}" value="${escHtml(matInputValue(m))}"
           oninput="updateEditMat('${m.id}','desc',this.value);ematSearchCatalog('${m.id}',this.value)"
           onfocus="ematSearchCatalog('${m.id}',this.value)"
           onblur="setTimeout(()=>{const d=document.getElementById('emat-dd-${m.id}');if(d)d.style.display='none'},200)">
-        ${catalogHint}
         <div id="emat-dd-${m.id}" style="display:none;position:absolute;left:0;top:100%;z-index:500;width:320px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:240px;overflow-y:auto"></div>
       </div>
       ${!isMill ? `<input class="fc" style="flex:0 0 55px;padding:5px 8px;font-size:12px;text-align:center" type="number" min="0" max="9999" step="any" placeholder="0" value="${m.qty||''}" oninput="updateEditMat('${m.id}','qty',this.value)">
@@ -6339,7 +6334,7 @@ function renderEditMatList() {
       ${edgingInput}${editMillInput}
       <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0" onclick="removeEditMaterial('${m.id}')">×</button>
     </div>
-    ${catalogHint}${opToggles}`;
+    ${opToggles}`;
   }).join('');
 }
 
