@@ -5154,7 +5154,7 @@ function renderCalDetailView(days) {
       const cap  = CAP[op.key] || 50;
       const unit = op.key === 'edging' ? 'м' : 'л';
 
-      const ordersHere = orders.filter(o => calOrderQty(o, op.key, date) > 0);
+      const ordersHere = viewOrders.filter(o => calOrderQty(o, op.key, date) > 0);
       // Реальная нагрузка включает выполненные заказы
       const totalUsed = isPast ? used : ordersHere.reduce((s, o) => s + calOrderQty(o, op.key, date), 0);
       const pct  = cap > 0 ? Math.min(100, Math.round(totalUsed / cap * 100)) : 0;
