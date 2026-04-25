@@ -1502,7 +1502,7 @@ let _suspendCloudSave = false; // true во время cloudLoadAll — чтоб
 function debouncedCloudSave() {
   if (_suspendCloudSave) return;
   if (_cloudSaveTimer) clearTimeout(_cloudSaveTimer);
-  _cloudSaveTimer = setTimeout(() => { cloudSaveAll(); }, 3000);
+  _cloudSaveTimer = setTimeout(() => { cloudSaveAll(); }, 800);
 }
 
 // --- Томбстоны: список удалённых ID заказов ---
@@ -1549,36 +1549,44 @@ function mergeOrderArrays(primary, secondary) {
   return [...map.values()];
 }
 
-// --- Облачное сохранение всех данных (read-merge-write для заказов) ---
+// --- Облачное сохранение всех данных ---
+// Быстрый путь: пишем сразу, без предварительного чтения облака.
+// Merge с коллегами происходит при следующей загрузке (Realtime / polling).
+// Если с момента последней синхронизации прошло >30 сек — делаем полный read-merge-write
+// чтобы не перетереть чужие изменения.
 async function cloudSaveAll() {
   if (!_sb || _syncInProgress) return;
   _syncInProgress = true;
   updateSyncIndicator('saving');
   try {
-    // Сначала читаем текущее состояние из облака (заказы + удалённые ID)
-    let cloudOrders = [];
-    try {
-      const { data: row } = await _sb.from('crm_storage').select('value').eq('key','main').single();
-      const d = row?.value;
-      if (d && Array.isArray(d.orders)) cloudOrders = d.orders;
-      if (d && Array.isArray(d.deleted_ids)) mergeDeletedIds(d.deleted_ids);
-    } catch(_) {}
-    // Мерж: наши заказы + заказы из облака с учётом томбстонов и версий
-    const mergedOrders = mergeOrderArrays(orders, cloudOrders);
-    // Обновляем локальный массив: заказы от коллег (новые или с более новой версией)
-    // Важно: проверяем не только по количеству, но и по содержимому (перенос даты не меняет кол-во)
-    const hasCloudUpdates = mergedOrders.some(mo => {
-      const local = orders.find(o => String(o.id) === String(mo.id));
-      return !local || (mo._v || 0) > (local._v || 0);
-    }) || mergedOrders.length !== orders.length;
-    if (hasCloudUpdates) {
-      orders = mergedOrders;
-      localStorage.setItem('crm_orders', JSON.stringify(orders));
-      rebuildProdCal();
-      rebuildProdCalFact();
+    const timeSinceSync = Date.now() - _lastSyncTime;
+    let ordersToWrite = orders;
+
+    // Если давно не синхронизировались — сначала читаем облако и мержим
+    if (timeSinceSync > 30000) {
+      try {
+        const { data: row } = await _sb.from('crm_storage').select('value').eq('key','main').single();
+        const d = row?.value;
+        if (d && Array.isArray(d.orders)) {
+          if (d.deleted_ids) mergeDeletedIds(d.deleted_ids);
+          const merged = mergeOrderArrays(orders, d.orders);
+          const hasCloudUpdates = merged.some(mo => {
+            const local = orders.find(o => String(o.id) === String(mo.id));
+            return !local || (mo._v || 0) > (local._v || 0);
+          }) || merged.length !== orders.length;
+          if (hasCloudUpdates) {
+            orders = merged;
+            localStorage.setItem('crm_orders', JSON.stringify(orders));
+            rebuildProdCal();
+            rebuildProdCalFact();
+          }
+          ordersToWrite = merged;
+        }
+      } catch(_) {}
     }
+
     const payload = {
-      orders: mergedOrders,
+      orders: ordersToWrite,
       deleted_ids: [...deletedOrderIds],
       designers: designers,
       users: USERS.filter(u => !deletedUserIds.has(String(u.id))),
