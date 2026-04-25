@@ -3557,8 +3557,10 @@ function _fmatRowHtml(m, clientId) {
         <input class="fc" style="width:100%;padding:5px 8px;font-size:12px;box-sizing:border-box" type="text"
           placeholder="${isMill?'Описание детали':'Название / поиск в каталоге'}"
           value="${escHtml(matInputValue(m))}" id="fmat-desc-${m.id}" autocomplete="off"
-          oninput="updateFormMat('${m.id}','desc',this.value);fmatSearchCatalog('${m.id}',this.value)">
-        <div id="fmat-dd-${m.id}" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;z-index:150;max-height:480px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.2)"></div>
+          oninput="updateFormMat('${m.id}','desc',this.value);fmatSearchCatalog('${m.id}',this.value)"
+          onfocus="fmatSearchCatalog('${m.id}',this.value)"
+          onblur="setTimeout(()=>{const d=document.getElementById('fmat-dd-${m.id}');if(d)d.style.display='none'},200)">
+        <div id="fmat-dd-${m.id}" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;z-index:9999;max-height:480px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.3)"></div>
       </div>
       ${qtyBlock}${edgingInput}${millInput}
       <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;margin-left:auto" onclick="removeFormMaterial('${m.id}')">×</button>
@@ -3579,8 +3581,8 @@ function renderFormMatList() {
   let html = '';
   BLOCKS.forEach(block => {
     const items = formMaterials.filter(m => matGroup(m) === block.key);
-    html += `<div style="margin-bottom:8px;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:${block.bg}">
+    html += `<div style="margin-bottom:8px;border-radius:8px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:${block.bg};border-radius:7px 7px 0 0">
         <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${block.color}">${block.icon} ${block.label}</span>
         <button type="button" class="btn btn-sm btn-secondary" onclick="addFormMaterial('${block.key}')" style="padding:2px 9px;font-size:11px">+ Добавить</button>
       </div>
@@ -6304,7 +6306,7 @@ function _ematRowHtml(m) {
           oninput="updateEditMat('${m.id}','desc',this.value);ematSearchCatalog('${m.id}',this.value)"
           onfocus="ematSearchCatalog('${m.id}',this.value)"
           onblur="setTimeout(()=>{const d=document.getElementById('emat-dd-${m.id}');if(d)d.style.display='none'},200)">
-        <div id="emat-dd-${m.id}" style="display:none;position:absolute;left:0;top:100%;z-index:500;min-width:320px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:480px;overflow-y:auto"></div>
+        <div id="emat-dd-${m.id}" style="display:none;position:absolute;left:0;top:100%;z-index:9999;min-width:320px;width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3);max-height:480px;overflow-y:auto"></div>
       </div>
       ${qtyBlock}${edgingInput}${editMillInput}
       <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0" onclick="removeEditMaterial('${m.id}')">×</button>
@@ -6394,8 +6396,8 @@ function renderEditMatList() {
   let html = '';
   BLOCKS.forEach(block => {
     const items = editMaterials.filter(m => matGroup(m) === block.key);
-    html += `<div style="margin-bottom:8px;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:${block.bg}">
+    html += `<div style="margin-bottom:8px;border-radius:8px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:${block.bg};border-radius:7px 7px 0 0">
         <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${block.color}">${block.icon} ${block.label}</span>
         <button type="button" class="btn btn-sm btn-secondary" onclick="addEditMaterial('${block.key}')" style="padding:2px 9px;font-size:11px">+ Добавить</button>
       </div>
