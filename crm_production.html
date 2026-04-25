@@ -971,7 +971,13 @@ table{max-width:100%}
       <button class="btn btn-sm" id="cat-tab-hardware" onclick="setCatalogTab('hardware')" style="background:var(--gray-l);color:var(--muted);border:1px solid var(--border)">🔩 Фурнитура</button>
       <button class="btn btn-sm" id="cat-tab-services" onclick="setCatalogTab('services')" style="background:var(--gray-l);color:var(--muted);border:1px solid var(--border)">⚙️ Услуги</button>
     </div>
-    <input class="fc" id="catalog-search" placeholder="Поиск по названию, производителю, артикулу..." style="margin-bottom:10px;width:100%;box-sizing:border-box" oninput="renderCatalogList()">
+    <input class="fc" id="catalog-search" placeholder="Поиск по названию, производителю, артикулу..." style="margin-bottom:8px;width:100%;box-sizing:border-box" oninput="renderCatalogList()">
+    <!-- Панель массового выбора (показывается когда отмечен хотя бы один) -->
+    <div id="catalog-bulk-bar" style="display:none;align-items:center;gap:8px;padding:7px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;margin-bottom:8px">
+      <span id="catalog-bulk-count" style="font-size:12px;font-weight:700;color:#92400e;flex:1"></span>
+      <button class="btn btn-sm" onclick="deleteCatalogBulk()" style="background:#dc2626;color:#fff;border:none;padding:5px 14px">🗑 Удалить выбранные</button>
+      <button class="btn btn-sm btn-secondary" onclick="clearCatalogSel()" style="padding:5px 10px">✕ Снять</button>
+    </div>
     <div id="catalog-list"></div>
   </div>
 
@@ -2503,7 +2509,7 @@ function buildProdCalFrom(orderList) {
     prodCal[date][op] = (prodCal[date][op]||0) + n;
   }
   const OPS = ['cutting','edging','drilling','packing'];
-  orderList.filter(o => o.status !== 'done' && (o.type !== 'defect' || showDefectOrders)).forEach(o => {
+  orderList.filter(o => o.status !== 'done' && (!isDefect(o) || showDefectOrders)).forEach(o => {
     // Собираем ВСЕ даты, к которым причастен заказ (базовые + рескедулы)
     const dates = new Set();
     if (o.cutting_date) dates.add(o.cutting_date);
@@ -4087,8 +4093,8 @@ function getNextDefectNum() {
   const stored = parseInt(localStorage.getItem('crm_last_defect_num') || '0');
   let max = stored;
   orders.forEach(o => {
-    if (o.type === 'defect' && o.defect_num) {
-      const n = parseInt(String(o.defect_num).replace('Б-', ''));
+    if (isDefect(o) && (o.defect_num || String(o.id||'').startsWith('Б-'))) {
+      const n = parseInt(String(o.defect_num || o.id).replace('Б-', ''));
       if (!isNaN(n)) max = Math.max(max, n);
     }
   });
@@ -4098,9 +4104,14 @@ function getNextDefectNum() {
 function defectBadge() {
   return '<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800;letter-spacing:.05em">БРАК</span>';
 }
+// Надёжное определение брак-заказа: по полю type ИЛИ по префиксу ID «Б-»
+// Это защищает от рассинхрона данных, когда type некорректен
+function isDefect(o) {
+  return o.type === 'defect' || String(o.id || '').startsWith('Б-');
+}
 // Форматирует ID заказа-брака: Б-003 → Б-003(1245) если есть исходный заказ
 function defectId(o) {
-  if (o.type !== 'defect') return escHtml(o.id);
+  if (!isDefect(o)) return escHtml(o.id);
   const ref = o.defect_ref ? `(${escHtml(o.defect_ref)})` : '';
   return `${escHtml(o.id)}${ref}`;
 }
@@ -4647,7 +4658,7 @@ function renderCalTableView(days) {
   const MAT_PALETTE = ['#60a5fa','#a78bfa','#34d399','#fbbf24','#fb923c','#f472b6','#38bdf8','#4ade80','#c084fc','#f87171'];
   const _dk = isDarkTheme();
   // Фильтр брака: все внутренние функции используют viewOrders вместо orders
-  const viewOrders = showOnlyDefect ? orders.filter(o => o.type === 'defect') : showDefectOrders ? orders : orders.filter(o => o.type !== 'defect');
+  const viewOrders = showOnlyDefect ? orders.filter(o => isDefect(o)) : showDefectOrders ? orders : orders.filter(o => !isDefect(o));
   // Определение всех колонок с функциями рендера и стилями для фильтр-бара
   const TABLE_COLS = [
     { key:'zakup',       label:'🛒 Закуп',           color:'#92400e', btnBg: _dk?'rgba(251,191,36,.18)':'#fffbeb',  td: d => zakupTd(d) },
@@ -4692,8 +4703,8 @@ function renderCalTableView(days) {
     const total = inProgress.length + designDone.length;
     if (!total) return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:var(--muted)">—</div></div></td>`;
     const chips = [
-      ...inProgress.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}">${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.type==='defect'&&o.defect_ref?o.id+'('+o.defect_ref+')':o.id}/${o.sheets}л.</span>`),
-      ...designDone.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${o.type==='defect'&&o.defect_ref?o.id+'('+o.defect_ref+')':o.id}/${o.sheets}л.</span>`)
+      ...inProgress.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}">${isDefect(o)?'🔴 ':''}${o.urgent?'🔥':''}${isDefect(o)&&o.defect_ref?o.id+'('+o.defect_ref+')':o.id}/${o.sheets}л.</span>`),
+      ...designDone.map(o => `<span class="cc cc-des" data-oid="${o.id}" onclick="openOrderModal('${o.id}')" title="${escHtml(o.desc)}" style="text-decoration:line-through;opacity:0.65">✓ ${isDefect(o)?'🔴 ':''}${o.urgent?'🔥':''}${isDefect(o)&&o.defect_ref?o.id+'('+o.defect_ref+')':o.id}/${o.sheets}л.</span>`)
     ].join('');
     return `<td><div class="cal-op"><div class="cal-op-lbl" style="color:#3730a3;font-weight:700">${total} зак.</div><div class="cal-chips">${chips}</div></div></td>`;
   }
@@ -4801,7 +4812,7 @@ function renderCalTableView(days) {
     // Авто-добавляем брак-заказы в Красную зону по их основной дате
     const _defectAdded = new Set(items.map(i => i.o.id));
     viewOrders.forEach(o => {
-      if (o.type !== 'defect' || _defectAdded.has(o.id)) return;
+      if (!isDefect(o) || _defectAdded.has(o.id)) return;
       if (getDefectPrimaryDate(o) === date) {
         const refLabel = o.defect_ref ? `Брак #${o.defect_ref}` : 'Брак/Переделка';
         items.push({ o, m: { desc: refLabel }, reason: o.desc || '', stageLabel: 'БРАК' });
@@ -4860,8 +4871,8 @@ function renderCalTableView(days) {
         stgDone = !!(o.stages_done?.[op]);
       }
       const nestBadge = o.nesting ? (o.nesting===3?' [ФРС]':` [N${o.nesting}]`) : '';
-      const chipId = o.type==='defect'&&o.defect_ref ? `${o.id}(${o.defect_ref})` : o.id;
-      let label = `${stgDone ? '✓ ' : ''}${o.type==='defect'?'🔴 ':''}${o.urgent?'🔥':''}${chipId}/${qty}${unit}${nestBadge}`;
+      const chipId = isDefect(o)&&o.defect_ref ? `${o.id}(${o.defect_ref})` : o.id;
+      let label = `${stgDone ? '✓ ' : ''}${isDefect(o)?'🔴 ':''}${o.urgent?'🔥':''}${chipId}/${qty}${unit}${nestBadge}`;
       if (o.materials && o.materials.length) {
         const allSheetMats = o.materials.filter(m => isSheetMat(m));
         if (allSheetMats.length > 1) {
@@ -5075,7 +5086,7 @@ function renderCalTableView(days) {
 function renderCalDetailView(days) {
   const dk = isDarkTheme();
   // Фильтр брака: если скрыт — убираем из отображения
-  const viewOrders = showOnlyDefect ? orders.filter(o => o.type === 'defect') : showDefectOrders ? orders : orders.filter(o => o.type !== 'defect');
+  const viewOrders = showOnlyDefect ? orders.filter(o => isDefect(o)) : showDefectOrders ? orders : orders.filter(o => !isDefect(o));
   const OPS = dk ? [
     {key:'cutting',  icon:'',  label:'Распил',            cls:'cc-cut', border:'rgba(79,142,247,.3)',  bg:'rgba(79,142,247,.1)',  hdr:'#93c5fd'},
     {key:'edging',   icon:'', label:'Кромка',             cls:'cc-edg', border:'rgba(139,92,246,.3)',  bg:'rgba(139,92,246,.1)',  hdr:'#c4b5fd'},
@@ -5444,7 +5455,7 @@ function renderCalDetailView(days) {
       // Авто-добавляем брак-заказы по их основной дате
       const _rzAdded = new Set(rzItems.map(i => i.o.id));
       viewOrders.forEach(o => {
-        if (o.type !== 'defect' || _rzAdded.has(o.id)) return;
+        if (!isDefect(o) || _rzAdded.has(o.id)) return;
         if (getDefectPrimaryDate(o) === date) {
           const refLabel = o.defect_ref ? `Брак #${o.defect_ref}` : 'Брак/Переделка';
           rzItems.push({ o, m: { desc: refLabel }, reason: o.desc || '', stageLabel: 'БРАК' });
@@ -5617,8 +5628,8 @@ function renderAllOrders(filter) {
   });
   let list = filter==='all' ? [...orders] : orders.filter(o=>o.status===filter);
   // Фильтр брака: скрыт / виден / только брак
-  if (showOnlyDefect)       list = list.filter(o => o.type === 'defect');
-  else if (!showDefectOrders) list = list.filter(o => o.type !== 'defect');
+  if (showOnlyDefect)       list = list.filter(o => isDefect(o));
+  else if (!showDefectOrders) list = list.filter(o => !isDefect(o));
   if (currentSearch) list = list.filter(o => orderMatchesSearch(o, currentSearch));
   list.sort((a,b) => {
     // Urgent orders always first
@@ -5629,8 +5640,8 @@ function renderAllOrders(filter) {
     return (a.created||'') < (b.created||'') ? -1 : 1;
   });
   document.getElementById('all-tbody').innerHTML = list.map(o=>{
-    return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer;${o.type==='defect'?'background:#fff5f5;border-left:3px solid #fca5a5':o.urgent?'background:#fff1f2':''}">
-      <td><div class="on" style="cursor:pointer;color:${o.type==='defect'?'#dc2626':'var(--primary)'};font-weight:800;font-size:13px" onclick="event.stopPropagation();openOrderModal('${o.id}')">${o.urgent?'&#128293; ':''}${defectId(o)}</div>${o.type==='defect'?defectBadge():''}<div style="font-size:10px;color:var(--muted)">${fmt(o.created)}</div></td>
+    return `<tr onclick="openOrderModal('${o.id}')" style="cursor:pointer;${isDefect(o)?'background:#fff5f5;border-left:3px solid #fca5a5':o.urgent?'background:#fff1f2':''}">
+      <td><div class="on" style="cursor:pointer;color:${isDefect(o)?'#dc2626':'var(--primary)'};font-weight:800;font-size:13px" onclick="event.stopPropagation();openOrderModal('${o.id}')">${o.urgent?'&#128293; ':''}${defectId(o)}</div>${isDefect(o)?defectBadge():''}<div style="font-size:10px;color:var(--muted)">${fmt(o.created)}</div></td>
       <td><div class="od">${escHtml(o.client)}</div><div class="oc">${escHtml(o.desc)}</div></td>
       <td><span class="sv">${o.sheets}</span> л.
         ${o.no_edging?'<span class="tag" style="font-size:9px;margin-left:3px">без кромки</span>':''}
@@ -5661,7 +5672,7 @@ function openOrderModal(id) {
   const o = orders.find(x=>x.id===id);
   if (!o) return;
   viewingId = id;
-  const displayId = o.type === 'defect' ? (o.defect_ref ? `${o.id}(${o.defect_ref})` : o.id) : o.id;
+  const displayId = isDefect(o) ? (o.defect_ref ? `${o.id}(${o.defect_ref})` : o.id) : o.id;
   document.getElementById('om-title').textContent = displayId + ' — ' + o.desc;
   document.getElementById('om-sub').textContent   = o.client + ' · ' + o.sheets + ' л.';
   document.getElementById('om-edit-btn').onclick  = () => { closeOrderModal(); openEdit(id); };
@@ -5709,7 +5720,7 @@ function openOrderModal(id) {
     <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       ${sBadge(o.status)}
       ${o.urgent?'<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">&#128293; Срочно</span>':''}
-      ${o.type==='defect'?`${defectBadge()}<span style="color:var(--muted);font-size:12px">Брак/Переделка${o.defect_ref?' · Исходный заказ: <b>'+escHtml(o.defect_ref)+'</b>':''}</span>`:''}
+      ${isDefect(o)?`${defectBadge()}<span style="color:var(--muted);font-size:12px">Брак/Переделка${o.defect_ref?' · Исходный заказ: <b>'+escHtml(o.defect_ref)+'</b>':''}</span>`:''}
       ${o.created_by?`<span class="tag" style="margin-left:4px">Создал: ${o.created_by}</span>`:''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;margin-bottom:14px">
@@ -6393,9 +6404,9 @@ function openEdit(id) {
   const eIsDefect = document.getElementById('e-is-defect');
   const eDefRef   = document.getElementById('e-defect-ref');
   const eDefWrap  = document.getElementById('e-defect-ref-wrap');
-  if (eIsDefect) eIsDefect.checked = o.type === 'defect';
+  if (eIsDefect) eIsDefect.checked = isDefect(o);
   if (eDefRef)   eDefRef.value     = o.defect_ref || '';
-  if (eDefWrap)  eDefWrap.style.display = o.type === 'defect' ? '' : 'none';
+  if (eDefWrap)  eDefWrap.style.display = isDefect(o) ? '' : 'none';
   editNesting = o.nesting || 0;
   setEditNesting(editNesting);
   document.getElementById('e-cap-warn').classList.add('hidden');
@@ -6747,7 +6758,7 @@ function saveEdit() {
   o.urgent = document.getElementById('e-urgent').checked;
   o.has_milling = document.getElementById('e-has-milling').checked;
   // Брак/Переделка
-  const wasDefect = o.type === 'defect';
+  const wasDefect = isDefect(o);
   const nowDefect = document.getElementById('e-is-defect')?.checked || false;
   if (nowDefect) {
     o.type = 'defect';
@@ -7773,6 +7784,18 @@ let matNoteCtx = null;
 function renderStagesBody(o) {
   if (!o.stages_done) o.stages_done = {};
   const sd = o.stages_done;
+  const dk = isDarkTheme();
+  // Цвета строк с учётом темы
+  const clr = {
+    doneBg:    dk ? 'rgba(22,163,74,.18)'   : '#dcfce7',
+    doneBdr:   dk ? '#166534'               : '#86efac',
+    doneTxt:   dk ? '#4ade80'               : '#15803d',
+    designBg:  dk ? 'rgba(30,64,175,.18)'   : '#f0f9ff',
+    designBdr: dk ? '#1e3a8a'               : 'var(--border)',
+    launchBg:  dk ? 'rgba(14,116,144,.18)'  : '#e0f2fe',
+    launchBdr: dk ? '#0e7490'               : '#7dd3fc',
+    rowBg:     dk ? 'var(--card)'           : '#f8fafc',
+  };
 
   // ── Раздел «Материал заказчика» ──
   const clientMatsHtml = (() => {
@@ -7898,11 +7921,11 @@ function renderStagesBody(o) {
   // Design stage row (always per-order, not per-material)
   const designHtml = o.no_project ? '' : (() => {
     const done = !!sd.design;
-    return `<label style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?'#dcfce7':'#f8fafc'};border-radius:9px;cursor:pointer;border:1.5px solid ${done?'#86efac':'var(--border)'};margin-bottom:10px">
+    return `<label style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?clr.doneBg:clr.rowBg};border-radius:9px;cursor:pointer;border:1.5px solid ${done?clr.doneBdr:clr.designBdr};margin-bottom:10px">
       <input type="checkbox" ${done?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" onchange="toggleStage('${o.id}','design',this.checked)">
       <div style="flex:1"><div style="font-weight:700;font-size:13px">Проект готов</div>
         <div style="font-size:11px;color:var(--muted)">${o.design_end?fmt(o.design_end,true):'— не задана'}</div></div>
-      ${done?'<span style="font-size:11px;font-weight:700;color:#15803d">✓ Готово</span>':''}
+      ${done?`<span style="font-size:11px;font-weight:700;color:${clr.doneTxt}">✓ Готово</span>`:''}
     </label>`;
   })();
   // Launch stage row (after design, before production) — показывается ВСЕГДА
@@ -7913,7 +7936,7 @@ function renderStagesBody(o) {
     // Для заказов с конструктором — показываем только после проекта; без конструктора — сразу
     if (!o.no_project && !designDone && !done) return '';
     const curLaunchDate = getLaunchDate(o) || '';
-    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?'#dcfce7':'#e0f2fe'};border-radius:9px;border:1.5px solid ${done?'#86efac':'#7dd3fc'};margin-bottom:10px;flex-wrap:wrap">
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${done?clr.doneBg:clr.launchBg};border-radius:9px;border:1.5px solid ${done?clr.doneBdr:clr.launchBdr};margin-bottom:10px;flex-wrap:wrap">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:180px">
         <input type="checkbox" ${done?'checked':''} style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0" onchange="toggleStage('${o.id}','launch',this.checked)">
         <div style="flex:1"><div style="font-weight:700;font-size:13px">Запуск выполнен</div>
@@ -7961,8 +7984,8 @@ function renderStagesBody(o) {
   const stageLbl = { cutting:'Распил', edging:'Кромка', drilling:'Присадка', packing:'Упаковка' };
 
   const headerCells = stageKeys.map(k =>
-    `<th style="text-align:center;padding:8px 6px;font-size:11px;background:#f1f5f9;border:1px solid var(--border);white-space:nowrap">${stageIco[k]}<br>${stageLbl[k]}</th>`
-  ).join('') + `<th style="text-align:center;padding:8px 6px;font-size:11px;background:#fee2e2;border:1px solid var(--border);white-space:nowrap;color:#991b1b">🔴<br>Красная зона</th>`;
+    `<th style="text-align:center;padding:8px 6px;font-size:11px;background:var(--gray-l);border:1px solid var(--border);white-space:nowrap">${stageIco[k]}<br>${stageLbl[k]}</th>`
+  ).join('') + `<th style="text-align:center;padding:8px 6px;font-size:11px;background:${dk?'rgba(153,27,27,.25)':'#fee2e2'};border:1px solid var(--border);white-space:nowrap;color:${dk?'#fca5a5':'#991b1b'}">🔴<br>Красная зона</th>`;
 
   // Фрезеровка МДФ показывается отдельной строкой в конце, не через stageKeys
   const regularMats = o.materials.filter(mat => mat.type !== 'mill');
@@ -8076,7 +8099,7 @@ function renderStagesBody(o) {
   // Строка "Проект готов" внутри таблицы (перед распилом)
   const designRowHtml = (!o.no_project) ? (() => {
     const done = !!(o.stages_done?.design);
-    return `<tr style="background:${done?'#dcfce7':'#f0f9ff'}">
+    return `<tr style="background:${done?clr.doneBg:clr.designBg}">
       <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
         <div>Проект готов</div>
         <div style="font-size:10px;color:var(--muted);font-weight:400">${o.design_end?fmt(o.design_end,true):'— не задана'}</div>
@@ -8086,10 +8109,10 @@ function renderStagesBody(o) {
           <input type="checkbox" ${done?'checked':''} style="width:17px;height:17px;accent-color:var(--primary);cursor:pointer;flex-shrink:0"
             onchange="toggleStage('${o.id}','design',this.checked)">
           <div>
-            <div style="font-size:12px;font-weight:700;color:${done?'#15803d':'var(--text)'}">${done?'✓ Проект готов':'Отметить как готовый'}</div>
+            <div style="font-size:12px;font-weight:700;color:${done?clr.doneTxt:'var(--text)'}">${done?'✓ Проект готов':'Отметить как готовый'}</div>
             <div style="font-size:10px;color:var(--muted)">${done?'Ожидает запуска':'При отметке — создаст задачу на запуск'}</div>
           </div>
-          ${done?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:#15803d">✓ Готово</span>`:''}
+          ${done?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:${clr.doneTxt}">✓ Готово</span>`:''}
         </label>
       </td>
     </tr>`;
@@ -8098,7 +8121,7 @@ function renderStagesBody(o) {
   // Показываем для no_project всегда, для обычных — после проекта
   const launchRowHtml = (o.no_project || o.stages_done?.design) ? (() => {
     const done = !!(o.stages_done?.launch || o.launch_stage_data?.done);
-    return `<tr style="background:${done?'#dcfce7':'#e0f2fe'}">
+    return `<tr style="background:${done?clr.doneBg:clr.launchBg}">
       <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
         <div>Запуск</div>
         <div style="font-size:10px;color:var(--muted);font-weight:400">${o.launch_stage_data?.completed_at?fmt(o.launch_stage_data.completed_at,true):'— ожидает'}</div>
@@ -8108,10 +8131,10 @@ function renderStagesBody(o) {
           <input type="checkbox" ${done?'checked':''} style="width:17px;height:17px;accent-color:var(--primary);cursor:pointer;flex-shrink:0"
             onchange="toggleStage('${o.id}','launch',this.checked)">
           <div>
-            <div style="font-size:12px;font-weight:700;color:${done?'#15803d':'var(--text)'}">${done?'✓ Запуск выполнен — в производство':'Отметить как запущенный'}</div>
+            <div style="font-size:12px;font-weight:700;color:${done?clr.doneTxt:'var(--text)'}">${done?'✓ Запуск выполнен — в производство':'Отметить как запущенный'}</div>
             <div style="font-size:10px;color:var(--muted)">${done?'Даты распила назначены автоматически':'При отметке — автоматически поставит в очередь на ближайший свободный слот'}</div>
           </div>
-          ${done?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:#15803d">✓ Готово</span>`:''}
+          ${done?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:${clr.doneTxt}">✓ Готово</span>`:''}
         </label>
       </td>
     </tr>`;
@@ -8128,7 +8151,7 @@ function renderStagesBody(o) {
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr>
-          <th style="text-align:left;padding:8px 10px;font-size:11px;background:#f1f5f9;border:1px solid var(--border)">Материал</th>
+          <th style="text-align:left;padding:8px 10px;font-size:11px;background:var(--gray-l);border:1px solid var(--border)">Материал</th>
           ${headerCells}
         </tr></thead>
         <tbody>${designRowHtml}${launchRowHtml}${matRows}${millRows}${(()=>{
@@ -8136,7 +8159,7 @@ function renderStagesBody(o) {
           if (o.has_gluing) {
             const done = !!o.stages_done?.gluing;
             const gluDate = getGluingDate(o) || '';
-            extra += `<tr style="background:${done?'#dcfce7':'#f0fdfa'}">
+            extra += `<tr style="background:${done?clr.doneBg:(dk?'rgba(13,148,136,.12)':'#f0fdfa')}">
               <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
                 <div>Склейка</div>
                 <div style="font-size:10px;color:var(--muted);font-weight:400">${o.gluing_sqm||0} м²</div>
@@ -8148,9 +8171,9 @@ function renderStagesBody(o) {
                     <input type="checkbox" ${done?'checked':''} style="width:17px;height:17px;accent-color:#0d9488;cursor:pointer;flex-shrink:0"
                       onchange="toggleStage('${o.id}','gluing',this.checked)">
                     <div>
-                      <div style="font-size:12px;font-weight:700;color:${done?'#15803d':'var(--text)'}">${done?'✓ Склейка выполнена':'Отметить склейку'}</div>
+                      <div style="font-size:12px;font-weight:700;color:${done?clr.doneTxt:'var(--text)'}">${done?'✓ Склейка выполнена':'Отметить склейку'}</div>
                     </div>
-                    ${done?'<span style="margin-left:auto;font-size:11px;font-weight:700;color:#15803d">✓ Готово</span>':''}
+                    ${done?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:${clr.doneTxt}">✓ Готово</span>`:''}
                   </label>
                   <input type="date" value="${gluDate}" style="padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:5px;width:130px"
                     onchange="setStageDate('${o.id}','gluing_date',this.value)" title="Дата склейки">
@@ -8161,7 +8184,7 @@ function renderStagesBody(o) {
           if (o.has_curvilinear) {
             const done = !!o.stages_done?.curvilinear;
             const curDate = getCurviDate(o) || '';
-            extra += `<tr style="background:${done?'#dcfce7':'#fdf2f8'}">
+            extra += `<tr style="background:${done?clr.doneBg:(dk?'rgba(190,24,93,.12)':'#fdf2f8')}">
               <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;font-size:12px">
                 <div>Криволинейка</div>
                 <div style="font-size:10px;color:var(--muted);font-weight:400">${o.curvilinear_meters||0} м</div>
@@ -8173,9 +8196,9 @@ function renderStagesBody(o) {
                     <input type="checkbox" ${done?'checked':''} style="width:17px;height:17px;accent-color:#be185d;cursor:pointer;flex-shrink:0"
                       onchange="toggleStage('${o.id}','curvilinear',this.checked)">
                     <div>
-                      <div style="font-size:12px;font-weight:700;color:${done?'#15803d':'var(--text)'}">${done?'✓ Криволинейка выполнена':'Отметить криволинейку'}</div>
+                      <div style="font-size:12px;font-weight:700;color:${done?clr.doneTxt:'var(--text)'}">${done?'✓ Криволинейка выполнена':'Отметить криволинейку'}</div>
                     </div>
-                    ${done?'<span style="margin-left:auto;font-size:11px;font-weight:700;color:#15803d">✓ Готово</span>':''}
+                    ${done?`<span style="margin-left:auto;font-size:11px;font-weight:700;color:${clr.doneTxt}">✓ Готово</span>`:''}
                   </label>
                   <input type="date" value="${curDate}" style="padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:5px;width:130px"
                     onchange="setStageDate('${o.id}','curvilinear_date',this.value)" title="Дата криволинейки">
@@ -10441,37 +10464,82 @@ async function deleteClient(id) {
 }
 
 // ── КАТАЛОГ ──
-let _editCatalogId = null;
+let _editCatalogId  = null;
+let _catalogSelected = new Set();  // ID выбранных позиций
+let _catalogDupCtx   = null;       // { payload, existingId, ctx } — контекст разрешения дубля
+let _catalogImportPending = null;  // { rows, dups } — ожидающий подтверждения импорт
 
 const _CAT_LABELS = { sheet:'🪵 Листовые', edging:'📏 Кромка', hardware:'🔩 Фурнитура', services:'⚙️ Услуги' };
 
+// ──────────────────────────────────────
+// Проверка дубля в каталоге
+// ──────────────────────────────────────
+function _findCatalogDup(payload, excludeId) {
+  const qName = (payload.name || '').toLowerCase().trim();
+  const qMfr  = (payload.manufacturer || '').toLowerCase().trim();
+  const qSku  = (payload.sku || '').toLowerCase().trim();
+  return (_catalog || []).find(c => {
+    if (c.id === excludeId) return false;
+    if (c.category !== payload.category) return false;
+    // Совпадение по SKU (если оба непустые)
+    if (qSku && (c.sku||'').toLowerCase().trim() === qSku) return true;
+    // Совпадение по имени + производителю
+    const cName = (c.name || '').toLowerCase().trim();
+    const cMfr  = (c.manufacturer || '').toLowerCase().trim();
+    return cName === qName && cMfr === qMfr;
+  }) || null;
+}
+
+// ──────────────────────────────────────
+// Рендер списка каталога
+// ──────────────────────────────────────
 function renderCatalogList() {
   const el = document.getElementById('catalog-list');
   if (!el) return;
-  const q = (document.getElementById('catalog-search')?.value || '').toLowerCase();
+  const q = (document.getElementById('catalog-search')?.value || '').toLowerCase().trim();
+  // Сбрасываем выбор при перерисовке
+  _catalogSelected = new Set();
+  _updateCatalogBulkBar();
+
   const list = _catalog.filter(c =>
     c.category === _catalogTab &&
-    (c.name.toLowerCase().includes(q) || c.manufacturer.toLowerCase().includes(q) || (c.sku||'').toLowerCase().includes(q))
+    ((c.name||'').toLowerCase().includes(q) ||
+     (c.manufacturer||'').toLowerCase().includes(q) ||
+     (c.sku||'').toLowerCase().includes(q))
   );
+
   if (!list.length) {
-    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">${q ? 'Не найдено' : 'Позиций нет. Добавьте вручную или загрузите Excel.'}</div>`;
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">${q ? 'Не найдено по запросу «' + escHtml(q) + '»' : 'Позиций нет. Добавьте вручную или загрузите Excel.'}</div>`;
     return;
   }
+
   // Группировка по производителю
   const byMfr = {};
-  list.forEach(c => { (byMfr[c.manufacturer] = byMfr[c.manufacturer]||[]).push(c); });
-  el.innerHTML = Object.entries(byMfr).map(([mfr, items]) => `
+  list.forEach(c => { const key = c.manufacturer || '—'; (byMfr[key] = byMfr[key]||[]).push(c); });
+
+  const headerHtml = `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;margin-bottom:6px">
+      <input type="checkbox" id="cat-sel-all" title="Выбрать все"
+        onchange="toggleCatalogSelectAll(this.checked)"
+        style="width:15px;height:15px;cursor:pointer;flex-shrink:0">
+      <span style="font-size:11px;color:var(--muted)">${list.length} позиций</span>
+    </div>`;
+
+  const bodyHtml = Object.entries(byMfr).map(([mfr, items]) => `
     <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:6px">${escHtml(mfr)}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:4px 0 4px 26px;border-bottom:1px solid var(--border);margin-bottom:5px">${escHtml(mfr)}</div>
       ${items.map(c => `
         <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;border:1px solid var(--border);margin-bottom:4px;background:var(--card)">
-          <div style="flex:1;min-width:0">
+          <input type="checkbox" class="cat-sel-cb" data-id="${escHtml(c.id)}"
+            onchange="toggleCatalogItemSel('${escHtml(c.id)}',this.checked)"
+            style="width:15px;height:15px;cursor:pointer;flex-shrink:0">
+          <div style="flex:1;min-width:0;cursor:pointer" onclick="openEditCatalogItem('${escHtml(c.id)}')">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span style="font-size:13px;font-weight:600">${escHtml(c.name)}</span>
               ${c.sku ? `<span style="font-size:10px;color:var(--muted);background:var(--gray-l);border-radius:4px;padding:1px 5px;font-family:monospace">${escHtml(c.sku)}</span>` : ''}
               <span style="font-size:11px;color:var(--muted)">${escHtml(c.unit||'шт')}</span>
             </div>
-            <div style="display:flex;gap:10px;margin-top:3px;flex-wrap:wrap">
+            <div style="display:flex;gap:10px;margin-top:2px;flex-wrap:wrap">
               ${c.thickness != null ? `<span style="font-size:11px;color:var(--muted)">⬛ ${c.thickness} мм</span>` : ''}
               ${c.sheet_size ? `<span style="font-size:11px;color:var(--muted)">📐 ${escHtml(c.sheet_size)}</span>` : ''}
             </div>
@@ -10482,6 +10550,83 @@ function renderCatalogList() {
           </div>
         </div>`).join('')}
     </div>`).join('');
+
+  el.innerHTML = headerHtml + bodyHtml;
+}
+
+// ──────────────────────────────────────
+// Мультиселект
+// ──────────────────────────────────────
+function toggleCatalogItemSel(id, checked) {
+  if (checked) _catalogSelected.add(id);
+  else _catalogSelected.delete(id);
+  _updateCatalogBulkBar();
+  // Синхронизируем "выбрать все"
+  const allCbs = document.querySelectorAll('.cat-sel-cb');
+  const sa = document.getElementById('cat-sel-all');
+  if (!sa) return;
+  if (_catalogSelected.size === 0)                     { sa.checked = false; sa.indeterminate = false; }
+  else if (_catalogSelected.size === allCbs.length)    { sa.checked = true;  sa.indeterminate = false; }
+  else                                                  { sa.checked = false; sa.indeterminate = true;  }
+}
+
+function toggleCatalogSelectAll(checked) {
+  document.querySelectorAll('.cat-sel-cb').forEach(cb => {
+    cb.checked = checked;
+    if (checked) _catalogSelected.add(cb.dataset.id);
+    else _catalogSelected.delete(cb.dataset.id);
+  });
+  _updateCatalogBulkBar();
+}
+
+function clearCatalogSel() {
+  _catalogSelected.clear();
+  document.querySelectorAll('.cat-sel-cb').forEach(cb => cb.checked = false);
+  const sa = document.getElementById('cat-sel-all');
+  if (sa) { sa.checked = false; sa.indeterminate = false; }
+  _updateCatalogBulkBar();
+}
+
+function _updateCatalogBulkBar() {
+  const bar = document.getElementById('catalog-bulk-bar');
+  if (!bar) return;
+  const n = _catalogSelected.size;
+  bar.style.display = n > 0 ? 'flex' : 'none';
+  const lbl = document.getElementById('catalog-bulk-count');
+  if (lbl) lbl.textContent = `Выбрано: ${n} ${n===1?'позиция':n<5?'позиции':'позиций'}`;
+}
+
+// ──────────────────────────────────────
+// Массовое удаление
+// ──────────────────────────────────────
+async function deleteCatalogBulk() {
+  const ids = [..._catalogSelected];
+  if (!ids.length) return;
+
+  // Проверяем использование в заказах
+  const usedNames = [];
+  ids.forEach(id => {
+    const c = _catalog.find(x => x.id === id);
+    const inOrders = orders.some(o => (o.materials||[]).some(m => m.catalog_item_id === id));
+    if (inOrders && c) usedNames.push(c.name);
+  });
+
+  let msg = `Удалить ${ids.length} ${ids.length===1?'позицию':ids.length<5?'позиции':'позиций'} каталога?`;
+  if (usedNames.length) {
+    msg += `\n\n⚠️ ${usedNames.length} из них используются в существующих заказах:\n`
+         + usedNames.slice(0,5).join('\n')
+         + (usedNames.length>5 ? `\n...и ещё ${usedNames.length-5}` : '')
+         + `\n\nЗаказы не изменятся, материал останется в них с прежними данными,\nно потеряет связь с каталогом (ссылка на подробности).`;
+  }
+  if (!confirm(msg)) return;
+  if (!_sb) { alert('Нет подключения к Supabase'); return; }
+
+  const { error } = await _sb.from('catalog_items').delete().in('id', ids);
+  if (error) { alert('Ошибка удаления: ' + error.message); return; }
+
+  _catalog = _catalog.filter(c => !ids.includes(c.id));
+  _catalogSelected.clear();
+  renderCatalogList();
 }
 
 let _addCatalogCtx = null; // { form: 'new'|'edit', matId: string }
@@ -10544,6 +10689,9 @@ function closeAddCatalogItem() {
   document.getElementById('add-catalog-overlay').classList.remove('show');
 }
 
+// ──────────────────────────────────────
+// Сохранение позиции каталога (с проверкой дублей)
+// ──────────────────────────────────────
 async function saveCatalogItem() {
   const category     = document.getElementById('aci-category').value;
   const isSrv        = category === 'services';
@@ -10561,30 +10709,133 @@ async function saveCatalogItem() {
   const payload = { category, manufacturer, name, sku: sku||null, unit, thickness, sheet_size };
 
   if (_editCatalogId) {
+    // Редактирование — проверяем дубли среди ДРУГИХ позиций
+    const dup = _findCatalogDup(payload, _editCatalogId);
+    if (dup) {
+      if (!confirm(`Позиция «${dup.name}» (${dup.manufacturer||'—'}) уже есть в каталоге.\nВсё равно сохранить изменения?`)) return;
+    }
     const { error } = await _sb.from('catalog_items').update(payload).eq('id', _editCatalogId);
     if (error) { alert('Ошибка: ' + error.message); return; }
     const idx = _catalog.findIndex(x => x.id === _editCatalogId);
     if (idx >= 0) _catalog[idx] = { ..._catalog[idx], ...payload };
+    closeAddCatalogItem();
+    renderCatalogList();
   } else {
+    // Новая запись — ищем дубль
+    const dup = _findCatalogDup(payload, null);
+    if (dup) {
+      // Показываем модал разрешения дубля
+      _catalogDupCtx = { payload, existingId: dup.id, ctx: _addCatalogCtx };
+      _addCatalogCtx = null;
+      _showCatalogDupModal(dup, payload);
+      return; // не закрываем форму — ждём решения
+    }
+    // Дублей нет — вставляем
     const { data, error } = await _sb.from('catalog_items').insert(payload).select().single();
     if (error) { alert('Ошибка: ' + error.message); return; }
     _catalog.push(data);
-    // Автовыбор только что созданной позиции в поле материала
     if (_addCatalogCtx && data) {
       const { form, matId } = _addCatalogCtx;
       if (form === 'new') fmatSelectCatalog(matId, data.id, data.name, data.manufacturer);
       else if (form === 'edit') ematSelectCatalog(matId, data.id, data.name, data.manufacturer);
       _addCatalogCtx = null;
     }
+    closeAddCatalogItem();
+    renderCatalogList();
   }
+}
+
+// ──────────────────────────────────────
+// Модал разрешения дубля
+// ──────────────────────────────────────
+function _showCatalogDupModal(existing, newData) {
+  const el = document.getElementById('catalog-dup-overlay');
+  if (!el) return;
+
+  function fmtItem(c) {
+    return [c.name, c.manufacturer && c.manufacturer !== '—' ? c.manufacturer : null].filter(Boolean).join(' · ');
+  }
+  function fmtDetails(c) {
+    return [
+      c.sku ? `Арт: ${c.sku}` : null,
+      c.thickness != null ? `${c.thickness} мм` : null,
+      c.sheet_size || null,
+    ].filter(Boolean).join(' · ');
+  }
+
+  document.getElementById('cdup-existing-name').textContent    = fmtItem(existing);
+  document.getElementById('cdup-existing-details').textContent = fmtDetails(existing);
+  document.getElementById('cdup-new-name').textContent         = fmtItem(newData);
+  document.getElementById('cdup-new-details').textContent      = fmtDetails(newData);
+
+  // Сколько заказов используют эту позицию
+  const usedCount = orders.reduce((n, o) =>
+    n + (o.materials||[]).filter(m => m.catalog_item_id === existing.id).length, 0);
+  const usedEl = document.getElementById('cdup-used-count');
+  if (usedEl) usedEl.textContent = usedCount > 0
+    ? `⚠️ Используется в ${usedCount} позициях заказов.`
+    : 'В заказах не используется.';
+
+  const warnEl = document.getElementById('cdup-update-warn');
+  if (warnEl) warnEl.style.display = usedCount > 0 ? '' : 'none';
+
+  el.classList.add('show');
+}
+
+function closeCatalogDupModal() {
+  document.getElementById('catalog-dup-overlay').classList.remove('show');
+}
+
+async function resolveCatalogDup(action) {
+  closeCatalogDupModal();
+  const dupCtx = _catalogDupCtx;
+  _catalogDupCtx = null;
+  if (action === 'cancel' || !dupCtx) return;
+
+  const { payload, existingId, ctx } = dupCtx;
+
+  if (action === 'update') {
+    // Обновляем существующую запись
+    const { error } = await _sb.from('catalog_items').update(payload).eq('id', existingId);
+    if (error) { alert('Ошибка обновления: ' + error.message); return; }
+    const idx = _catalog.findIndex(x => x.id === existingId);
+    if (idx >= 0) _catalog[idx] = { ..._catalog[idx], ...payload };
+    // Автовыбор в форме заказа
+    if (ctx) {
+      const updated = _catalog.find(x => x.id === existingId);
+      const { form, matId } = ctx;
+      if (form === 'new') fmatSelectCatalog(matId, existingId, updated?.name||payload.name, updated?.manufacturer||payload.manufacturer);
+      else if (form === 'edit') ematSelectCatalog(matId, existingId, updated?.name||payload.name, updated?.manufacturer||payload.manufacturer);
+    }
+  } else if (action === 'insert') {
+    // Создаём новую (дубль в каталоге допускается)
+    const { data, error } = await _sb.from('catalog_items').insert(payload).select().single();
+    if (error) { alert('Ошибка: ' + error.message); return; }
+    _catalog.push(data);
+    if (ctx && data) {
+      const { form, matId } = ctx;
+      if (form === 'new') fmatSelectCatalog(matId, data.id, data.name, data.manufacturer);
+      else if (form === 'edit') ematSelectCatalog(matId, data.id, data.name, data.manufacturer);
+    }
+  }
+
   closeAddCatalogItem();
   renderCatalogList();
 }
 
+// ──────────────────────────────────────
+// Удаление одной позиции
+// ──────────────────────────────────────
 async function deleteCatalogItem(id) {
   const c = _catalog.find(x => x.id === id);
-  if (!confirm(`Удалить «${c?.name}»?`)) return;
+  if (!c) return;
+
+  const inOrders = orders.some(o => (o.materials||[]).some(m => m.catalog_item_id === id));
+  let msg = `Удалить «${c.name}»?`;
+  if (inOrders) msg += `\n\n⚠️ Эта позиция используется в заказах.\nЗаказы не изменятся, но потеряют ссылку на каталог.`;
+  if (!confirm(msg)) return;
   if (!_sb) return;
+
   const { error } = await _sb.from('catalog_items').delete().eq('id', id);
   if (error) { alert('Ошибка: ' + error.message); return; }
   _catalog = _catalog.filter(x => x.id !== id);
@@ -10598,27 +10849,29 @@ async function importCatalogExcel(input) {
   input.value = '';
 
   const catMap = {
-    'листовые':'sheet','лдсп':'sheet','мдф':'sheet','фанера':'sheet',
-    'кромка':'edging',
-    'фурнитура':'hardware','петли':'hardware',
-    'услуги':'services','услуги производства':'services'
+    'листовые':'sheet','лдсп':'sheet','мдф':'sheet','фанера':'sheet','хдф':'sheet',
+    'кромка':'edging','кромка пвх':'edging',
+    'фурнитура':'hardware','петли':'hardware','фурнитура/комплектующие':'hardware',
+    'услуги':'services','услуги производства':'services','услуга':'services'
   };
 
   function parseRows(rawData) {
-    // rawData — массив массивов (строки × колонки)
     const rows = [];
     for (let i = 1; i < rawData.length; i++) {
       const cols = (rawData[i] || []).map(c => (c == null ? '' : String(c)).trim());
       const [catRaw, manufacturer, itemName, sku, thicknessRaw, sheetSize] = cols;
-      if (!manufacturer || !itemName) continue;
+      if (!itemName) continue;
       const catKey = catMap[(catRaw||'').toLowerCase()] || 'sheet';
-      const thickness = thicknessRaw ? (parseFloat(String(thicknessRaw).replace(',','.')) || 16) : 16;
+      const isSheet = catKey === 'sheet' || catKey === 'edging';
+      const thickness = isSheet ? (thicknessRaw ? (parseFloat(String(thicknessRaw).replace(',','.')) || 16) : 16) : null;
       rows.push({
-        category: catKey, manufacturer, name: itemName,
+        category: catKey,
+        manufacturer: manufacturer || '—',
+        name: itemName,
         sku: sku || null,
-        unit: catKey==='edging'?'м.п.':catKey==='hardware'?'шт':'лист',
+        unit: catKey==='edging'?'м.п.':catKey==='hardware'?'шт':catKey==='services'?'шт':'лист',
         thickness,
-        sheet_size: sheetSize || null
+        sheet_size: (isSheet && sheetSize) ? sheetSize : null
       });
     }
     return rows;
@@ -10628,7 +10881,6 @@ async function importCatalogExcel(input) {
   let rows = [];
 
   if (fname.endsWith('.xlsx') || fname.endsWith('.xls')) {
-    // Парсим через SheetJS
     if (typeof XLSX === 'undefined') { alert('Библиотека xlsx не загружена. Проверьте интернет-соединение.'); return; }
     const buf = await file.arrayBuffer();
     const wb  = XLSX.read(buf, { type: 'array' });
@@ -10636,7 +10888,6 @@ async function importCatalogExcel(input) {
     const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
     rows = parseRows(data);
   } else {
-    // CSV
     const text = await file.text();
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length < 2) { alert('Файл пустой или нет данных'); return; }
@@ -10644,20 +10895,115 @@ async function importCatalogExcel(input) {
     rows = parseRows(data);
   }
 
-  if (!rows.length) { alert('Не удалось распознать строки.\n\nКолонки: A=Категория, B=Производитель, C=Наименование, D=Артикул, E=Толщина(мм), F=Размер листа'); return; }
-  if (!confirm(`Загрузить ${rows.length} позиций в каталог?`)) return;
+  if (!rows.length) {
+    alert('Не удалось распознать строки.\n\nОжидаемые колонки (строка 1 — заголовок):\nA = Категория · B = Производитель · C = Наименование · D = Артикул · E = Толщина (мм) · F = Размер');
+    return;
+  }
 
-  // Пакетная вставка по 50 строк
+  // Ищем дубли
+  const dupRows = [];
+  const newRows = [];
+  rows.forEach(row => {
+    const dup = _findCatalogDup(row, null);
+    if (dup) dupRows.push({ row, existing: dup });
+    else newRows.push(row);
+  });
+
+  if (!dupRows.length) {
+    if (!confirm(`Загрузить ${rows.length} позиций в каталог?`)) return;
+    await _execCatalogImportBatch(rows, []);
+    return;
+  }
+
+  // Есть дубли — показываем модал выбора политики
+  _catalogImportPending = { rows, dups: dupRows, news: newRows };
+  _showCatalogImportDupModal(dupRows, newRows);
+}
+
+function _showCatalogImportDupModal(dupRows, newRows) {
+  const el = document.getElementById('catalog-import-dup-overlay');
+  if (!el) return;
+
+  const summaryEl = document.getElementById('cimport-summary');
+  if (summaryEl) summaryEl.innerHTML =
+    `Файл содержит <b>${dupRows.length + newRows.length} позиций</b>:<br>`
+    + `• <span style="color:#1d4ed8;font-weight:700">${newRows.length} новых</span> — будут добавлены<br>`
+    + `• <span style="color:#b45309;font-weight:700">${dupRows.length} дублей</span> — уже есть в каталоге`;
+
+  const listEl = document.getElementById('cimport-dup-list');
+  if (listEl) {
+    const show = dupRows.slice(0, 30);
+    listEl.innerHTML = show.map(({ row, existing }) => `
+      <div style="border:1px solid var(--border);border-radius:7px;padding:7px 10px;background:var(--card);font-size:12px">
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <div style="flex:1">
+            <div style="color:var(--muted);font-size:10px;font-weight:700;margin-bottom:2px">НОВОЕ В ФАЙЛЕ</div>
+            <b>${escHtml(row.name)}</b>${row.manufacturer && row.manufacturer!=='—'?' · '+escHtml(row.manufacturer):''}
+            ${row.sku?`<span style="font-family:monospace;background:var(--gray-l);border-radius:3px;padding:0 4px;margin-left:4px">${escHtml(row.sku)}</span>`:''}
+            ${row.thickness?`<span style="color:var(--muted)"> · ${row.thickness} мм</span>`:''}
+          </div>
+          <div style="flex:1">
+            <div style="color:#b45309;font-size:10px;font-weight:700;margin-bottom:2px">В КАТАЛОГЕ</div>
+            <b>${escHtml(existing.name)}</b>${existing.manufacturer && existing.manufacturer!=='—'?' · '+escHtml(existing.manufacturer):''}
+            ${existing.sku?`<span style="font-family:monospace;background:var(--gray-l);border-radius:3px;padding:0 4px;margin-left:4px">${escHtml(existing.sku)}</span>`:''}
+            ${existing.thickness?`<span style="color:var(--muted)"> · ${existing.thickness} мм</span>`:''}
+          </div>
+        </div>
+      </div>`).join('')
+      + (dupRows.length > 30 ? `<div style="text-align:center;font-size:11px;color:var(--muted);padding:6px">...и ещё ${dupRows.length-30} дублей</div>` : '');
+  }
+
+  el.classList.add('show');
+}
+
+async function execCatalogImport(policy) {
+  document.getElementById('catalog-import-dup-overlay').classList.remove('show');
+  const pending = _catalogImportPending;
+  _catalogImportPending = null;
+  if (!pending) return;
+
+  const { dups, news } = pending;
+  let toInsert = [];
+  let toUpdate = [];
+
+  if (policy === 'insert_new') {
+    toInsert = news;
+  } else if (policy === 'update_dups') {
+    toInsert = news;
+    toUpdate = dups.map(({ row, existing }) => ({ id: existing.id, payload: row }));
+  } else if (policy === 'insert_all') {
+    toInsert = [...news, ...dups.map(d => d.row)];
+  }
+
+  await _execCatalogImportBatch(toInsert, toUpdate);
+}
+
+async function _execCatalogImportBatch(toInsert, toUpdate) {
+  if (!_sb) { alert('Нет подключения к Supabase'); return; }
+  let added = 0, updated = 0, errors = 0, errDetails = [];
+
+  // Обновление дублей
+  for (const { id, payload } of (toUpdate||[])) {
+    const { error } = await _sb.from('catalog_items').update(payload).eq('id', id);
+    if (!error) {
+      const idx = _catalog.findIndex(x => x.id === id);
+      if (idx >= 0) _catalog[idx] = { ..._catalog[idx], ...payload };
+      updated++;
+    } else {
+      errors++;
+      errDetails.push(`[обновление] ${payload.name}: ${error.message}`);
+    }
+  }
+
+  // Вставка новых (пакетами по 50)
   const BATCH = 50;
-  let added = 0, errors = 0, errDetails = [];
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const chunk = rows.slice(i, i + BATCH);
+  for (let i = 0; i < toInsert.length; i += BATCH) {
+    const chunk = toInsert.slice(i, i + BATCH);
     const { data, error } = await _sb.from('catalog_items').insert(chunk).select();
     if (!error && data) {
       data.forEach(d => _catalog.push(d));
       added += data.length;
     } else {
-      // Пробуем по одной, чтобы найти проблемные строки
       for (const row of chunk) {
         const { data: d2, error: e2 } = await _sb.from('catalog_items').insert(row).select().single();
         if (!e2 && d2) { _catalog.push(d2); added++; }
@@ -10665,8 +11011,14 @@ async function importCatalogExcel(input) {
       }
     }
   }
-  const errMsg = errDetails.length ? `\nОшибок: ${errors}\n${errDetails.slice(0,5).join('\n')}${errDetails.length>5?`\n...и ещё ${errDetails.length-5}`:''}` : '';
-  alert(`Добавлено: ${added} из ${rows.length}${errMsg}`);
+
+  const errMsg = errDetails.length
+    ? `\n\nОшибок: ${errors}\n${errDetails.slice(0,5).join('\n')}${errDetails.length>5?`\n...и ещё ${errDetails.length-5}`:''}`
+    : '';
+  const parts = [];
+  if (added)   parts.push(`Добавлено: ${added}`);
+  if (updated) parts.push(`Обновлено: ${updated}`);
+  alert((parts.length ? parts.join(', ') : 'Изменений нет') + errMsg);
   renderCatalogList();
 }
 
@@ -11724,6 +12076,59 @@ async function saveWarehouseIn() {
       </div>
     </div>
     <div class="mf"><button class="btn btn-secondary" onclick="closeAddCatalogItem()">Отмена</button><button class="btn btn-primary" onclick="saveCatalogItem()">Сохранить</button></div>
+  </div>
+</div>
+
+<!-- ── MODAL: КАТАЛОГ — ДУБЛЬ НАЙДЕН ── -->
+<div class="overlay" id="catalog-dup-overlay" role="dialog" style="z-index:1200">
+  <div class="modal" style="width:480px;max-width:95vw">
+    <div class="mh"><div><div class="mt">⚠️ Похожая позиция уже есть</div></div><button class="mx" onclick="resolveCatalogDup('cancel')">×</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:13px;line-height:1.6;color:var(--text)">
+        В каталоге уже есть позиция с совпадающим названием, производителем или артикулом:
+      </div>
+      <div style="background:var(--gray-l);border-radius:8px;padding:10px 14px;border:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">Существующая запись</div>
+        <div id="cdup-existing-name" style="font-size:13px;font-weight:700"></div>
+        <div id="cdup-existing-details" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+        <div id="cdup-used-count" style="font-size:11px;color:#92400e;margin-top:4px;font-weight:600"></div>
+      </div>
+      <div style="background:#eff6ff;border-radius:8px;padding:10px 14px;border:1px solid #bfdbfe">
+        <div style="font-size:10px;color:#1d4ed8;font-weight:700;text-transform:uppercase;margin-bottom:4px">Новые данные</div>
+        <div id="cdup-new-name" style="font-size:13px;font-weight:700"></div>
+        <div id="cdup-new-details" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+      </div>
+      <div id="cdup-update-warn" style="display:none;font-size:11px;color:#b45309;background:#fef3c7;border-radius:6px;padding:8px 10px;border:1px solid #fcd34d">
+        ⚠️ Обновление изменит отображение этого материала во всех существующих заказах.
+      </div>
+    </div>
+    <div class="mf" style="flex-wrap:wrap;gap:6px">
+      <button class="btn btn-secondary" onclick="resolveCatalogDup('cancel')" style="margin-right:auto">Отмена</button>
+      <button class="btn" onclick="resolveCatalogDup('insert')" style="background:#f0fdf4;color:#166534;border:1px solid #86efac">Создать как новый</button>
+      <button class="btn btn-primary" onclick="resolveCatalogDup('update')">Обновить существующий</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: ИМПОРТ КАТАЛОГА — ДУБЛИ ── -->
+<div class="overlay" id="catalog-import-dup-overlay" role="dialog" style="z-index:1200">
+  <div class="modal" style="width:520px;max-width:95vw">
+    <div class="mh"><div><div class="mt">📥 Импорт каталога</div></div><button class="mx" onclick="document.getElementById('catalog-import-dup-overlay').classList.remove('show')">×</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:12px">
+      <div id="cimport-summary" style="font-size:13px;line-height:1.7"></div>
+      <div id="cimport-dup-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6">
+        <b>Обновить дубли</b> — изменит поля существующих позиций (затронет отображение в заказах).<br>
+        <b>Пропустить дубли</b> — добавит только новые позиции.<br>
+        <b>Добавить всё</b> — создаст дубликаты в каталоге.
+      </div>
+    </div>
+    <div class="mf" style="flex-wrap:wrap;gap:6px">
+      <button class="btn btn-secondary" onclick="document.getElementById('catalog-import-dup-overlay').classList.remove('show')" style="margin-right:auto">Отмена</button>
+      <button class="btn" onclick="execCatalogImport('insert_new')" style="background:#f0fdf4;color:#166534;border:1px solid #86efac">Пропустить дубли</button>
+      <button class="btn" onclick="execCatalogImport('update_dups')" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">Обновить дубли</button>
+      <button class="btn btn-primary" onclick="execCatalogImport('insert_all')">Добавить всё</button>
+    </div>
   </div>
 </div>
 
