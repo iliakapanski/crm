@@ -4061,7 +4061,7 @@ function createOrder() {
   (async () => {
     if (!_sb) return;
     const clientMats = (newO.materials||[]).filter(m => m.supply_type === 'client' && m.catalog_item_id && m.qty > 0);
-    if (!clientMats.length || !newO.client_db_id) return;
+    if (!clientMats.length) return;
     const movements = clientMats.map(m => ({
       catalog_item_id: m.catalog_item_id,
       client_id: newO.client_db_id,
@@ -7871,31 +7871,44 @@ function renderStagesBody(o) {
     const clientMats = (o.materials||[]).filter(m => m.supply_type === 'client');
     if (!clientMats.length) return '';
     const cms = o.client_material_statuses || {};
-    const ST_LBL = { reserved:'🔒 Зарезервировано', issued:'➡️ Выдано в пр-во', defect:'⚠️ Брак' };
+    const ST_LBL = { reserved:'🔒 Зарезервировано', issued:'➡️ Выдано в пр-во', defect:'⚠️ Брак (клиент)' };
     const ST_CLR = { reserved:'#d97706', issued:'#7c3aed', defect:'#dc2626' };
     const ST_BG  = { reserved:'#fffbeb', issued:'#f5f3ff', defect:'#fff5f5' };
+    const prodDefs = o.production_defects || [];
     const rows = clientMats.map(m => {
       const st = cms[m.id] || 'reserved';
       const catItem = _catalog && _catalog.find(c => c.id === m.catalog_item_id);
       const matName = catItem ? `${catItem.manufacturer ? catItem.manufacturer+' — ' : ''}${catItem.name}` : (m.desc || 'Материал');
       const btns = ['reserved','issued','defect'].map(ns => {
         const active = st === ns;
-        // "зарезервировано" доступно всегда; "выдано" — после резерва; "брак" — после выдачи
         const disabled = (ns === 'issued' && st === 'defect') || (ns === 'reserved' && st !== 'reserved' && st !== 'issued');
-        return `<button onclick="setClientMatStatus('${o.id}','${m.id}','${ns}')" ${disabled?'disabled':''} style="padding:3px 7px;font-size:10px;font-weight:700;border-radius:5px;cursor:${disabled?'default':'pointer'};opacity:${disabled?.4:1};border:1.5px solid ${active?ST_CLR[ns]:'var(--border)'};background:${active?ST_BG[ns]:'var(--card)'};color:${active?ST_CLR[ns]:'var(--muted)'}">${ST_LBL[ns]}</button>`;
+        const tip = ns==='reserved'?'Зарезервировано на складе':ns==='issued'?'Выдано в производство':'Клиентский материал бракован при получении';
+        return `<button onclick="setClientMatStatus('${o.id}','${m.id}','${ns}')" ${disabled?'disabled':''} title="${tip}" style="padding:3px 7px;font-size:10px;font-weight:700;border-radius:5px;cursor:${disabled?'default':'pointer'};opacity:${disabled?.4:1};border:1.5px solid ${active?ST_CLR[ns]:'var(--border)'};background:${active?ST_BG[ns]:'var(--card)'};color:${active?ST_CLR[ns]:'var(--muted)'}">${ST_LBL[ns]}</button>`;
       }).join('');
+      // Производственные браки по этому материалу
+      const myDefs = prodDefs.filter(d => d.matId === m.id);
+      const defTotal = myDefs.reduce((s,d) => s+(d.qty||0), 0);
+      const defHtml = myDefs.length ? myDefs.map(d =>
+        `<div style="font-size:10px;color:#dc2626;font-weight:600;margin-top:2px">🔨 +${d.qty} л. брак в пр-ве · ${fmt(d.date)||d.date}${d.by?' · '+escHtml(d.by):''}</div>`
+      ).join('') : '';
       const catMeta = [
         catItem?.thickness != null ? `⬛ ${catItem.thickness} мм` : null,
         catItem?.sheet_size ? `📐 ${catItem.sheet_size}` : null,
         catItem?.sku ? catItem.sku : null,
-        m.qty ? 'Кол-во: '+m.qty : null,
+        m.qty ? `Заказано: ${m.qty}${defTotal?` <span style="color:#dc2626">+${defTotal} брак = ${(parseFloat(m.qty)||0)+defTotal} итого</span>`:''}` : null,
       ].filter(Boolean).join(' · ');
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:7px;background:${ST_BG[st]};margin-bottom:6px;flex-wrap:wrap">
-        <div style="flex:1;min-width:160px">
-          <div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(matName)}</div>
-          <div style="font-size:10px;color:var(--muted)">${catMeta} · <span style="color:${ST_CLR[st]};font-weight:700">${ST_LBL[st]}</span></div>
+      return `<div style="padding:7px 10px;border-radius:7px;background:${ST_BG[st]};margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:160px">
+            <div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(matName)}</div>
+            <div style="font-size:10px;color:var(--muted)">${catMeta} · <span style="color:${ST_CLR[st]};font-weight:700">${ST_LBL[st]}</span></div>
+            ${defHtml}
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+            ${btns}
+            <button onclick="addProductionDefectQty('${o.id}','${m.id}')" title="Сломали лист в производстве — взять ещё со склада клиента" style="padding:3px 7px;font-size:10px;font-weight:700;border-radius:5px;cursor:pointer;border:1.5px solid #dc2626;background:#fff1f2;color:#dc2626">🔨 +Брак</button>
+          </div>
         </div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">${btns}</div>
       </div>`;
     }).join('');
     const allIssued = clientMats.every(m => (cms[m.id]||'reserved') === 'issued' || cms[m.id] === 'defect');
@@ -11883,26 +11896,47 @@ function setPurStatus(orderId, matId, newStatus) {
 }
 
 // ── Статус материала заказчика: reserved → issued → defect ──
+// При каждой смене статуса: удаляем старое движение, создаём новое с актуальным типом
 async function setClientMatStatus(orderId, matId, newStatus) {
   const o = orders.find(x => x.id === orderId);
   if (!o) return;
   if (!o.client_material_statuses) o.client_material_statuses = {};
   const prevStatus = o.client_material_statuses[matId] || 'reserved';
+  if (prevStatus === newStatus) return;
   o.client_material_statuses[matId] = newStatus;
 
-  // При списании в брак — дополнительное движение out_defect
-  if (newStatus === 'defect' && _sb) {
+  if (_sb) {
     const m = (o.materials||[]).find(x => x.id === matId);
     if (m && m.catalog_item_id) {
+      // 1. Удаляем предыдущее движение для этого материала/заказа (reserved/issued/defect)
+      const prevTypeMap = { reserved:'out_reserved', issued:'out_issued', defect:'out_defect' };
+      const prevType = prevTypeMap[prevStatus];
+      if (prevType) {
+        const { data: old } = await _sb.from('warehouse_movements')
+          .select('id').eq('order_id', String(orderId)).eq('mat_id', matId).eq('type', prevType);
+        if (old && old.length) {
+          await _sb.from('warehouse_movements').delete().in('id', old.map(r=>r.id));
+          _warehouseMovements = (_warehouseMovements||[]).filter(mv =>
+            !(old.some(r => r.id === mv.id))
+          );
+        }
+      }
+      // 2. Создаём новое движение
+      const newTypeMap = { reserved:'out_reserved', issued:'out_issued', defect:'out_defect' };
+      const noteMap = {
+        reserved: `Зарезервировано для заказа ${orderId}`,
+        issued:   `Выдано в производство по заказу ${orderId}`,
+        defect:   `Брак (клиентский материал) по заказу ${orderId}`
+      };
       const { data, error } = await _sb.from('warehouse_movements').insert({
         date: TODAY,
-        type: 'out_defect',
+        type: newTypeMap[newStatus],
         catalog_item_id: m.catalog_item_id,
         client_id: o.client_db_id || null,
-        qty: m.qty || 1,
+        qty: parseFloat(m.qty) || 1,
         order_id: String(orderId),
         mat_id: matId,
-        note: `Брак по заказу ${orderId} — ${m.desc||''}`.trim(),
+        note: (noteMap[newStatus] + (m.desc ? ' — ' + m.desc : '')).trim(),
         created_by: currentUser?.name || 'Система'
       }).select().single();
       if (!error && data) {
@@ -11914,8 +11948,50 @@ async function setClientMatStatus(orderId, matId, newStatus) {
 
   markDirty(orderId);
   saveOrders();
-  // Перерисовываем панель стадий если открыта
   if (stagesOrderId === orderId) { const oo = orders.find(x=>x.id===orderId); if (oo) renderStagesBody(oo); }
+}
+
+// ── Производственный брак клиентского материала: взять доп. листы со склада ──
+async function addProductionDefectQty(orderId, matId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  const m = (o.materials||[]).find(x => x.id === matId);
+  if (!m) return;
+  const catItem = _catalog && _catalog.find(c => c.id === m.catalog_item_id);
+  const matName = catItem ? `${catItem.manufacturer ? catItem.manufacturer+' — ' : ''}${catItem.name}` : (m.desc||'материал');
+  const qtyStr = prompt(`Кол-во листов брака в производстве (берём доп. листы со склада клиента):\n${matName}`, '1');
+  if (!qtyStr) return;
+  const qty = parseFloat(qtyStr);
+  if (!qty || qty <= 0) { alert('Укажите кол-во больше 0'); return; }
+
+  // Добавляем в массив производственных браков заказа
+  if (!o.production_defects) o.production_defects = [];
+  const defRec = { matId, qty, date: TODAY, note: '', by: currentUser?.name || '' };
+  o.production_defects.push(defRec);
+
+  // Создаём движение out_defect на складе
+  if (_sb && m.catalog_item_id) {
+    const { data, error } = await _sb.from('warehouse_movements').insert({
+      date: TODAY,
+      type: 'out_defect',
+      catalog_item_id: m.catalog_item_id,
+      client_id: o.client_db_id || null,
+      qty,
+      order_id: String(orderId),
+      mat_id: matId,
+      note: `Брак в производстве — доп. ${qty} л. для заказа ${orderId} (${matName})`,
+      created_by: currentUser?.name || 'Система'
+    }).select().single();
+    if (!error && data) {
+      if (!_warehouseMovements) _warehouseMovements = [];
+      _warehouseMovements.unshift(data);
+    }
+  }
+
+  markDirty(orderId);
+  saveOrders();
+  if (stagesOrderId === orderId) { const oo = orders.find(x=>x.id===orderId); if (oo) renderStagesBody(oo); }
+  renderWarehousePage && renderWarehousePage();
 }
 
 // ── Приход: открыть модалку ──
