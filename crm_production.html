@@ -3428,7 +3428,7 @@ function fmatSearchCatalog(matId, val) {
   if (q.length < 2) { dd.style.display = 'none'; return; }
   const list = (_catalog||[]).filter(c =>
     c.name.toLowerCase().includes(q) || c.manufacturer.toLowerCase().includes(q) || (c.sku||'').toLowerCase().includes(q)
-  ).slice(0, 10);
+  ).slice(0, 20);
   const createBtn = `<div onmousedown="event.preventDefault()" onclick="openAddCatalogItem(null,{form:'new',matId:'${matId}'})" style="padding:6px 10px;cursor:pointer;font-size:11px;color:var(--primary);border-top:1px solid var(--border)"
     onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">+ Создать новую позицию в каталоге</div>`;
   if (!list.length) {
@@ -3561,7 +3561,7 @@ function _fmatRowHtml(m, clientId) {
           placeholder="${isMill?'Описание детали':'Название / поиск в каталоге'}"
           value="${escHtml(matInputValue(m))}" id="fmat-desc-${m.id}" autocomplete="off"
           oninput="updateFormMat('${m.id}','desc',this.value);fmatSearchCatalog('${m.id}',this.value)">
-        <div id="fmat-dd-${m.id}" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;z-index:150;max-height:180px;overflow-y:auto;box-shadow:0 4px 10px rgba(0,0,0,.12)"></div>
+        <div id="fmat-dd-${m.id}" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 7px 7px;z-index:150;max-height:480px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.2)"></div>
       </div>
       ${qtyBlock}${edgingInput}${millInput}
       <button type="button" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 2px;margin-left:auto" onclick="removeFormMaterial('${m.id}')">×</button>
@@ -6287,7 +6287,7 @@ function ematSearchCatalog(matId, val) {
   if (q.length < 2) { dd.style.display = 'none'; return; }
   const list = (_catalog||[]).filter(c =>
     c.name.toLowerCase().includes(q) || c.manufacturer.toLowerCase().includes(q) || (c.sku||'').toLowerCase().includes(q)
-  ).slice(0, 10);
+  ).slice(0, 20);
   const createBtn = `<div onmousedown="event.preventDefault()" onclick="openAddCatalogItem(null,{form:'edit',matId:'${matId}'})" style="padding:6px 10px;cursor:pointer;font-size:11px;color:var(--primary);border-top:1px solid var(--border)"
     onmouseover="this.style.background='var(--gray-l)'" onmouseout="this.style.background=''">+ Создать новую позицию в каталоге</div>`;
   if (!list.length) {
@@ -6366,7 +6366,7 @@ function renderEditMatList() {
           oninput="updateEditMat('${m.id}','desc',this.value);ematSearchCatalog('${m.id}',this.value)"
           onfocus="ematSearchCatalog('${m.id}',this.value)"
           onblur="setTimeout(()=>{const d=document.getElementById('emat-dd-${m.id}');if(d)d.style.display='none'},200)">
-        <div id="emat-dd-${m.id}" style="display:none;position:absolute;left:0;top:100%;z-index:500;width:320px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:240px;overflow-y:auto"></div>
+        <div id="emat-dd-${m.id}" style="display:none;position:absolute;left:0;top:100%;z-index:500;width:320px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:480px;overflow-y:auto"></div>
       </div>
       ${!isMill ? `<input class="fc" style="flex:0 0 55px;padding:5px 8px;font-size:12px;text-align:center" type="number" min="0" max="9999" step="any" placeholder="0" value="${m.qty||''}" oninput="updateEditMat('${m.id}','qty',this.value)">
       <span style="font-size:12px;color:var(--muted);min-width:14px;padding-top:6px">${matTypeUnit(m.type)}</span>` : ''}
