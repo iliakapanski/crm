@@ -1568,8 +1568,13 @@ async function cloudSaveAll() {
     } catch(_) {}
     // Мерж: наши заказы + заказы из облака с учётом томбстонов и версий
     const mergedOrders = mergeOrderArrays(orders, cloudOrders);
-    // Обновляем локальный массив чтобы не потерять заказы коллег
-    if (mergedOrders.length > orders.length) {
+    // Обновляем локальный массив: заказы от коллег (новые или с более новой версией)
+    // Важно: проверяем не только по количеству, но и по содержимому (перенос даты не меняет кол-во)
+    const hasCloudUpdates = mergedOrders.some(mo => {
+      const local = orders.find(o => String(o.id) === String(mo.id));
+      return !local || (mo._v || 0) > (local._v || 0);
+    }) || mergedOrders.length !== orders.length;
+    if (hasCloudUpdates) {
       orders = mergedOrders;
       localStorage.setItem('crm_orders', JSON.stringify(orders));
       rebuildProdCal();
@@ -1843,18 +1848,29 @@ function importBackup(inputEl) {
 }
 
 // --- Индикатор статуса синхронизации ---
+let _syncStatusTimer = null;
 function updateSyncIndicator(status, msg) {
   const el = document.getElementById('sync-status');
   if (!el) return;
+  if (_syncStatusTimer) { clearTimeout(_syncStatusTimer); _syncStatusTimer = null; }
   const m = {
     ok:      { icon: '🟢', text: 'Синхронизировано', color: '#16a34a' },
-    saving:  { icon: '', text: 'Сохранение...', color: '#d97706' },
-    loading: { icon: '', text: 'Загрузка...', color: '#2563eb' },
-    error:   { icon: '🔴', text: 'Ошибка: ' + (msg||''), color: '#dc2626' },
+    saving:  { icon: '🔄', text: 'Сохранение...', color: '#d97706' },
+    loading: { icon: '🔄', text: 'Загрузка...', color: '#2563eb' },
+    error:   { icon: '🔴', text: 'Ошибка синхр.: ' + (msg||''), color: '#dc2626' },
     off:     { icon: '⚪', text: 'Не подключено', color: '#64748b' }
   };
   const s = m[status] || m.off;
   el.innerHTML = `<span style="font-size:10px;color:${s.color};display:flex;align-items:center;gap:4px">${s.icon} ${s.text}</span>`;
+  // Через 3 сек после успешной синхронизации показываем время
+  if (status === 'ok') {
+    _syncStatusTimer = setTimeout(() => {
+      if (!el) return;
+      const age = Math.round((Date.now() - _lastSyncTime) / 60000);
+      const ageText = age < 1 ? 'только что' : age === 1 ? '1 мин назад' : age + ' мин назад';
+      el.innerHTML = `<span style="font-size:10px;color:#64748b;display:flex;align-items:center;gap:4px" title="Нажмите для ручной синхронизации">🟢 ${ageText}</span>`;
+    }, 3000);
+  }
 }
 
 function saveCloudUrl() {
@@ -1882,6 +1898,14 @@ function initSupabase() {
       })
       .subscribe();
     loadReferenceData();
+    // Polling fallback: если Realtime не работает (WebSocket отвалился) — опрашиваем облако каждые 45 сек
+    setInterval(() => {
+      if (_sb && currentUser && !_syncInProgress && _dirtyOrders.size === 0) {
+        cloudLoadAll().then(ok => {
+          if (ok && currentUser) refreshAll();
+        });
+      }
+    }, 45000);
     console.log('Supabase инициализирован, Realtime подписка активна');
   } catch(e) {
     console.warn('Ошибка инициализации Supabase:', e);
