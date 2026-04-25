@@ -5179,10 +5179,14 @@ function renderCalDetailView(days) {
         }
         const sheetMats = (o.materials||[]).filter(m => isSheetMat(m));
         const edgingMats = (o.materials||[]).filter(m => m.type === 'edging');
+        // Если ни у одного материала нет per-material done флага, но на уровне заказа стадия помечена —
+        // считаем всё выполненным (legacy-заказы, где пометка была на уровне заказа)
+        const hasPerMatDone = sheetMats.some(m => m.stages?.[op.key]?.done);
+        const orderOpDone = !!(o.stages_done?.[op.key]);
 
         const sheetRows = sheetMats.map(m => {
           const matDef = MAT_TYPES.find(t => t.value === m.type) || {};
-          const done = m.stages?.[op.key]?.done;
+          const done = !!(m.stages?.[op.key]?.done || (!hasPerMatDone && orderOpDone));
           const reschedTo = m.stages?.[op.key]?.reschedule_date;
           let suffix = '';
           if (reschedTo && reschedTo !== date) suffix = ` → ${fmt(reschedTo,true)}`;
@@ -5231,7 +5235,7 @@ function renderCalDetailView(days) {
 
         const doneCardStyle = stgDone ? 'opacity:0.6;' : '';
         const doneIdStyle   = stgDone ? 'text-decoration:line-through;' : '';
-        return `<div class="cal-dcard" data-oid="${o.id}" data-client="${escHtml(o.client)}" data-desc="${escHtml(o.desc)}" data-mats="${(o.materials||[]).map(m=>escHtml(m.desc||'')).join(' ')}" style="${doneCardStyle}background:${dk?'var(--card)':op.bg};border:1.5px solid ${op.border};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 4px 14px rgba(0,0,0,.35)'" onmouseleave="this.style.boxShadow=''" onclick="openOrderModal('${o.id}')">
+        return `<div class="cal-dcard" data-oid="${o.id}" data-client="${escHtml(o.client)}" data-desc="${escHtml(o.desc)}" data-mats="${(o.materials||[]).map(m=>escHtml(m.desc||'')).join(' ')}" style="${doneCardStyle}background:${dk?'var(--card)':op.bg};border:1.5px solid ${op.border};border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 4px 14px rgba(0,0,0,.35)'" onmouseleave="this.style.boxShadow=''" onclick="openStages('${o.id}')">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
             <div style="min-width:0">
               <div style="font-size:15px;font-weight:900;font-family:monospace;color:${op.hdr};letter-spacing:.02em;margin-bottom:2px;${doneIdStyle}">${stgDone?'✓ ':''}${o.urgent?'🔥 ':''}ID ${escHtml(o.id)}</div>
