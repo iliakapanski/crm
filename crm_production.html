@@ -8333,6 +8333,8 @@ function toggleRedzone(orderId, matId, checked) {
   } else {
     delete mat.stages.redzone.date;
   }
+  markDirty(orderId);
+  saveOrders();
   renderStagesBody(o);
   refreshAll();
 }
@@ -8533,6 +8535,8 @@ function saveMaterialNote() {
 
   // Полный пересчёт prodCal (buildProdCalFrom использует calOrderQty,
   // который учитывает reschedule_date каждого материала)
+  markDirty(orderId);
+  saveOrders();
   rebuildProdCal();
 
   closeMaterialNote();
@@ -8554,6 +8558,8 @@ function rescheduleLaunchDate(orderId, newDate) {
     o.launch_date = newDate;
   }
   addHistory(orderId, 'Запуск перенесён на '+(newDate?fmt(newDate,true):'авто'), 'launch');
+  markDirty(orderId);
+  saveOrders();
   rebuildProdCal();
   renderStagesBody(o);
   refreshAll();
@@ -8740,6 +8746,8 @@ function toggleStage(orderId, stageKey, checked) {
   else if (sd.launch || sd.design) { o.status = 'production'; }
 
   // Полный пересчёт prodCal (при любом изменении статуса/дат — пересчёт без призраков)
+  markDirty(orderId);
+  saveOrders();
   rebuildProdCal();
 
   // Перерисовываем модал и дашборд
