@@ -4068,7 +4068,7 @@ function createOrder() {
       type: 'out_reserved',
       qty: parseFloat(m.qty) || 1,
       order_id: String(newO.id),
-      note: `Резерв для заказа ${newO.id} — ${m.desc||''}`.trim(),
+      notes: `Резерв для заказа ${newO.id} — ${m.desc||''}`.trim(),
       date: TODAY,
       mat_id: m.id,
       created_by: currentUser?.name || 'Система'
@@ -11868,30 +11868,34 @@ function updatePurchasesBadge() {
   badge.style.display = count > 0 ? '' : 'none';
 }
 
-function setPurStatus(orderId, matId, newStatus) {
+async function setPurStatus(orderId, matId, newStatus) {
   const o = orders.find(x => x.id === orderId);
   if (!o) return;
   if (!o.purchase_statuses) o.purchase_statuses = {};
+  const prevStatus = (o.purchase_statuses[matId]) || 'pending';
+  if (prevStatus === newStatus) return;
   o.purchase_statuses[matId] = newStatus;
 
-  // При получении — оформить приход на склад (наш)
+  // При получении — оформить приход на склад (собственный)
   if (newStatus === 'received') {
     const m = (o.materials||[]).find(x => x.id === matId);
     if (m && m.catalog_item_id && _sb) {
-      _sb.from('warehouse_movements').insert({
+      const { data, error } = await _sb.from('warehouse_movements').insert({
         date: TODAY,
         type: 'in_purchase',
         catalog_item_id: m.catalog_item_id,
-        qty: m.qty || 1,
-        order_id: orderId,
-        notes: 'Авто: получено по заказу ' + orderId,
+        qty: parseFloat(m.qty) || 1,
+        order_id: String(orderId),
+        mat_id: matId,
+        notes: `Получено по заказу ${orderId}${m.desc ? ' — ' + m.desc : ''}`,
         created_by: currentUser?.name || 'Система'
-      }).then(({ data, error }) => {
-        if (!error && data) {
-          if (!_warehouseMovements) _warehouseMovements = [];
-          _warehouseMovements.unshift(Array.isArray(data) ? data[0] : data);
-        }
-      });
+      }).select().single();
+      if (error) { console.error('[setPurStatus] warehouse error:', error.message); }
+      else if (data) {
+        if (!_warehouseMovements) _warehouseMovements = [];
+        _warehouseMovements.unshift(data);
+        renderWarehousePage && renderWarehousePage();
+      }
     }
   }
 
@@ -11941,7 +11945,7 @@ async function setClientMatStatus(orderId, matId, newStatus) {
         qty: parseFloat(m.qty) || 1,
         order_id: String(orderId),
         mat_id: matId,
-        note: (noteMap[newStatus] + (m.desc ? ' — ' + m.desc : '')).trim(),
+        notes: (noteMap[newStatus] + (m.desc ? ' — ' + m.desc : '')).trim(),
         created_by: currentUser?.name || 'Система'
       }).select().single();
       if (!error && data) {
@@ -11984,7 +11988,7 @@ async function addProductionDefectQty(orderId, matId) {
       qty,
       order_id: String(orderId),
       mat_id: matId,
-      note: `Брак в производстве — доп. ${qty} л. для заказа ${orderId} (${matName})`,
+      notes: `Брак в производстве — доп. ${qty} л. для заказа ${orderId} (${matName})`,
       created_by: currentUser?.name || 'Система'
     }).select().single();
     if (!error && data) {
