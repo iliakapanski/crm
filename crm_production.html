@@ -4068,9 +4068,8 @@ function createOrder() {
       type: 'out_reserved',
       qty: parseFloat(m.qty) || 1,
       order_id: String(newO.id),
-      notes: `Резерв для заказа ${newO.id} — ${m.desc||''}`.trim(),
+      notes: `[mat:${m.id}] Резерв для заказа ${newO.id} — ${m.desc||''}`.trim(),
       date: TODAY,
-      mat_id: m.id,
       created_by: currentUser?.name || 'Система'
     }));
     const { data: ins, error } = await _sb.from('warehouse_movements').insert(movements).select();
@@ -11320,8 +11319,8 @@ async function writeOffOwnMat(orderId, matId) {
     date: TODAY, type: 'out_issued',
     catalog_item_id: m.catalog_item_id,
     qty: parseFloat(m.qty) || 1,
-    order_id: String(orderId), mat_id: matId,
-    notes: `Списание на заказ ${orderId} — ${m.desc||item?.name||''}`.trim(),
+    order_id: String(orderId),
+    notes: `[mat:${matId}] Списание на заказ ${orderId} — ${m.desc||item?.name||''}`.trim(),
     created_by: (typeof currentUser !== 'undefined' && currentUser?.name) || 'Менеджер'
   };
   const { data, error } = await _sb.from('warehouse_movements').insert(payload).select().single();
@@ -11886,8 +11885,7 @@ async function setPurStatus(orderId, matId, newStatus) {
         catalog_item_id: m.catalog_item_id,
         qty: parseFloat(m.qty) || 1,
         order_id: String(orderId),
-        mat_id: matId,
-        notes: `Получено по заказу ${orderId}${m.desc ? ' — ' + m.desc : ''}`,
+        notes: `[mat:${matId}] Получено по заказу ${orderId}${m.desc ? ' — ' + m.desc : ''}`,
         created_by: currentUser?.name || 'Система'
       }).select().single();
       if (error) { console.error('[setPurStatus] warehouse error:', error.message); }
@@ -11917,17 +11915,17 @@ async function setClientMatStatus(orderId, matId, newStatus) {
   if (_sb) {
     const m = (o.materials||[]).find(x => x.id === matId);
     if (m && m.catalog_item_id) {
-      // 1. Удаляем предыдущее движение для этого материала/заказа (reserved/issued/defect)
+      // 1. Удаляем предыдущее движение для этого материала/заказа (по тегу [mat:ID] в notes)
       const prevTypeMap = { reserved:'out_reserved', issued:'out_issued', defect:'out_defect' };
       const prevType = prevTypeMap[prevStatus];
       if (prevType) {
         const { data: old } = await _sb.from('warehouse_movements')
-          .select('id').eq('order_id', String(orderId)).eq('mat_id', matId).eq('type', prevType);
-        if (old && old.length) {
-          await _sb.from('warehouse_movements').delete().in('id', old.map(r=>r.id));
-          _warehouseMovements = (_warehouseMovements||[]).filter(mv =>
-            !(old.some(r => r.id === mv.id))
-          );
+          .select('id,notes').eq('order_id', String(orderId)).eq('type', prevType);
+        const matched = (old||[]).filter(r => (r.notes||'').includes(`[mat:${matId}]`));
+        if (matched.length) {
+          const ids = matched.map(r => r.id);
+          await _sb.from('warehouse_movements').delete().in('id', ids);
+          _warehouseMovements = (_warehouseMovements||[]).filter(mv => !ids.includes(mv.id));
         }
       }
       // 2. Создаём новое движение
@@ -11944,11 +11942,11 @@ async function setClientMatStatus(orderId, matId, newStatus) {
         client_id: o.client_db_id || null,
         qty: parseFloat(m.qty) || 1,
         order_id: String(orderId),
-        mat_id: matId,
-        notes: (noteMap[newStatus] + (m.desc ? ' — ' + m.desc : '')).trim(),
+        notes: `[mat:${matId}] ${noteMap[newStatus]}${m.desc ? ' — ' + m.desc : ''}`.trim(),
         created_by: currentUser?.name || 'Система'
       }).select().single();
-      if (!error && data) {
+      if (error) { console.error('[setClientMatStatus] error:', error.message); }
+      else if (data) {
         if (!_warehouseMovements) _warehouseMovements = [];
         _warehouseMovements.unshift(data);
       }
@@ -11987,11 +11985,11 @@ async function addProductionDefectQty(orderId, matId) {
       client_id: o.client_db_id || null,
       qty,
       order_id: String(orderId),
-      mat_id: matId,
-      notes: `Брак в производстве — доп. ${qty} л. для заказа ${orderId} (${matName})`,
+      notes: `[mat:${matId}][def:${defRec._id}] Брак в производстве — доп. ${qty} л. для заказа ${orderId} (${matName})`,
       created_by: currentUser?.name || 'Система'
     }).select().single();
-    if (!error && data) {
+    if (error) { console.error('[addProductionDefectQty] error:', error.message); }
+    else if (data) {
       if (!_warehouseMovements) _warehouseMovements = [];
       _warehouseMovements.unshift(data);
     }
@@ -12020,12 +12018,11 @@ async function removeProductionDefect(orderId, matId, defId) {
     if (m && m.catalog_item_id) {
       // Ищем движение out_defect для этого заказа/материала с подходящим qty и датой
       const { data: old } = await _sb.from('warehouse_movements')
-        .select('id').eq('order_id', String(orderId)).eq('mat_id', matId)
-        .eq('type', 'out_defect').eq('qty', defRec.qty).eq('date', defRec.date)
-        .limit(1);
-      if (old && old.length) {
-        await _sb.from('warehouse_movements').delete().eq('id', old[0].id);
-        _warehouseMovements = (_warehouseMovements||[]).filter(mv => mv.id !== old[0].id);
+        .select('id,notes').eq('order_id', String(orderId)).eq('type', 'out_defect');
+      const matched = (old||[]).find(r => (r.notes||'').includes(`[def:${defId}]`));
+      if (matched) {
+        await _sb.from('warehouse_movements').delete().eq('id', matched.id);
+        _warehouseMovements = (_warehouseMovements||[]).filter(mv => mv.id !== matched.id);
       }
     }
   }
