@@ -6776,6 +6776,17 @@ function saveEdit() {
   const o = orders.find(x=>x.id===editingId);
   if (!o) return;
 
+  // Снимок клиентских материалов ДО редактирования (для реконсиляции склада)
+  const _oldClientMatsMap = {};
+  (o.materials||[]).forEach(m => {
+    if (m.supply_type === 'client' && m.catalog_item_id) {
+      _oldClientMatsMap[m.id] = {
+        id: m.id, catalog_item_id: m.catalog_item_id,
+        qty: m.qty, desc: m.desc
+      };
+    }
+  });
+
   // designer_id управляется через renderEditWorkersSection (openAssignWorkerDesign)
   // сохраняем старое значение для пересчёта занятости, новое = текущее (не меняем через этот путь)
   const oldDesId = o.designer_id || null;
@@ -6927,6 +6938,9 @@ function saveEdit() {
   addHistory(o.id, 'Редактирование', 'Данные обновлены');
   closeEdit();
   refreshAll();
+
+  // Реконсиляция склада: добавленные/удалённые/изменённые материалы заказчика
+  reconcileClientMatsWarehouse(o.id, _oldClientMatsMap).catch(e => console.error('[saveEdit reconcile]', e));
 }
 
 function deleteFromEdit() {
@@ -6936,19 +6950,34 @@ function deleteFromEdit() {
   doDelete(id);
 }
 
-function doDelete(id) {
+async function doDelete(id) {
   const idx = orders.findIndex(x=>x.id===id);
   if (idx===-1) return;
   if (!confirm(`Удалить заказ ${id}?`)) return;
   const o = orders[idx];
   const desId = o.designer_id;
   designers.forEach(d => { if(d.current_order_id===id) d.current_order_id=null; d.queue=d.queue.filter(q=>q!==id); });
+
+  // Чистим складские движения связанные с заказом (резервы, выдачи, брак, списания)
+  if (_sb) {
+    try {
+      const { data: mvs } = await _sb.from('warehouse_movements')
+        .select('id').eq('order_id', String(id));
+      if (mvs && mvs.length) {
+        await _sb.from('warehouse_movements').delete().eq('order_id', String(id));
+        const ids = new Set(mvs.map(r => r.id));
+        _warehouseMovements = (_warehouseMovements||[]).filter(mv => !ids.has(mv.id));
+      }
+    } catch(e) { console.error('[doDelete] warehouse cleanup error:', e); }
+  }
+
   orders.splice(idx,1);
   addDeletedId(id); // tombstone — не дать вернуться при синхронизации
   // Полный пересчёт prodCal после удаления (исключает призраки от неполных drill_schedule)
   rebuildProdCal();
   if (desId) recalcDesignerBusy(desId);
   refreshAll();
+  renderWarehousePage && renderWarehousePage();
 }
 
 // ============================================================
@@ -7121,7 +7150,9 @@ function submitCheckin() {
 
     // Обновление статуса
     if (pkgChk?.checked) {
+      const wasDone = o.status === 'done';
       o.status = 'done';
+      if (!wasDone) autoIssueClientMatsOnDone(o.id).catch(()=>{});
     } else if (cutChk?.checked ||
                document.getElementById(`chk-${o.id}-edg`)?.checked ||
                document.getElementById(`chk-${o.id}-drl`)?.checked) {
@@ -8435,7 +8466,9 @@ function toggleMaterialStage(orderId, matId, stageKey, checked) {
   });
 
   if (sheetMats.length && sheetMats.every(m => needStages.every(k => m.stages&&m.stages[k]&&m.stages[k].done))) {
+    const wasDone = o.status === 'done';
     o.status = 'done';
+    if (!wasDone) autoIssueClientMatsOnDone(o.id).catch(()=>{});
   } else if (sheetMats.some(m => m.stages&&(m.stages.cutting||m.stages.edging||m.stages.drilling||m.stages.packing))) {
     if (o.status !== 'done') o.status = 'production';
   }
@@ -8766,7 +8799,8 @@ function toggleStage(orderId, stageKey, checked) {
   // Авто-статус по стадиям
   const sd = o.stages_done;
   const allDone = getStages(o).filter(s=>!s.skip).every(s => sd[s.key]);
-  if (allDone) { o.status = 'done'; }
+  const wasDone = o.status === 'done';
+  if (allDone) { o.status = 'done'; if (!wasDone) autoIssueClientMatsOnDone(orderId).catch(()=>{}); }
   else if (sd.cutting || sd.edging || sd.drilling) { o.status = 'production'; }
   else if (sd.launch || sd.design) { o.status = 'production'; }
 
@@ -12000,6 +12034,125 @@ async function addProductionDefectQty(orderId, matId) {
   markDirty(orderId);
   saveOrders();
   if (stagesOrderId === orderId) { const oo = orders.find(x=>x.id===orderId); if (oo) renderStagesBody(oo); }
+  renderWarehousePage && renderWarehousePage();
+}
+
+// ── Авто-перевод "Зарезервировано" → "Выдано в производство" при завершении заказа ──
+// Вызывается когда заказ переходит в status='done'. Все клиентские материалы со статусом
+// reserved автоматически становятся issued (резерв снимается → создаётся выдача).
+async function autoIssueClientMatsOnDone(orderId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  const clientMats = (o.materials||[]).filter(m => m.supply_type === 'client' && m.catalog_item_id);
+  if (!clientMats.length) return;
+  const cms = o.client_material_statuses || {};
+  for (const m of clientMats) {
+    const st = cms[m.id] || 'reserved';
+    if (st === 'reserved') {
+      try { await setClientMatStatus(orderId, m.id, 'issued'); }
+      catch(e) { console.error('[autoIssue]', e); }
+    }
+  }
+}
+
+// ── Реконсиляция складских движений при редактировании заказа ──
+// oldMatsMap: { [matId]: {id, catalog_item_id, qty, desc} } — снимок ДО редактирования
+// Сравнивает с актуальным o.materials и:
+//   - удаляет движения для удалённых материалов
+//   - создаёт out_reserved для добавленных материалов заказчика
+//   - пересоздаёт движение при изменении qty/catalog_item_id (сохраняя текущий статус)
+async function reconcileClientMatsWarehouse(orderId, oldMatsMap) {
+  if (!_sb) return;
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+  if (!o.client_material_statuses) o.client_material_statuses = {};
+  const cms = o.client_material_statuses;
+
+  const newClientMats = (o.materials||[]).filter(m => m.supply_type === 'client' && m.catalog_item_id);
+  const newMap = new Map(newClientMats.map(m => [m.id, m]));
+
+  // Загружаем все движения этого заказа разом
+  const { data: allMvs } = await _sb.from('warehouse_movements')
+    .select('id,notes,type').eq('order_id', String(orderId));
+  const findByMat = (matId, type) => (allMvs||[]).filter(r =>
+    (r.notes||'').includes(`[mat:${matId}]`) && (type ? r.type === type : true)
+  );
+
+  const noteMap = {
+    reserved: `Зарезервировано для заказа ${orderId}`,
+    issued:   `Выдано в производство по заказу ${orderId}`,
+    defect:   `Брак (клиентский материал) по заказу ${orderId}`
+  };
+  const typeMap = { reserved:'out_reserved', issued:'out_issued', defect:'out_defect' };
+
+  // 1. Удалённые материалы → удалить ВСЕ их движения
+  for (const matId of Object.keys(oldMatsMap)) {
+    if (newMap.has(matId)) continue;
+    const matched = findByMat(matId);
+    if (matched.length) {
+      const ids = matched.map(r => r.id);
+      await _sb.from('warehouse_movements').delete().in('id', ids);
+      _warehouseMovements = (_warehouseMovements||[]).filter(mv => !ids.includes(mv.id));
+    }
+    if (cms[matId]) delete cms[matId];
+  }
+
+  // 2. Изменённые материалы (qty или catalog_item_id) → пересоздать резерв/выдачу (брак не трогаем)
+  for (const matId of Object.keys(oldMatsMap)) {
+    const oldMat = oldMatsMap[matId];
+    const newMat = newMap.get(matId);
+    if (!newMat) continue;
+    const qtyChanged = parseFloat(oldMat.qty||0) !== parseFloat(newMat.qty||0);
+    const catChanged = oldMat.catalog_item_id !== newMat.catalog_item_id;
+    if (!qtyChanged && !catChanged) continue;
+    const status = cms[matId] || 'reserved';
+    if (status === 'defect') continue; // запись о браке клиента — оставляем как есть
+    const type = typeMap[status];
+    // Удаляем старое (только не-defect движения)
+    const matched = findByMat(matId).filter(r => r.type === type);
+    if (matched.length) {
+      const ids = matched.map(r => r.id);
+      await _sb.from('warehouse_movements').delete().in('id', ids);
+      _warehouseMovements = (_warehouseMovements||[]).filter(mv => !ids.includes(mv.id));
+    }
+    // Создаём новое
+    const { data, error } = await _sb.from('warehouse_movements').insert({
+      date: TODAY,
+      type,
+      catalog_item_id: newMat.catalog_item_id,
+      client_id: o.client_db_id || null,
+      qty: parseFloat(newMat.qty) || 1,
+      order_id: String(orderId),
+      notes: `[mat:${matId}] ${noteMap[status]}${newMat.desc ? ' — ' + newMat.desc : ''}`.trim(),
+      created_by: currentUser?.name || 'Система'
+    }).select().single();
+    if (error) { console.error('[reconcile] update error:', error.message); }
+    else if (data) _warehouseMovements.unshift(data);
+  }
+
+  // 3. Новые материалы → создать out_reserved
+  for (const m of newClientMats) {
+    if (oldMatsMap[m.id]) continue;
+    if (!(parseFloat(m.qty) > 0)) continue;
+    const { data, error } = await _sb.from('warehouse_movements').insert({
+      date: TODAY,
+      type: 'out_reserved',
+      catalog_item_id: m.catalog_item_id,
+      client_id: o.client_db_id || null,
+      qty: parseFloat(m.qty) || 1,
+      order_id: String(orderId),
+      notes: `[mat:${m.id}] Резерв для заказа ${orderId} — ${m.desc||''}`.trim(),
+      created_by: currentUser?.name || 'Система'
+    }).select().single();
+    if (error) { console.error('[reconcile] insert error:', error.message); }
+    else if (data) {
+      _warehouseMovements.unshift(data);
+      cms[m.id] = 'reserved';
+    }
+  }
+
+  markDirty(orderId);
+  saveOrders();
   renderWarehousePage && renderWarehousePage();
 }
 
