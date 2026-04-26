@@ -4064,17 +4064,20 @@ function createOrder() {
     if (!clientMats.length) return;
     const movements = clientMats.map(m => ({
       catalog_item_id: m.catalog_item_id,
-      client_id: newO.client_db_id,
+      client_id: newO.client_db_id || null,
       type: 'out_reserved',
       qty: parseFloat(m.qty) || 1,
       order_id: String(newO.id),
       note: `Резерв для заказа ${newO.id} — ${m.desc||''}`.trim(),
       date: TODAY,
-      mat_id: m.id
+      mat_id: m.id,
+      created_by: currentUser?.name || 'Система'
     }));
     const { data: ins, error } = await _sb.from('warehouse_movements').insert(movements).select();
-    if (!error && ins) {
-      _warehouseMovements = [...(ins||[]), ..._warehouseMovements];
+    if (error) { console.error('[auto-reserve] warehouse error:', error.message, movements); }
+    else if (ins) {
+      _warehouseMovements = [...ins, ..._warehouseMovements];
+      renderWarehousePage && renderWarehousePage();
     }
   })();
 
@@ -7881,16 +7884,18 @@ function renderStagesBody(o) {
       const matName = catItem ? `${catItem.manufacturer ? catItem.manufacturer+' — ' : ''}${catItem.name}` : (m.desc || 'Материал');
       const btns = ['reserved','issued','defect'].map(ns => {
         const active = st === ns;
-        const disabled = (ns === 'issued' && st === 'defect') || (ns === 'reserved' && st !== 'reserved' && st !== 'issued');
         const tip = ns==='reserved'?'Зарезервировано на складе':ns==='issued'?'Выдано в производство':'Клиентский материал бракован при получении';
-        return `<button onclick="setClientMatStatus('${o.id}','${m.id}','${ns}')" ${disabled?'disabled':''} title="${tip}" style="padding:3px 7px;font-size:10px;font-weight:700;border-radius:5px;cursor:${disabled?'default':'pointer'};opacity:${disabled?.4:1};border:1.5px solid ${active?ST_CLR[ns]:'var(--border)'};background:${active?ST_BG[ns]:'var(--card)'};color:${active?ST_CLR[ns]:'var(--muted)'}">${ST_LBL[ns]}</button>`;
+        return `<button onclick="${active?'':(`setClientMatStatus('${o.id}','${m.id}','${ns}')`)}" title="${tip}" style="padding:3px 7px;font-size:10px;font-weight:700;border-radius:5px;cursor:${active?'default':'pointer'};border:1.5px solid ${active?ST_CLR[ns]:'var(--border)'};background:${active?ST_BG[ns]:'var(--card)'};color:${active?ST_CLR[ns]:'var(--muted)'}">${ST_LBL[ns]}</button>`;
       }).join('');
       // Производственные браки по этому материалу
       const myDefs = prodDefs.filter(d => d.matId === m.id);
       const defTotal = myDefs.reduce((s,d) => s+(d.qty||0), 0);
-      const defHtml = myDefs.length ? myDefs.map(d =>
-        `<div style="font-size:10px;color:#dc2626;font-weight:600;margin-top:2px">🔨 +${d.qty} л. брак в пр-ве · ${fmt(d.date)||d.date}${d.by?' · '+escHtml(d.by):''}</div>`
-      ).join('') : '';
+      const defHtml = myDefs.length ? `<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">`+myDefs.map(d =>
+        `<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:#dc2626;font-weight:600">
+          <span>🔨 +${d.qty} л. брак в пр-ве · ${fmt(d.date)||d.date}${d.by?' · '+escHtml(d.by):''}</span>
+          <button onclick="removeProductionDefect('${o.id}','${m.id}','${d._id||''}')" title="Удалить эту запись о браке" style="padding:0 4px;font-size:11px;line-height:14px;border-radius:3px;cursor:pointer;border:1px solid #dc2626;background:#fff1f2;color:#dc2626;font-weight:900">✕</button>
+        </div>`
+      ).join('')+`</div>` : '';
       const catMeta = [
         catItem?.thickness != null ? `⬛ ${catItem.thickness} мм` : null,
         catItem?.sheet_size ? `📐 ${catItem.sheet_size}` : null,
@@ -11966,7 +11971,7 @@ async function addProductionDefectQty(orderId, matId) {
 
   // Добавляем в массив производственных браков заказа
   if (!o.production_defects) o.production_defects = [];
-  const defRec = { matId, qty, date: TODAY, note: '', by: currentUser?.name || '' };
+  const defRec = { _id: 'd'+Date.now()+Math.random().toString(36).slice(2,5), matId, qty, date: TODAY, note: '', by: currentUser?.name || '' };
   o.production_defects.push(defRec);
 
   // Создаём движение out_defect на складе
@@ -11985,6 +11990,39 @@ async function addProductionDefectQty(orderId, matId) {
     if (!error && data) {
       if (!_warehouseMovements) _warehouseMovements = [];
       _warehouseMovements.unshift(data);
+    }
+  }
+
+  markDirty(orderId);
+  saveOrders();
+  if (stagesOrderId === orderId) { const oo = orders.find(x=>x.id===orderId); if (oo) renderStagesBody(oo); }
+  renderWarehousePage && renderWarehousePage();
+}
+
+// ── Удаление записи производственного брака ──
+async function removeProductionDefect(orderId, matId, defId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o || !o.production_defects) return;
+  const idx = o.production_defects.findIndex(d => d._id === defId && d.matId === matId);
+  if (idx === -1) return;
+  const defRec = o.production_defects[idx];
+  if (!confirm(`Удалить запись о браке: ${defRec.qty} л. от ${fmt(defRec.date)||defRec.date}?`)) return;
+
+  o.production_defects.splice(idx, 1);
+
+  // Удаляем соответствующее движение на складе
+  if (_sb) {
+    const m = (o.materials||[]).find(x => x.id === matId);
+    if (m && m.catalog_item_id) {
+      // Ищем движение out_defect для этого заказа/материала с подходящим qty и датой
+      const { data: old } = await _sb.from('warehouse_movements')
+        .select('id').eq('order_id', String(orderId)).eq('mat_id', matId)
+        .eq('type', 'out_defect').eq('qty', defRec.qty).eq('date', defRec.date)
+        .limit(1);
+      if (old && old.length) {
+        await _sb.from('warehouse_movements').delete().eq('id', old[0].id);
+        _warehouseMovements = (_warehouseMovements||[]).filter(mv => mv.id !== old[0].id);
+      }
     }
   }
 
